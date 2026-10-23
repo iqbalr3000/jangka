@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jangka</title>
+    <script>
+      // Apply the saved theme before first paint (key matches src/lib/theme.ts).
+      try {
+        const theme = localStorage.getItem("jangka.theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch (_) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

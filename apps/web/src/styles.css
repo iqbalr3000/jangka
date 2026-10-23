@@ -18,6 +18,8 @@
   --surface: #ffffff;
   --surface-2: #f4f4f2;
   --border: #e5e5e2;
+  --surface-hover: #ecece9;
+  --border-strong: #dcdcd8;
   --text: #1a1a19;
   --text-muted: #5c5c58;
   --primary: #1d4ed8;
@@ -38,6 +40,8 @@
   --surface: #141922;
   --surface-2: #1b2130;
   --border: #262d3a;
+  --surface-hover: #222938;
+  --border-strong: #2f3747;
   --text: #e7e9ee;
   --text-muted: #9aa3b2;
   --primary: #6e9bff;
@@ -58,6 +62,8 @@
     --surface: #141922;
     --surface-2: #1b2130;
     --border: #262d3a;
+    --surface-hover: #222938;
+    --border-strong: #2f3747;
     --text: #e7e9ee;
     --text-muted: #9aa3b2;
     --primary: #6e9bff;
@@ -91,6 +97,8 @@
   --color-accent-foreground: var(--text);
   --color-destructive: var(--danger);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-surface-hover: var(--surface-hover);
   --color-input: var(--border);
   --color-ring: var(--primary);
 

@@ -43,6 +43,8 @@ shadcn/ui components consume these via the Tailwind theme.
 | `--surface`         | `#FFFFFF`   | `#141922`   | Panels, cards, editor                         |
 | `--surface-2`       | `#F4F4F2`   | `#1B2130`   | Sidebars, hover rows                          |
 | `--border`          | `#E5E5E2`   | `#262D3A`   | Dividers, inputs                              |
+| `--surface-hover`   | `#ECECE9`   | `#222938`   | Hover on `--surface-2` (sidebar rows)         |
+| `--border-strong`   | `#DCDCD8`   | `#2F3747`   | Tree guide lines                              |
 | `--text`            | `#1A1A19`   | `#E7E9EE`   | Primary text                                  |
 | `--text-muted`      | `#5C5C58`   | `#9AA3B2`   | Secondary text, metadata                      |
 | `--primary`         | `#1D4ED8`   | `#6E9BFF`   | Blueprint blue: primary actions, links, focus |
@@ -101,27 +103,39 @@ Status is never communicated by color alone: always paired with an icon and labe
 
 ## 5. App shell
 
+Visual reference: `docs/design/Jangka Mockups.dc.html` (artboard 1c).
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ jΛngka   [⌘K Search documents…]                        [+ New]  (IR) ▾  │  56px top bar
 ├──────────────┬───────────────────────────────────────────────────────────┤
-│ Home         │                                                           │
-│ Personal     │                     Main content                          │
-│ ─────────    │                                                           │
-│ COLLECTIONS  │                                                           │
-│ ▸ Product    │                                                           │
+│ (A) Acme     │                                                           │
+│ Home         │                     Main content                          │
+│ Personal     │                                                           │
+│ COLLECTIONS +│                                                           │
+│ ▸ Product 12 │                                                           │
 │ ▾ Platform   │                                                           │
-│    ▸ Payments│                                                           │
+│  │ ▸ Payments│                                                           │
 │ ▸ Archive    │                                                           │
-│ ─────────    │                                                           │
-│ Admin        │  (only for admins)                                        │
+│              │                                                           │
+│ ‹‹ Collapse ⌘B                                                           │
 └──────────────┴───────────────────────────────────────────────────────────┘
   240px sidebar, collapsible to 56px icons
 ```
 
+- Wordmark `jΛngka`: 19 px, weight 600, letter-spacing −0.03em, `Λ` in `--primary`.
+- Sidebar: org block (initial, org name, host) on top; Home / Personal; `COLLECTIONS` header (mono, 11 px) with `+`;
+  tree with document counts and `--border-strong` guide lines; active collection = surface bg + `--primary` inset left bar.
+- **Admin lives in the profile menu** (avatar ▾: name/email/role, Profile & preferences, Theme, Admin panel, Sign out),
+  not in the sidebar. Admin pages swap the sidebar for an admin nav with "← Back to documents".
+- `⌘B` collapses the sidebar (state remembered per browser). Theme: System / Light / Dark, remembered per browser.
 - `+ New` opens the New document dialog (type, title, collection, optional source document).
 - `⌘K` command palette: jump to document, collection, admin page; actions like "New PRD".
 - Collections the user can't view never appear in the tree.
+
+Mockup items **not adopted** (decided 2026-10-23): LLM fallback provider and per-user model choice (1f),
+document-level version label "v0.4" (1a; revisions are per section until `history-audit`), "Needs my review"
+sidebar item (until `review`), "Profile & preferences" page (later).
 
 ## 6. Key screens
 
