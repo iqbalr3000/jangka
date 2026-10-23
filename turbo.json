@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {},
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "MASTER_KEY",
+        "PUBLIC_URL",
+        "PORT",
+        "LOG_LEVEL",
+        "NODE_ENV"
+      ]
+    }
+  }
+}

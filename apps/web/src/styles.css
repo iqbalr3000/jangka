@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* Dark when explicitly chosen, or when the system prefers it and no explicit light theme is set. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* Design tokens — docs/DESIGN.md §3. */
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --border: #e5e5e2;
+  --text: #1a1a19;
+  --text-muted: #5c5c58;
+  --primary: #1d4ed8;
+  --primary-fg: #ffffff;
+  --grid: #1d4ed80f;
+  --status-empty: #a8a29e;
+  --status-partial: #b45309;
+  --status-complete: #15803d;
+  --danger: #b91c1c;
+  --diff-add: #dcfce7;
+  --diff-del: #fee2e2;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c0f14;
+  --surface: #141922;
+  --surface-2: #1b2130;
+  --border: #262d3a;
+  --text: #e7e9ee;
+  --text-muted: #9aa3b2;
+  --primary: #6e9bff;
+  --primary-fg: #0c0f14;
+  --grid: #6e9bff14;
+  --status-empty: #5b6473;
+  --status-partial: #f0a14a;
+  --status-complete: #4ade80;
+  --danger: #f87171;
+  --diff-add: #13301f;
+  --diff-del: #3a1618;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0f14;
+    --surface: #141922;
+    --surface-2: #1b2130;
+    --border: #262d3a;
+    --text: #e7e9ee;
+    --text-muted: #9aa3b2;
+    --primary: #6e9bff;
+    --primary-fg: #0c0f14;
+    --grid: #6e9bff14;
+    --status-empty: #5b6473;
+    --status-partial: #f0a14a;
+    --status-complete: #4ade80;
+    --danger: #f87171;
+    --diff-add: #13301f;
+    --diff-del: #3a1618;
+    color-scheme: dark;
+  }
+}
+
+/* shadcn/ui names mapped onto Jangka tokens, so generated components use the design system as-is. */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-fg);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+
+  --color-status-empty: var(--status-empty);
+  --color-status-partial: var(--status-partial);
+  --color-status-complete: var(--status-complete);
+  --color-diff-add: var(--diff-add);
+  --color-diff-del: var(--diff-del);
+}
+
+@theme {
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-float: 0 4px 16px rgb(0 0 0 / 0.08);
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+@layer base {
+  /* 14px = UI default; document body (16px) is set by the editor. */
+  body {
+    font-size: 14px;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat component styles */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat component styles */
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* 8px blueprint grid: empty states, setup, and login only — never behind document text. */
+@utility blueprint-grid {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 8px 8px;
+}

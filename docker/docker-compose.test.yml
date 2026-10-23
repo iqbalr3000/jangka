@@ -1,0 +1,19 @@
+# Throwaway database for integration tests (pnpm test:db:up).
+name: jangka-test
+
+services:
+  postgres-test:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: jangka
+      POSTGRES_PASSWORD: jangka
+      POSTGRES_DB: jangka_test
+    ports:
+      - "54329:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jangka -d jangka_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
