@@ -17,6 +17,8 @@ services:
       retries: 10
 
   app:
+    # Fixed name so `docker logs jangka | grep "SETUP TOKEN"` (shown in the setup wizard) works.
+    container_name: jangka
     build:
       context: ..
       dockerfile: docker/Dockerfile

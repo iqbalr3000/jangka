@@ -8,6 +8,12 @@ export const errorCodes = [
   "conflict",
   "db_unavailable",
   "internal",
+  "setup_required",
+  "setup_completed",
+  "invalid_setup_token",
+  "invalid_credentials",
+  "rate_limited",
+  "invite_invalid",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

@@ -64,7 +64,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `default_llm_provider_id uuid null`, `default_model text null`
 
 **users**
-- `email text unique` (lowercased), `name text`, `password_hash text null` (argon2id; null for SSO-only)
+- `email text unique` (lowercased), `name text`, `password_hash text null` (argon2id PHC string; null for SSO-only)
 - `is_active bool default true`, `last_login_at timestamptz null`
 
 **sessions**
@@ -138,6 +138,10 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **interview_states** — `document_id pk fk`, `state jsonb` (see §6.2), `updated_at`
 
+**invites** (feature `auth`)
+- `kind text` (`invite` | `password_reset`), `email text`, `user_id fk null` (reset only), `token_hash text unique`
+- `created_by fk users`, `expires_at` (7 days), `used_at null`
+
 **exports**
 - `document_id fk`, `format text` (`pdf` | `docx`), `status text` (`queued` | `running` | `done` | `failed`)
 - `file bytea null`, `file_name text null`, `error text null`, `requested_by fk`, `expires_at` (24h; cleanup job)
@@ -204,10 +208,10 @@ filterViewable<T extends { collectionId: string | null }>(ctx, items: T[]): T[];
 
 ### Password login
 
-- argon2id (`@node-rs/argon2`). Min length 12. Rate limit: 10 attempts / 15 min per IP+email (in-memory LRU is fine).
+- argon2id via Node's built-in `crypto.argon2` (spec-auth). Min length 12. Rate limit: 10 attempts / 15 min per IP+email (in-memory LRU is fine).
 - Session cookie: `httpOnly`, `Secure` (when `PUBLIC_URL` is https), `SameSite=Lax`, rolling expiry.
 - CSRF: mutating requests must have `Origin` matching `PUBLIC_URL`; otherwise `403`.
-- Admin can create users with a temporary password or an invite link (single-use token, 7-day expiry).
+- Admin onboards users with single-use links (7-day expiry); the same mechanism resets passwords. No temporary passwords, no SMTP.
 
 ### OIDC SSO (feature `sso`)
 
@@ -335,11 +339,15 @@ Template versions are immutable; documents pin `template_id`. Custom org templat
 ```
 GET  /api/v1/health
 GET  /api/v1/setup/status          POST /api/v1/setup
+POST /api/v1/setup/verify-token
 POST /api/v1/auth/login            POST /api/v1/auth/logout       GET /api/v1/auth/me
+GET  /api/v1/invites/:token        POST /api/v1/invites/:token/accept
 GET  /api/v1/auth/oidc/providers   GET  /api/v1/auth/oidc/:id/start   GET /api/v1/auth/oidc/:id/callback
 
 # admin
-CRUD /api/v1/admin/users   /admin/groups   /admin/groups/:id/members
+GET/PATCH /api/v1/admin/users       POST /admin/users/:id/reset-link
+GET/POST /api/v1/admin/invites      DELETE /admin/invites/:id
+CRUD /api/v1/admin/groups   /admin/groups/:id/members
 GET/PUT /api/v1/admin/permissions          # full grant graph (Metabase-style matrix)
 CRUD /api/v1/admin/llm-providers           POST /admin/llm-providers/:id/test   GET /admin/llm-providers/:id/models
 CRUD /api/v1/admin/auth-providers          GET/PUT /admin/settings

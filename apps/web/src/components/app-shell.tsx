@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from "react";
 import { isEditableTarget } from "@/lib/keyboard";
 import { usePersistentState } from "@/lib/persistent-state";
-import { AppSidebar } from "./app-sidebar";
+import { AppSidebar, type ShellSection } from "./app-sidebar";
 import type { ShellOrg, ShellUser } from "./shell-types";
 import { TopBar } from "./top-bar";
 
@@ -10,10 +10,11 @@ const sidebarStates = ["expanded", "collapsed"] as const;
 type AppShellProps = {
   user?: ShellUser;
   org?: ShellOrg;
+  section?: ShellSection;
   children: ReactNode;
 };
 
-export function AppShell({ user, org, children }: AppShellProps) {
+export function AppShell({ user, org, section = "documents", children }: AppShellProps) {
   const [sidebar, setSidebar] = usePersistentState("jangka.sidebar", sidebarStates, "expanded");
   const collapsed = sidebar === "collapsed";
 
@@ -41,6 +42,7 @@ export function AppShell({ user, org, children }: AppShellProps) {
       <div className="flex min-h-0 flex-1">
         <AppSidebar
           org={org}
+          section={section}
           collapsed={collapsed}
           onToggle={() => setSidebar(collapsed ? "expanded" : "collapsed")}
         />

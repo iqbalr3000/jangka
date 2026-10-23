@@ -6,7 +6,7 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | #   | Feature          | Phase | Spec                       | Status |
 | --- | ---------------- | ----- | -------------------------- | ------ |
 | 1   | foundation       | 1     | [spec](spec-foundation.md) | building |
-| 2   | auth             | 1     | —                          | todo   |
+| 2   | auth             | 1     | [spec](spec-auth.md) | building |
 | 3   | access           | 1     | —                          | todo   |
 | 4   | llm-providers    | 1     | —                          | todo   |
 | 5   | document         | 1     | —                          | todo   |

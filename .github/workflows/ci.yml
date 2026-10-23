@@ -35,3 +35,5 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm --filter @jangka/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:e2e

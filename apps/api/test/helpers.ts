@@ -1,8 +1,16 @@
+import { createDb, type Database, groupMembers, groups, users } from "@jangka/db";
+import { requireTestDatabaseUrl } from "@jangka/db/testing";
+import { hashPassword } from "@jangka/shared/crypto";
+import { eq } from "drizzle-orm";
 import pg from "pg";
 import pino from "pino";
 import { createApp } from "../src/app";
+import { RateLimiter } from "../src/lib/rate-limit";
+import { ensureSetupToken, SetupState } from "../src/services/setup";
 
 export const silentLogger = pino({ level: "silent" });
+export const PUBLIC_URL = "http://jangka.test";
+export const ORIGIN = PUBLIC_URL;
 
 /** Pool pointing at a closed port: every query fails fast. */
 export function unreachablePool(): pg.Pool {
@@ -12,6 +20,103 @@ export function unreachablePool(): pg.Pool {
   });
 }
 
-export function appWith(pool: pg.Pool) {
-  return createApp({ pool, logger: silentLogger });
+export function testDatabase() {
+  return createDb(requireTestDatabaseUrl());
+}
+
+export function buildApp(db: Database, pool: pg.Pool) {
+  const setupState = new SetupState(db);
+  const app = createApp({
+    db,
+    pool,
+    logger: silentLogger,
+    config: { publicUrl: PUBLIC_URL, sessionTtlDays: 30 },
+    setupState,
+    loginLimiter: new RateLimiter(10, 15 * 60_000),
+  });
+  return { app, setupState };
+}
+
+export type TestApp = ReturnType<typeof buildApp>["app"];
+
+type RequestOptions = { cookie?: string | null; origin?: string | null; body?: unknown };
+
+export function call(app: TestApp, method: string, path: string, options: RequestOptions = {}) {
+  const headers: Record<string, string> = {};
+  if (options.cookie) headers.cookie = options.cookie;
+  const origin = options.origin === undefined ? ORIGIN : options.origin;
+  if (origin) headers.origin = origin;
+  if (options.body !== undefined) headers["content-type"] = "application/json";
+  return app.request(`/api/v1${path}`, {
+    method,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+}
+
+/** `jangka_session=<token>` from a response, or null when the response cleared/didn't set it. */
+export function sessionCookie(res: Response): string | null {
+  for (const header of res.headers.getSetCookie()) {
+    const match = /^jangka_session=([^;]*)/.exec(header);
+    if (match) return match[1] ? `jangka_session=${match[1]}` : null;
+  }
+  return null;
+}
+
+export async function captureSetupToken(db: Database): Promise<string> {
+  let output = "";
+  await ensureSetupToken(db, (text) => {
+    output += text;
+  });
+  const match = /SETUP TOKEN: (\S+)/.exec(output);
+  if (!match?.[1]) throw new Error("setup token was not printed");
+  return match[1];
+}
+
+export const ADMIN = { name: "Ada Admin", email: "ada@acme.co", password: "admin-password-123" };
+
+/** Runs the real setup flow and returns the admin's session cookie. */
+export async function setupInstance(app: TestApp, db: Database): Promise<string> {
+  const token = await captureSetupToken(db);
+  const res = await call(app, "POST", "/setup", {
+    body: {
+      token,
+      orgName: "Acme",
+      adminName: ADMIN.name,
+      adminEmail: ADMIN.email,
+      password: ADMIN.password,
+    },
+  });
+  const cookie = sessionCookie(res);
+  if (res.status !== 201 || !cookie) throw new Error(`setup failed: ${res.status}`);
+  return cookie;
+}
+
+export async function createUser(
+  db: Database,
+  input: { name: string; email: string; password: string; admin?: boolean; isActive?: boolean },
+): Promise<string> {
+  const [user] = await db
+    .insert(users)
+    .values({
+      name: input.name,
+      email: input.email,
+      passwordHash: await hashPassword(input.password),
+      isActive: input.isActive ?? true,
+    })
+    .returning({ id: users.id });
+  if (!user) throw new Error("user not created");
+  if (input.admin) {
+    const [admins] = await db.select().from(groups).where(eq(groups.systemKey, "admins"));
+    if (!admins) throw new Error("admins group missing — run setupInstance first");
+    await db.insert(groupMembers).values({ groupId: admins.id, userId: user.id });
+  }
+  return user.id;
+}
+
+export async function login(app: TestApp, email: string, password: string): Promise<string> {
+  const res = await call(app, "POST", "/auth/login", { body: { email, password } });
+  const cookie = sessionCookie(res);
+  if (res.status !== 200 || !cookie) throw new Error(`login failed: ${res.status}`);
+  return cookie;
 }

@@ -5,7 +5,8 @@
   "exports": {
     "./env": "./src/env.ts",
     "./crypto": "./src/crypto.ts",
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./auth": "./src/auth.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

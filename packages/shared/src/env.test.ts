@@ -28,6 +28,7 @@ describe("parseEnv", () => {
     expect(env.PORT).toBe(3000);
     expect(env.LOG_LEVEL).toBe("info");
     expect(env.NODE_ENV).toBe("production");
+    expect(env.SESSION_TTL_DAYS).toBe(30);
   });
 
   it("accepts the postgresql:// scheme", () => {

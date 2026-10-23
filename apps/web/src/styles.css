@@ -25,6 +25,7 @@
   --primary: #1d4ed8;
   --primary-fg: #ffffff;
   --grid: #1d4ed80f;
+  --grid-major: #1d4ed81a;
   --status-empty: #a8a29e;
   --status-partial: #b45309;
   --status-complete: #15803d;
@@ -47,6 +48,7 @@
   --primary: #6e9bff;
   --primary-fg: #0c0f14;
   --grid: #6e9bff14;
+  --grid-major: #6e9bff24;
   --status-empty: #5b6473;
   --status-partial: #f0a14a;
   --status-complete: #4ade80;
@@ -69,6 +71,7 @@
     --primary: #6e9bff;
     --primary-fg: #0c0f14;
     --grid: #6e9bff14;
+    --grid-major: #6e9bff24;
     --status-empty: #5b6473;
     --status-partial: #f0a14a;
     --status-complete: #4ade80;
@@ -144,10 +147,16 @@
   }
 }
 
-/* 8px blueprint grid: empty states, setup, and login only — never behind document text. */
+/* Blueprint grid (8px minor, 40px major): empty states, setup, and login only — never behind document text. */
 @utility blueprint-grid {
   background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 8px 8px;
+  background-size:
+    40px 40px,
+    40px 40px,
+    8px 8px,
+    8px 8px;
 }

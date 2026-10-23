@@ -1,4 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
+import { z } from "zod";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +15,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { apiFetch } from "@/lib/api";
 import { type Theme, themes, useTheme } from "@/lib/theme";
 import type { ShellUser } from "./shell-types";
 
@@ -28,6 +32,18 @@ function initials(name: string): string {
 
 export function UserMenu({ user }: { user?: ShellUser }) {
   const [theme, setTheme] = useTheme();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  async function signOut() {
+    try {
+      await apiFetch("/auth/logout", { method: "POST", schema: z.undefined() });
+    } finally {
+      // Even if the request failed, drop cached data so the next screen reflects a signed-out state.
+      queryClient.clear();
+      await navigate({ to: "/login" });
+    }
+  }
 
   return (
     <DropdownMenu>
@@ -77,19 +93,27 @@ export function UserMenu({ user }: { user?: ShellUser }) {
         {user?.isAdmin && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="px-2.5 py-[7px] text-[13px] font-medium text-primary focus:text-primary">
-              <span
-                className="mx-px size-[9px] shrink-0 rotate-45 border-[1.5px] border-primary"
-                aria-hidden
-              />
-              Admin panel
+            <DropdownMenuItem
+              asChild
+              className="px-2.5 py-[7px] text-[13px] font-medium text-primary focus:text-primary"
+            >
+              <Link to="/admin/users">
+                <span
+                  className="mx-px size-[9px] shrink-0 rotate-45 border-[1.5px] border-primary"
+                  aria-hidden
+                />
+                Admin panel
+              </Link>
             </DropdownMenuItem>
           </>
         )}
         {user && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="px-2.5 py-[7px] text-[13px] text-muted-foreground">
+            <DropdownMenuItem
+              className="px-2.5 py-[7px] text-[13px] text-muted-foreground"
+              onSelect={() => void signOut()}
+            >
               Sign out
             </DropdownMenuItem>
           </>

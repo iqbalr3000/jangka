@@ -3,7 +3,9 @@ import { serve } from "@hono/node-server";
 import { createDb, runMigrations } from "@jangka/db";
 import { type Env, EnvError, parseEnv } from "@jangka/shared/env";
 import { createApp } from "./app";
+import { RateLimiter } from "./lib/rate-limit";
 import { createLogger } from "./logger";
+import { ensureSetupToken, SetupState } from "./services/setup";
 
 function loadEnv(): Env {
   try {
@@ -25,7 +27,7 @@ const here = import.meta.dirname;
 const migrationsFolder = path.resolve(here, "../../../packages/db/migrations");
 const webDistDir = path.resolve(here, "../../web/dist");
 
-const { pool } = createDb(env.DATABASE_URL);
+const { db, pool } = createDb(env.DATABASE_URL);
 
 try {
   await runMigrations(pool, migrationsFolder);
@@ -35,9 +37,15 @@ try {
   process.exit(1);
 }
 
+await ensureSetupToken(db);
+
 const app = createApp({
+  db,
   pool,
   logger,
+  config: { publicUrl: env.PUBLIC_URL, sessionTtlDays: env.SESSION_TTL_DAYS },
+  setupState: new SetupState(db),
+  loginLimiter: new RateLimiter(10, 15 * 60_000),
   webDistDir: env.NODE_ENV === "production" ? webDistDir : undefined,
 });
 

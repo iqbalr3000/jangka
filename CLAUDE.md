@@ -13,7 +13,7 @@ pnpm install
 pnpm dev              # api + web + worker in watch mode
 pnpm test:db:up       # start throwaway Postgres 18 for integration tests (port 54329)
 pnpm test             # vitest (all packages); needs TEST_DATABASE_URL
-pnpm test:e2e         # playwright
+pnpm test:e2e         # playwright: builds, recreates jangka_e2e next to TEST_DATABASE_URL, runs the built app
 pnpm typecheck
 pnpm lint             # biome check
 pnpm db:generate      # drizzle-kit generate (after schema change)

@@ -100,7 +100,7 @@ Priority: **M** = must, **S** = should, **C** = could. Feature references map to
 | FR-001 | First boot prints a one-time setup token to logs; setup UI requires it                              | M        | auth    |
 | FR-002 | Setup creates the first user as admin, org name, system groups; cannot run twice (concurrency-safe) | M        | auth    |
 | FR-003 | Email + password login with rate limiting; session cookie                                           | M        | auth    |
-| FR-004 | Admin can create users via temporary password or single-use invite link                             | M        | auth    |
+| FR-004 | Admin onboards users and resets passwords via single-use links (7-day expiry); no SMTP needed       | M        | auth    |
 
 ### Users, groups, permissions
 

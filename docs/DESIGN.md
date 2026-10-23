@@ -28,7 +28,7 @@ The product is the instrument for drawing precise specs before building.
 - ✅ "3 required sections still missing. Answer the questions or draft anyway."
 - ❌ "Oops! Looks like your amazing document isn't quite ready yet 🚀"
 
-**Motif.** Faint blueprint grid (8 px) used only in empty states, setup, and login backgrounds. Never behind document text.
+**Motif.** Faint blueprint grid (8 px minor, 40 px major lines) used only in empty states, setup, and login backgrounds. Never behind document text.
 
 ## 3. Design tokens
 
@@ -49,7 +49,8 @@ shadcn/ui components consume these via the Tailwind theme.
 | `--text-muted`      | `#5C5C58`   | `#9AA3B2`   | Secondary text, metadata                      |
 | `--primary`         | `#1D4ED8`   | `#6E9BFF`   | Blueprint blue: primary actions, links, focus |
 | `--primary-fg`      | `#FFFFFF`   | `#0C0F14`   | Text on primary                               |
-| `--grid`            | `#1D4ED80F` | `#6E9BFF14` | Blueprint grid lines                          |
+| `--grid`            | `#1D4ED80F` | `#6E9BFF14` | Blueprint grid minor lines (8 px)             |
+| `--grid-major`      | `#1D4ED81A` | `#6E9BFF24` | Blueprint grid major lines (40 px)            |
 | `--status-empty`    | `#A8A29E`   | `#5B6473`   | Section: empty                                |
 | `--status-partial`  | `#B45309`   | `#F0A14A`   | Section: partial, warnings                    |
 | `--status-complete` | `#15803D`   | `#4ADE80`   | Section: complete, success                    |

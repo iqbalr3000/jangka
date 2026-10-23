@@ -4,7 +4,10 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 import * as schema from "./schema";
 
+export * from "./schema";
+
 export type Database = NodePgDatabase<typeof schema>;
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export function createDb(databaseUrl: string): { db: Database; pool: pg.Pool } {
   const pool = new pg.Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 5_000 });

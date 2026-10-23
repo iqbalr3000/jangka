@@ -1,2 +1,111 @@
-// Tables are added by features (first: `auth`). Ids use `.$defaultFn(uuidv7)` from the `uuidv7` package.
-export {};
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { uuidv7 } from "uuidv7";
+
+const id = () => uuid("id").primaryKey().$defaultFn(uuidv7);
+const tz = (name: string) => timestamp(name, { withTimezone: true });
+const createdAt = () => tz("created_at").notNull().defaultNow();
+const updatedAt = () =>
+  tz("updated_at")
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date());
+
+export const instanceSettings = pgTable(
+  "instance_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    orgName: text("org_name"),
+    setupCompletedAt: tz("setup_completed_at"),
+    setupTokenHash: text("setup_token_hash"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("instance_settings_singleton", sql`${t.id} = 1`)],
+);
+
+export const users = pgTable(
+  "users",
+  {
+    id: id(),
+    email: text("email").notNull().unique(),
+    name: text("name").notNull(),
+    passwordHash: text("password_hash"),
+    isActive: boolean("is_active").notNull().default(true),
+    lastLoginAt: tz("last_login_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("users_email_lowercase", sql`${t.email} = lower(${t.email})`)],
+);
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    tokenHash: text("token_hash").notNull().unique(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: tz("expires_at").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: createdAt(),
+    // Also marks the last rolling extension.
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("sessions_user_id_idx").on(t.userId)],
+);
+
+export const groups = pgTable("groups", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  systemKey: text("system_key", { enum: ["admins", "all_users"] }).unique(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+);
+
+export const invites = pgTable(
+  "invites",
+  {
+    id: id(),
+    kind: text("kind", { enum: ["invite", "password_reset"] }).notNull(),
+    email: text("email").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    expiresAt: tz("expires_at").notNull(),
+    usedAt: tz("used_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("invites_kind", sql`${t.kind} in ('invite', 'password_reset')`),
+    check("invites_reset_has_user", sql`${t.kind} = 'invite' or ${t.userId} is not null`),
+  ],
+);
