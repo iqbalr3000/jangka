@@ -13,12 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
 import {
-  childrenByParent,
-  collectionLabel,
   collectionsKey,
   collectionTreeQuery,
-  ROOT_NAME,
-  subtreeIds,
+  type DestinationOption,
+  editableDestinations,
 } from "@/lib/collections";
 import { errorMessage } from "@/lib/form-errors";
 import { cn } from "@/lib/utils";
@@ -28,39 +26,6 @@ type MoveCollectionDialogProps = {
   userId: string;
   onClose: () => void;
 };
-
-type Option = { id: string | null; label: string; depth: number; personal: boolean };
-
-/** Destinations the user can edit, excluding the collection's own subtree. */
-function destinations(
-  items: CollectionSummary[],
-  rootEditable: boolean,
-  moving: CollectionSummary,
-  userId: string,
-): Option[] {
-  const excluded = subtreeIds(items, moving.id);
-  const byParent = childrenByParent(items);
-  const options: Option[] = rootEditable
-    ? [{ id: null, label: ROOT_NAME, depth: 0, personal: false }]
-    : [];
-  const walk = (parentId: string | null, depth: number, personal: boolean) => {
-    for (const item of byParent.get(parentId) ?? []) {
-      if (excluded.has(item.id)) continue;
-      const inPersonal = personal || item.personalOwnerId !== null;
-      if (item.level === "edit") {
-        options.push({
-          id: item.id,
-          label: collectionLabel(item, userId),
-          depth,
-          personal: inPersonal,
-        });
-      }
-      walk(item.id, depth + 1, inPersonal);
-    }
-  };
-  walk(null, rootEditable ? 1 : 0, false);
-  return options;
-}
 
 function inPersonalTree(items: CollectionSummary[], id: string): boolean {
   const byId = new Map(items.map((item) => [item.id, item]));
@@ -73,7 +38,7 @@ function inPersonalTree(items: CollectionSummary[], id: string): boolean {
 export function MoveCollectionDialog({ collection, userId, onClose }: MoveCollectionDialogProps) {
   const queryClient = useQueryClient();
   const tree = useQuery({ ...collectionTreeQuery, enabled: collection !== null });
-  const [selected, setSelected] = useState<Option | null>(null);
+  const [selected, setSelected] = useState<DestinationOption | null>(null);
 
   const move = useMutation({
     mutationFn: (input: { id: string; parentId: string | null }) =>
@@ -102,7 +67,7 @@ export function MoveCollectionDialog({ collection, userId, onClose }: MoveCollec
     !inPersonalTree(tree.data.items, collection.id);
   const options =
     collection && tree.data
-      ? destinations(tree.data.items, tree.data.rootLevel === "edit", collection, userId)
+      ? editableDestinations(tree.data.items, tree.data.rootLevel === "edit", userId, collection.id)
       : [];
 
   return (

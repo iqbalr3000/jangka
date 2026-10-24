@@ -160,3 +160,105 @@
     8px 8px,
     8px 8px;
 }
+
+/* Section body in the document editor — DESIGN §3: 16px / 1.7, headings 600, mono for code. */
+@layer components {
+  .section-prose {
+    font-size: 16px;
+    line-height: 1.7;
+
+    & > * + * {
+      margin-top: 0.75em;
+    }
+    & h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-top: 1.25em;
+    }
+    & h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 1em;
+    }
+    & ul {
+      list-style: disc;
+      padding-left: 1.4em;
+    }
+    & ol {
+      list-style: decimal;
+      padding-left: 1.6em;
+    }
+    & li > p + * {
+      margin-top: 0.25em;
+    }
+    & blockquote {
+      border-left: 2px solid var(--border-strong);
+      padding-left: 1em;
+      color: var(--text-muted);
+    }
+    & a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    & code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: var(--surface-2);
+      border-radius: 3px;
+      padding: 0.1em 0.3em;
+    }
+    & pre {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75em 1em;
+      overflow-x: auto;
+
+      & code {
+        background: none;
+        padding: 0;
+        font-size: inherit;
+      }
+    }
+    & hr {
+      border-color: var(--border);
+    }
+    & table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    & th,
+    & td {
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    & th {
+      background: var(--surface-2);
+      font-weight: 600;
+    }
+    & .selectedCell {
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+    }
+    /* Empty section (DESIGN §6.3): dashed placeholder box. */
+    &:has(> p.is-editor-empty:only-child) {
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    & p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+      color: var(--status-empty);
+    }
+  }
+}

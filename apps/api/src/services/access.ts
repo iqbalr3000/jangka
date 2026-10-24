@@ -2,6 +2,7 @@ import {
   collectionGrants,
   collections,
   type Database,
+  documents,
   groupMembers,
   groups,
   type Transaction,
@@ -15,7 +16,7 @@ import {
 } from "@jangka/permissions";
 import type { AccessView, CollectionSummary } from "@jangka/shared/access";
 import { AppError } from "@jangka/shared/errors";
-import { eq } from "drizzle-orm";
+import { count, eq, isNull } from "drizzle-orm";
 
 type Db = Database | Transaction;
 
@@ -29,6 +30,8 @@ export type AccessData = {
   ctx: PermissionContext;
   rows: Map<string, CollectionRow>;
   groupNames: Map<string, string>;
+  /** Non-archived documents directly in each collection (`null` = root). */
+  documentCounts: Map<string | null, number>;
 };
 
 export async function memberships(
@@ -47,7 +50,7 @@ export async function memberships(
 }
 
 export async function loadAccess(db: Db, subject: Subject): Promise<AccessData> {
-  const [collectionRows, grantRows, groupRows] = await Promise.all([
+  const [collectionRows, grantRows, groupRows, countRows] = await Promise.all([
     db.select().from(collections),
     db
       .select({
@@ -57,6 +60,11 @@ export async function loadAccess(db: Db, subject: Subject): Promise<AccessData> 
       })
       .from(collectionGrants),
     db.select({ id: groups.id, name: groups.name, systemKey: groups.systemKey }).from(groups),
+    db
+      .select({ collectionId: documents.collectionId, documents: count() })
+      .from(documents)
+      .where(isNull(documents.archivedAt))
+      .groupBy(documents.collectionId),
   ]);
   const allUsers = groupRows.find((group) => group.systemKey === "all_users");
   const ctx = createContext({
@@ -70,6 +78,7 @@ export async function loadAccess(db: Db, subject: Subject): Promise<AccessData> 
     ctx,
     rows: new Map(collectionRows.map((row) => [row.id, row])),
     groupNames: new Map(groupRows.map((group) => [group.id, group.name])),
+    documentCounts: new Map(countRows.map((row) => [row.collectionId, row.documents])),
   };
 }
 
@@ -113,7 +122,13 @@ export function summary(data: AccessData, row: CollectionRow): CollectionSummary
     parentId: row.parentId,
     personalOwnerId: row.personalOwnerId,
     level: resolveLevel(data.ctx, row.id),
+    documentCount: data.documentCounts.get(row.id) ?? 0,
   };
+}
+
+/** Documents inherit their collection's level (no per-document ACL). */
+export function resolveDocLevel(data: AccessData, row: { collectionId: string | null }) {
+  return resolveLevel(data.ctx, row.collectionId);
 }
 
 export function accessView(data: AccessData, collectionId: string | null): AccessView {

@@ -22,6 +22,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "document",
+      testMatch: "document.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "llm",
       testMatch: "llm.spec.ts",
       dependencies: ["onboarding"],

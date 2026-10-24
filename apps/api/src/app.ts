@@ -20,6 +20,7 @@ import { adminPermissionRoutes } from "./routes/admin-permissions";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
 import { collectionRoutes } from "./routes/collections";
+import { documentRoutes, templateRoutes } from "./routes/documents";
 import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
 import { llmRoutes } from "./routes/llm";
@@ -107,6 +108,8 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/admin", adminLlmRoutes(routeDeps));
   app.route("/api/v1/llm", llmRoutes(routeDeps));
   app.route("/api/v1/collections", collectionRoutes(routeDeps));
+  app.route("/api/v1/documents", documentRoutes(routeDeps));
+  app.route("/api/v1/templates", templateRoutes(routeDeps));
 
   if (webDistDir) {
     const indexHtml = readFileSync(path.join(webDistDir, "index.html"), "utf8");

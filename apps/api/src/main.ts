@@ -6,6 +6,7 @@ import { createApp } from "./app";
 import { RateLimiter } from "./lib/rate-limit";
 import { createLogger } from "./logger";
 import { ensureSetupToken, SetupState } from "./services/setup";
+import { ensureBuiltinTemplates } from "./services/templates";
 
 function loadEnv(): Env {
   try {
@@ -37,6 +38,7 @@ try {
   process.exit(1);
 }
 
+await ensureBuiltinTemplates(db);
 await ensureSetupToken(db);
 
 const app = createApp({

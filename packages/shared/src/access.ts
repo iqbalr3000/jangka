@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { documentSummary } from "./document";
 
 export const level = z.enum(["none", "view", "edit"]);
 export type Level = z.infer<typeof level>;
@@ -29,6 +30,7 @@ export const collectionSummary = z.object({
   parentId: z.string().nullable(),
   personalOwnerId: z.string().nullable(),
   level,
+  documentCount: z.number().int(),
 });
 export type CollectionSummary = z.infer<typeof collectionSummary>;
 
@@ -44,11 +46,13 @@ export const collectionDetail = z.object({
   breadcrumbs: z.array(z.object({ id: z.string(), name: z.string() })),
   access: accessView,
   children: z.array(collectionSummary),
+  documents: z.array(documentSummary),
 });
 export type CollectionDetail = z.infer<typeof collectionDetail>;
 
 export const archivedCollectionList = z.object({
   items: z.array(collectionSummary.extend({ archivedAt: z.string() })),
+  documents: z.array(documentSummary),
 });
 
 export const createCollectionRequest = z.object({
@@ -96,8 +100,15 @@ export type Grant = z.infer<typeof grant>;
 export const permissionGraph = z.object({
   groups: z.array(group),
   collections: z.array(
-    z.object({ id: z.string(), name: z.string(), parentId: z.string().nullable() }),
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      parentId: z.string().nullable(),
+      documentCount: z.number().int(),
+    }),
   ),
+  /** Documents directly in the root. */
+  rootDocumentCount: z.number().int(),
   grants: z.array(grant),
 });
 export type PermissionGraph = z.infer<typeof permissionGraph>;

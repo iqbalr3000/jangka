@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -178,5 +179,100 @@ export const llmProviders = pgTable(
       "llm_providers_kind",
       sql`${t.kind} in ('anthropic', 'openai', 'gemini', 'openrouter', 'fake')`,
     ),
+  ],
+);
+
+export const templates = pgTable(
+  "templates",
+  {
+    id: id(),
+    docType: text("doc_type", { enum: ["brd", "prd", "tsd"] }).notNull(),
+    name: text("name").notNull(),
+    version: integer("version").notNull(),
+    // TemplateDefinition (packages/templates); immutable once published.
+    definition: jsonb("definition").notNull(),
+    isBuiltin: boolean("is_builtin").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("templates_doc_type_name_version").on(t.docType, t.name, t.version),
+    check("templates_doc_type", sql`${t.docType} in ('brd', 'prd', 'tsd')`),
+  ],
+);
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: id(),
+    // null = the root ("Our documents").
+    collectionId: uuid("collection_id").references(() => collections.id),
+    docType: text("doc_type", { enum: ["brd", "prd", "tsd"] }).notNull(),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => templates.id),
+    title: text("title").notNull(),
+    status: text("status", { enum: ["draft", "in_review", "approved"] })
+      .notNull()
+      .default("draft"),
+    createdBy: uuid("created_by").references(() => users.id),
+    archivedAt: tz("archived_at"),
+    sourceDocumentId: uuid("source_document_id").references((): AnyPgColumn => documents.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("documents_collection_id_idx").on(t.collectionId),
+    check("documents_doc_type", sql`${t.docType} in ('brd', 'prd', 'tsd')`),
+    check("documents_status", sql`${t.status} in ('draft', 'in_review', 'approved')`),
+  ],
+);
+
+export const documentSections = pgTable(
+  "document_sections",
+  {
+    id: id(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sectionKey: text("section_key").notNull(),
+    position: integer("position").notNull(),
+    // TipTap JSON (source of truth); content_md is derived from it.
+    content: jsonb("content").notNull(),
+    contentMd: text("content_md").notNull().default(""),
+    completeness: text("completeness", { enum: ["empty", "partial", "complete"] })
+      .notNull()
+      .default("empty"),
+    // Optimistic lock: every write must name the revision it was based on.
+    revision: integer("revision").notNull().default(0),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique("document_sections_document_key").on(t.documentId, t.sectionKey),
+    check(
+      "document_sections_completeness",
+      sql`${t.completeness} in ('empty', 'partial', 'complete')`,
+    ),
+  ],
+);
+
+/** Append-only (hard rule #7); a trigger rejects UPDATE and DELETE. */
+export const sectionVersions = pgTable(
+  "section_versions",
+  {
+    id: id(),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => documentSections.id),
+    revision: integer("revision").notNull(),
+    content: jsonb("content").notNull(),
+    source: text("source", { enum: ["llm", "human"] }).notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("section_versions_section_revision").on(t.sectionId, t.revision),
+    check("section_versions_source", sql`${t.source} in ('llm', 'human')`),
   ],
 );

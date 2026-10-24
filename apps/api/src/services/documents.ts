@@ -1,0 +1,252 @@
+import {
+  type Database,
+  documentSections,
+  documents,
+  sectionVersions,
+  type Transaction,
+  templates,
+  users,
+} from "@jangka/db";
+import { toMarkdown } from "@jangka/export";
+import { resolveLevel } from "@jangka/permissions";
+import {
+  type Completeness,
+  type DocNode,
+  type DocumentSummary,
+  docContent,
+  isBlankDoc,
+  type Section,
+} from "@jangka/shared/document";
+import { AppError } from "@jangka/shared/errors";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { type AccessData, isHidden, resolveDocLevel } from "./access";
+import { definitionOf } from "./templates";
+
+type Db = Database | Transaction;
+export type DocumentRow = typeof documents.$inferSelect;
+type SectionRow = typeof documentSections.$inferSelect;
+
+/** A new editing session starts after this much idle time (or another author / an LLM write). */
+export const VERSION_SESSION_MS = 10 * 60 * 1000;
+
+export async function findDocument(db: Db, id: string): Promise<DocumentRow | undefined> {
+  const [row] = await db.select().from(documents).where(eq(documents.id, id));
+  return row;
+}
+
+/** The document when the subject can view it; 404 otherwise, so existence never leaks. */
+export async function viewableDocument(db: Db, data: AccessData, id: string): Promise<DocumentRow> {
+  const row = await findDocument(db, id);
+  if (!row || resolveDocLevel(data, row) === "none") {
+    throw new AppError("not_found", 404, "Document not found");
+  }
+  return row;
+}
+
+export function requireDocEdit(data: AccessData, row: DocumentRow): void {
+  if (resolveDocLevel(data, row) !== "edit") {
+    throw new AppError("forbidden", 403, "You need edit access to do this");
+  }
+}
+
+/** Collection a document may be created in / moved to: exists, viewable, not archived. */
+export function assertUsableCollection(data: AccessData, collectionId: string | null): void {
+  if (collectionId === null) return;
+  const row = data.rows.get(collectionId);
+  if (!row || resolveLevel(data.ctx, collectionId) === "none") {
+    throw new AppError("not_found", 404, "Collection not found");
+  }
+  if (isHidden(data, collectionId)) {
+    throw new AppError("conflict", 409, "The collection is archived");
+  }
+}
+
+function completenessOf(content: DocNode): Completeness {
+  return isBlankDoc(content) ? "empty" : "complete";
+}
+
+export async function summaries(db: Db, rows: DocumentRow[]): Promise<DocumentSummary[]> {
+  if (rows.length === 0) return [];
+  const sections = await db
+    .select({
+      documentId: documentSections.documentId,
+      completeness: documentSections.completeness,
+    })
+    .from(documentSections)
+    .where(
+      inArray(
+        documentSections.documentId,
+        rows.map((r) => r.id),
+      ),
+    )
+    .orderBy(asc(documentSections.position));
+  const byDoc = new Map<string, Completeness[]>();
+  for (const s of sections) {
+    const list = byDoc.get(s.documentId) ?? [];
+    list.push(s.completeness);
+    byDoc.set(s.documentId, list);
+  }
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    docType: row.docType,
+    status: row.status,
+    collectionId: row.collectionId,
+    completeness: byDoc.get(row.id) ?? [],
+    createdBy: row.createdBy,
+    updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+  }));
+}
+
+/** Non-archived documents directly in a collection (`null` = root), newest first. */
+export async function documentsIn(db: Db, collectionId: string | null): Promise<DocumentSummary[]> {
+  const rows = await db
+    .select()
+    .from(documents)
+    .where(
+      and(
+        collectionId === null
+          ? isNull(documents.collectionId)
+          : eq(documents.collectionId, collectionId),
+        isNull(documents.archivedAt),
+      ),
+    )
+    .orderBy(desc(documents.updatedAt));
+  return summaries(db, rows);
+}
+
+/** Sections in template order, merged with the template's titles and flags. */
+export async function sectionsOf(db: Db, row: DocumentRow): Promise<Section[]> {
+  const [template] = await db.select().from(templates).where(eq(templates.id, row.templateId));
+  if (!template) throw new Error("document template missing");
+  const meta = new Map(definitionOf(template).sections.map((s) => [s.key, s]));
+
+  const rows = await db
+    .select({ section: documentSections, updatedByName: users.name })
+    .from(documentSections)
+    .leftJoin(users, eq(users.id, documentSections.updatedBy))
+    .where(eq(documentSections.documentId, row.id))
+    .orderBy(asc(documentSections.position));
+
+  return rows.map(({ section, updatedByName }) =>
+    sectionView(section, meta.get(section.sectionKey), updatedByName),
+  );
+}
+
+function sectionView(
+  section: SectionRow,
+  meta: { title: string; required: boolean; expectsDiagram?: string } | undefined,
+  updatedByName: string | null,
+): Section {
+  return {
+    key: section.sectionKey,
+    title: meta?.title ?? section.sectionKey,
+    required: meta?.required ?? false,
+    expectsDiagram: meta?.expectsDiagram ?? null,
+    position: section.position,
+    content: docContent.parse(section.content),
+    completeness: section.completeness,
+    revision: section.revision,
+    updatedAt: section.updatedAt.toISOString(),
+    updatedBy:
+      section.updatedBy && updatedByName ? { id: section.updatedBy, name: updatedByName } : null,
+  };
+}
+
+export async function createDocumentSections(
+  tx: Transaction,
+  documentId: string,
+  keys: string[],
+): Promise<void> {
+  const empty: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
+  await tx.insert(documentSections).values(
+    keys.map((sectionKey, position) => ({
+      documentId,
+      sectionKey,
+      position,
+      content: empty,
+      contentMd: "",
+      completeness: "empty" as const,
+    })),
+  );
+}
+
+type SaveInput = { content: DocNode; revision: number; userId: string };
+
+/**
+ * Optimistic-locked human save. Versions are per editing session: a new session versions the
+ * current (not yet versioned) state first, so each session's end state survives in history.
+ * Returns "conflict" when `revision` is stale.
+ */
+export async function saveSection(
+  db: Database,
+  documentId: string,
+  key: string,
+  input: SaveInput,
+): Promise<"saved" | "conflict"> {
+  return db.transaction(async (tx) => {
+    const [section] = await tx
+      .select()
+      .from(documentSections)
+      .where(and(eq(documentSections.documentId, documentId), eq(documentSections.sectionKey, key)))
+      .for("update");
+    if (!section) throw new AppError("not_found", 404, "Section not found");
+    if (section.revision !== input.revision) return "conflict";
+
+    const [latest] = await tx
+      .select()
+      .from(sectionVersions)
+      .where(eq(sectionVersions.sectionId, section.id))
+      .orderBy(desc(sectionVersions.revision))
+      .limit(1);
+    const now = Date.now();
+    const newSession =
+      latest?.source !== "human" ||
+      latest.createdBy !== input.userId ||
+      now - latest.createdAt.getTime() > VERSION_SESSION_MS;
+    const nextRevision = section.revision + 1;
+
+    if (newSession) {
+      if (section.revision > (latest?.revision ?? 0)) {
+        await tx.insert(sectionVersions).values({
+          sectionId: section.id,
+          revision: section.revision,
+          content: section.content,
+          source: "human",
+          createdBy: section.updatedBy,
+        });
+      }
+      await tx.insert(sectionVersions).values({
+        sectionId: section.id,
+        revision: nextRevision,
+        content: input.content,
+        source: "human",
+        createdBy: input.userId,
+      });
+    }
+
+    await tx
+      .update(documentSections)
+      .set({
+        content: input.content,
+        contentMd: toMarkdown(input.content),
+        completeness: completenessOf(input.content),
+        revision: nextRevision,
+        updatedBy: input.userId,
+        updatedAt: new Date(now),
+      })
+      .where(eq(documentSections.id, section.id));
+    await tx
+      .update(documents)
+      .set({ updatedAt: new Date(now) })
+      .where(eq(documents.id, documentId));
+    return "saved";
+  });
+}
+
+export async function sectionByKey(db: Db, row: DocumentRow, key: string): Promise<Section> {
+  const section = (await sectionsOf(db, row)).find((s) => s.key === key);
+  if (!section) throw new AppError("not_found", 404, "Section not found");
+  return section;
+}

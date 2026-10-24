@@ -22,6 +22,7 @@ import { Route as AppAdminLlmRouteImport } from './routes/_app/admin/llm'
 import { Route as AppAdminPermissionsRouteImport } from './routes/_app/admin/permissions'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppCCollectionIdRouteImport } from './routes/_app/c.$collectionId'
+import { Route as AppDDocumentIdRouteImport } from './routes/_app/d.$documentId'
 import { Route as AppAdminGroupsIndexRouteImport } from './routes/_app/admin/groups.index'
 import { Route as AppAdminGroupsGroupIdRouteImport } from './routes/_app/admin/groups.$groupId'
 
@@ -89,6 +90,11 @@ const AppCCollectionIdRoute = AppCCollectionIdRouteImport.update({
   path: '/c/$collectionId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDDocumentIdRoute = AppDDocumentIdRouteImport.update({
+  id: '/d/$documentId',
+  path: '/d/$documentId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminGroupsIndexRoute = AppAdminGroupsIndexRouteImport.update({
   id: '/groups/',
   path: '/groups/',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/c/$collectionId': typeof AppCCollectionIdRoute
+  '/d/$documentId': typeof AppDDocumentIdRoute
   '/admin/': typeof AppAdminIndexRoute
   '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
   '/admin/groups/': typeof AppAdminGroupsIndexRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/c/$collectionId': typeof AppCCollectionIdRoute
+  '/d/$documentId': typeof AppDDocumentIdRoute
   '/admin': typeof AppAdminIndexRoute
   '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
   '/admin/groups': typeof AppAdminGroupsIndexRoute
@@ -145,6 +153,7 @@ export interface FileRoutesById {
   '/_app/admin/permissions': typeof AppAdminPermissionsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/c/$collectionId': typeof AppCCollectionIdRoute
+  '/_app/d/$documentId': typeof AppDDocumentIdRoute
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
   '/_app/admin/groups/': typeof AppAdminGroupsIndexRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/admin/permissions'
     | '/admin/users'
     | '/c/$collectionId'
+    | '/d/$documentId'
     | '/admin/'
     | '/admin/groups/$groupId'
     | '/admin/groups/'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/admin/permissions'
     | '/admin/users'
     | '/c/$collectionId'
+    | '/d/$documentId'
     | '/admin'
     | '/admin/groups/$groupId'
     | '/admin/groups'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/_app/admin/permissions'
     | '/_app/admin/users'
     | '/_app/c/$collectionId'
+    | '/_app/d/$documentId'
     | '/_app/admin/'
     | '/_app/admin/groups/$groupId'
     | '/_app/admin/groups/'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCCollectionIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/d/$documentId': {
+      id: '/_app/d/$documentId'
+      path: '/d/$documentId'
+      fullPath: '/d/$documentId'
+      preLoaderRoute: typeof AppDDocumentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin/groups/': {
       id: '/_app/admin/groups/'
       path: '/groups'
@@ -345,6 +364,7 @@ interface AppRouteChildren {
   AppPersonalRoute: typeof AppPersonalRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCCollectionIdRoute: typeof AppCCollectionIdRoute
+  AppDDocumentIdRoute: typeof AppDDocumentIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -353,6 +373,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPersonalRoute: AppPersonalRoute,
   AppIndexRoute: AppIndexRoute,
   AppCCollectionIdRoute: AppCCollectionIdRoute,
+  AppDDocumentIdRoute: AppDDocumentIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

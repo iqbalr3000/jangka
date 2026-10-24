@@ -6,6 +6,8 @@ export default defineConfig({
       "packages/shared",
       "packages/permissions",
       "packages/llm",
+      "packages/templates",
+      "packages/export",
       "packages/db",
       "apps/api",
     ],

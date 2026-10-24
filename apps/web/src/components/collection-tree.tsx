@@ -73,7 +73,12 @@ export function CollectionTree({ items }: TreeProps) {
                   <span className="size-5 shrink-0" aria-hidden />
                 )}
                 <Link to="/c/$collectionId" params={{ collectionId: node.id }} className={rowClass}>
-                  <span className="truncate pl-1">{node.name}</span>
+                  <span className="min-w-0 flex-1 truncate pl-1">{node.name}</span>
+                  {node.documentCount > 0 && (
+                    <span className="font-mono text-[11px] text-status-empty">
+                      {node.documentCount}
+                    </span>
+                  )}
                 </Link>
               </div>
               {open && children.length > 0 && renderLevel(children, depth + 1)}

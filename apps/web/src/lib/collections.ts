@@ -92,3 +92,45 @@ export function subtreeIds(
   }
   return ids;
 }
+
+export type DestinationOption = {
+  id: string | null;
+  label: string;
+  depth: number;
+  /** Inside a personal tree (grants don't apply there). */
+  personal: boolean;
+};
+
+/**
+ * Collections the user can edit, as an indented list (root first when editable).
+ * `excludeId` drops a collection and its subtree (a collection can't move into itself).
+ */
+export function editableDestinations(
+  items: CollectionSummary[],
+  rootEditable: boolean,
+  userId: string,
+  excludeId?: string,
+): DestinationOption[] {
+  const excluded = excludeId ? subtreeIds(items, excludeId) : new Set<string>();
+  const byParent = childrenByParent(items);
+  const options: DestinationOption[] = rootEditable
+    ? [{ id: null, label: ROOT_NAME, depth: 0, personal: false }]
+    : [];
+  const walk = (parentId: string | null, depth: number, personal: boolean) => {
+    for (const item of byParent.get(parentId) ?? []) {
+      if (excluded.has(item.id)) continue;
+      const inPersonal = personal || item.personalOwnerId !== null;
+      if (item.level === "edit") {
+        options.push({
+          id: item.id,
+          label: collectionLabel(item, userId),
+          depth,
+          personal: inPersonal,
+        });
+      }
+      walk(item.id, depth + 1, inPersonal);
+    }
+  };
+  walk(null, rootEditable ? 1 : 0, false);
+  return options;
+}

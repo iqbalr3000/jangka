@@ -86,7 +86,9 @@ export function collectionName(graph: PermissionGraph, id: string | null): strin
 
 const levelText: Record<Level, string> = { edit: "Edit", view: "View", none: "No access" };
 
-/** "Engineering: No access → Edit on Platform · affects 2 sub-collections". */
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** "Engineering: No access → Edit on Platform · affects 2 sub-collections, 14 documents". */
 export function describeChange(
   graph: PermissionGraph,
   before: Map<string, PermissionContext>,
@@ -96,16 +98,23 @@ export function describeChange(
   const group = graph.groups.find((g) => g.id === change.groupId)?.name ?? "";
   const from = levelFor(before, change.groupId, change.collectionId);
   const to = levelFor(after, change.groupId, change.collectionId);
-  const descendants =
+  const subtree =
     change.collectionId === null
-      ? graph.collections.length
-      : subtreeIds(graph.collections, change.collectionId).size - 1;
+      ? new Set(graph.collections.map((c) => c.id))
+      : subtreeIds(graph.collections, change.collectionId);
+  const descendants = change.collectionId === null ? subtree.size : subtree.size - 1;
+  const documents =
+    graph.collections
+      .filter((c) => subtree.has(c.id))
+      .reduce((sum, c) => sum + c.documentCount, 0) +
+    (change.collectionId === null ? graph.rootDocumentCount : 0);
   const where = collectionName(graph, change.collectionId);
   const reset = change.level === null ? " (inherit)" : "";
-  const affects =
-    descendants > 0
-      ? ` · affects ${descendants} sub-collection${descendants === 1 ? "" : "s"}`
-      : "";
+  const parts = [
+    ...(descendants > 0 ? [plural(descendants, "sub-collection")] : []),
+    ...(documents > 0 ? [plural(documents, "document")] : []),
+  ];
+  const affects = parts.length > 0 ? ` · affects ${parts.join(", ")}` : "";
   return `${group}: ${levelText[from]} → ${levelText[to]}${reset} on ${where}${affects}`;
 }
 

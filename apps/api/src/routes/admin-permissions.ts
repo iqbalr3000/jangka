@@ -20,7 +20,12 @@ import { listGroups } from "./admin-groups";
 function sharedCollections(data: AccessData) {
   return [...data.rows.values()]
     .filter((row) => personalOwnerOf(data.ctx, row.id) === null && !isHidden(data, row.id))
-    .map((row) => ({ id: row.id, name: row.name, parentId: row.parentId }))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      parentId: row.parentId,
+      documentCount: data.documentCounts.get(row.id) ?? 0,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -41,6 +46,7 @@ async function graph(db: Database): Promise<PermissionGraph> {
   return {
     groups: groupList,
     collections,
+    rootDocumentCount: data.documentCounts.get(null) ?? 0,
     grants: grants.filter(
       (g) => !admins.has(g.groupId) && (g.collectionId === null || listed.has(g.collectionId)),
     ),

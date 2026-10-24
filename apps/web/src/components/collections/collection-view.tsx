@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { Folder, MoreHorizontal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { z } from "zod";
+import { DocumentTable } from "@/components/documents/document-table";
+import { NewDocumentDialog } from "@/components/documents/new-document-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +38,7 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
   const [nameTarget, setNameTarget] = useState<CollectionNameTarget | null>(null);
   const [moving, setMoving] = useState<CollectionSummary | null>(null);
   const [archiving, setArchiving] = useState<CollectionSummary | null>(null);
+  const [creatingDoc, setCreatingDoc] = useState(false);
 
   const restore = useMutation({
     mutationFn: (id: string) =>
@@ -151,6 +154,9 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
             >
               <Folder className="size-4 text-muted-foreground" aria-hidden />
               <span className="flex-1 truncate font-medium">{child.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {child.documentCount} doc{child.documentCount === 1 ? "" : "s"}
+              </span>
               {child.level !== "edit" && (
                 <span className="text-xs text-muted-foreground">
                   {levelLabels[child.level]} only
@@ -161,15 +167,33 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
         </section>
       )}
 
-      <section
-        aria-label="Documents"
-        className="blueprint-grid flex flex-col items-center justify-center gap-1 rounded-md border border-border px-6 py-14 text-center"
-      >
-        <p className="text-base font-medium">No documents yet.</p>
-        <p className="text-sm text-muted-foreground">
-          Precise specs for product & engineering teams.
-        </p>
-      </section>
+      {detail.documents.length > 0 ? (
+        <DocumentTable documents={detail.documents} />
+      ) : (
+        <section
+          aria-label="Documents"
+          className="blueprint-grid flex flex-col items-center justify-center gap-3 rounded-md border border-border px-6 py-14 text-center"
+        >
+          <div className="flex flex-col gap-1">
+            <p className="text-base font-medium">No documents yet.</p>
+            <p className="text-sm text-muted-foreground">
+              Precise specs for product & engineering teams.
+            </p>
+          </div>
+          {canEdit && !archivedAt && (
+            <Button size="sm" onClick={() => setCreatingDoc(true)}>
+              + New PRD
+            </Button>
+          )}
+        </section>
+      )}
+
+      <NewDocumentDialog
+        open={creatingDoc}
+        onOpenChange={setCreatingDoc}
+        userId={userId}
+        defaultCollectionId={collection?.id ?? null}
+      />
 
       <CollectionNameDialog target={nameTarget} onClose={() => setNameTarget(null)} />
       <MoveCollectionDialog collection={moving} userId={userId} onClose={() => setMoving(null)} />

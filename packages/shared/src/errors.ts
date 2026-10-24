@@ -15,6 +15,7 @@ export const errorCodes = [
   "rate_limited",
   "invite_invalid",
   "llm_error",
+  "revision_conflict",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

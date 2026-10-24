@@ -11,6 +11,7 @@ import { RateLimiter } from "../src/lib/rate-limit";
 import type { Logger } from "../src/logger";
 import { createPersonalCollection } from "../src/services/access";
 import { ensureSetupToken, SetupState } from "../src/services/setup";
+import { ensureBuiltinTemplates } from "../src/services/templates";
 
 export const silentLogger = pino({ level: "silent" });
 export const PUBLIC_URL = "http://jangka.test";
@@ -93,6 +94,8 @@ export const ADMIN = { name: "Ada Admin", email: "ada@acme.co", password: "admin
 
 /** Runs the real setup flow and returns the admin's session cookie. */
 export async function setupInstance(app: TestApp, db: Database): Promise<string> {
+  // Boot seeds templates; tests truncate every table, so seed again.
+  await ensureBuiltinTemplates(db);
   const token = await captureSetupToken(db);
   const res = await call(app, "POST", "/setup", {
     body: {
