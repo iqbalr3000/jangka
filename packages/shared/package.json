@@ -6,7 +6,8 @@
     "./env": "./src/env.ts",
     "./crypto": "./src/crypto.ts",
     "./errors": "./src/errors.ts",
-    "./auth": "./src/auth.ts"
+    "./auth": "./src/auth.ts",
+    "./access": "./src/access.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -3,6 +3,7 @@ import type { InviteKind } from "@jangka/shared/auth";
 import { generateToken, hashPassword, hashToken } from "@jangka/shared/crypto";
 import { AppError } from "@jangka/shared/errors";
 import { and, eq, gt, isNull } from "drizzle-orm";
+import { createPersonalCollection } from "./access";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 type Db = Database | Transaction;
@@ -66,6 +67,7 @@ export async function acceptInvite(
         .returning({ id: users.id });
       if (!user) throw new AppError("conflict", 409, "An account with this email already exists");
       userId = user.id;
+      await createPersonalCollection(tx, { id: userId, name: input.name });
     } else {
       if (!invite.userId) throw inviteInvalid();
       userId = invite.userId;

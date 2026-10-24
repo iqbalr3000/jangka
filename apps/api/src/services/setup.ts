@@ -3,6 +3,7 @@ import type { SetupRequest } from "@jangka/shared/auth";
 import { generateToken, hashPassword, hashToken, matchesTokenHash } from "@jangka/shared/crypto";
 import { AppError } from "@jangka/shared/errors";
 import { eq, sql } from "drizzle-orm";
+import { createPersonalCollection } from "./access";
 
 // Arbitrary constant, distinct from the migration lock.
 const SETUP_LOCK_KEY = 7_311_208_554n;
@@ -96,6 +97,7 @@ export async function completeSetup(
       .returning({ id: users.id });
     if (!user) throw new Error("admin user not created");
     await tx.insert(groupMembers).values({ groupId: admins.id, userId: user.id });
+    await createPersonalCollection(tx, { id: user.id, name: input.adminName });
 
     await tx
       .update(instanceSettings)

@@ -8,7 +8,20 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: BASE_URL, trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // One server and database per run: later specs build on the instance onboarding sets up.
+  projects: [
+    {
+      name: "onboarding",
+      testMatch: "onboarding.spec.ts",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "access",
+      testMatch: "access.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: {
     // Uses the production build (`pnpm build` first); output is kept so tests can read the setup token.
     command: `mkdir -p test-results && tsx reset-db.ts && node ../apps/api/dist/main.js > ${SERVER_LOG} 2>&1`,

@@ -1,16 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { CollectionPage } from "@/components/collections/collection-page";
+import { collectionItemsQuery } from "@/lib/collections";
 
 export const Route = createFileRoute("/_app/")({
   component: Home,
 });
 
 function Home() {
-  return (
-    <div className="blueprint-grid flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-      <p className="text-base font-medium">No documents yet.</p>
-      <p className="text-sm text-muted-foreground">
-        Precise specs for product & engineering teams.
-      </p>
-    </div>
-  );
+  const { me } = Route.useRouteContext();
+  return <CollectionPage query={collectionItemsQuery("root")} userId={me.user.id} />;
 }

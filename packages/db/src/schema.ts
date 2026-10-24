@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   index,
@@ -8,6 +9,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
@@ -107,5 +109,46 @@ export const invites = pgTable(
   (t) => [
     check("invites_kind", sql`${t.kind} in ('invite', 'password_reset')`),
     check("invites_reset_has_user", sql`${t.kind} = 'invite' or ${t.userId} is not null`),
+  ],
+);
+
+export const collections = pgTable(
+  "collections",
+  {
+    id: id(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => collections.id),
+    name: text("name").notNull(),
+    personalOwnerId: uuid("personal_owner_id")
+      .unique()
+      .references(() => users.id),
+    archivedAt: tz("archived_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("collections_parent_id_idx").on(t.parentId),
+    check(
+      "collections_personal_top_level",
+      sql`${t.personalOwnerId} is null or ${t.parentId} is null`,
+    ),
+  ],
+);
+
+export const collectionGrants = pgTable(
+  "collection_grants",
+  {
+    id: id(),
+    // null = the root ("Our documents").
+    collectionId: uuid("collection_id").references(() => collections.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    level: text("level", { enum: ["none", "view", "edit"] }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique("collection_grants_collection_group").on(t.collectionId, t.groupId).nullsNotDistinct(),
+    check("collection_grants_level", sql`${t.level} in ('none', 'view', 'edit')`),
   ],
 );

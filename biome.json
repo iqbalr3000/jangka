@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/*.md", "!docs", "!**/routeTree.gen.ts", "!packages/db/migrations"]
+    "includes": [
+      "**",
+      "!**/*.md",
+      "!pnpm-lock.yaml",
+      "!docs",
+      "!**/routeTree.gen.ts",
+      "!packages/db/migrations"
+    ]
   },
   "formatter": {
     "enabled": true,

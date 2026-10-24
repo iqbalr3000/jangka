@@ -13,8 +13,11 @@ import type { RateLimiter } from "./lib/rate-limit";
 import { sessionMiddleware } from "./lib/session";
 import { setupGate } from "./lib/setup-gate";
 import type { Logger } from "./logger";
+import { adminGroupRoutes } from "./routes/admin-groups";
+import { adminPermissionRoutes } from "./routes/admin-permissions";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
+import { collectionRoutes } from "./routes/collections";
 import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
 import { setupRoutes } from "./routes/setup";
@@ -93,6 +96,9 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/auth", authRoutes(routeDeps, loginLimiter));
   app.route("/api/v1/invites", inviteRoutes(routeDeps));
   app.route("/api/v1/admin", adminUserRoutes(routeDeps));
+  app.route("/api/v1/admin/groups", adminGroupRoutes(routeDeps));
+  app.route("/api/v1/admin/permissions", adminPermissionRoutes(routeDeps));
+  app.route("/api/v1/collections", collectionRoutes(routeDeps));
 
   if (webDistDir) {
     const indexHtml = readFileSync(path.join(webDistDir, "index.html"), "utf8");

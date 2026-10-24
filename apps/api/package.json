@@ -17,6 +17,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "@jangka/db": "workspace:*",
+    "@jangka/permissions": "workspace:*",
     "@jangka/shared": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
-import { isAdmin } from "../services/users";
+import { memberships } from "../services/access";
 import type { AppConfig, AppEnv, Auth } from "../types";
 
 export const SESSION_COOKIE = "jangka_session";
@@ -83,10 +83,8 @@ export function sessionMiddleware(db: Database, config: AppConfig) {
           setSessionCookie(c, token, config);
         }
         const { id, name, email } = row.user;
-        c.set("auth", {
-          sessionId: row.sessionId,
-          user: { id, name, email, isAdmin: await isAdmin(db, id) },
-        });
+        const { groupIds, isAdmin } = await memberships(db, id);
+        c.set("auth", { sessionId: row.sessionId, user: { id, name, email, isAdmin }, groupIds });
       }
     }
     await next();

@@ -14,9 +14,15 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
+import { Route as AppArchivedRouteImport } from './routes/_app/archived'
+import { Route as AppPersonalRouteImport } from './routes/_app/personal'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminPermissionsRouteImport } from './routes/_app/admin/permissions'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
+import { Route as AppCCollectionIdRouteImport } from './routes/_app/c.$collectionId'
+import { Route as AppAdminGroupsIndexRouteImport } from './routes/_app/admin/groups.index'
+import { Route as AppAdminGroupsGroupIdRouteImport } from './routes/_app/admin/groups.$groupId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -42,6 +48,16 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppArchivedRoute = AppArchivedRouteImport.update({
+  id: '/archived',
+  path: '/archived',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPersonalRoute = AppPersonalRouteImport.update({
+  id: '/personal',
+  path: '/personal',
+  getParentRoute: () => AppRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -52,9 +68,29 @@ const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminPermissionsRoute = AppAdminPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppCCollectionIdRoute = AppCCollectionIdRouteImport.update({
+  id: '/c/$collectionId',
+  path: '/c/$collectionId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminGroupsIndexRoute = AppAdminGroupsIndexRouteImport.update({
+  id: '/groups/',
+  path: '/groups/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminGroupsGroupIdRoute = AppAdminGroupsGroupIdRouteImport.update({
+  id: '/groups/$groupId',
+  path: '/groups/$groupId',
   getParentRoute: () => AppAdminRoute,
 } as any)
 
@@ -63,17 +99,29 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AppAdminRouteWithChildren
+  '/archived': typeof AppArchivedRoute
+  '/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/c/$collectionId': typeof AppCCollectionIdRoute
   '/admin/': typeof AppAdminIndexRoute
+  '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/admin/groups/': typeof AppAdminGroupsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/archived': typeof AppArchivedRoute
+  '/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
+  '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/c/$collectionId': typeof AppCCollectionIdRoute
   '/admin': typeof AppAdminIndexRoute
+  '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/admin/groups': typeof AppAdminGroupsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -81,10 +129,16 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/_app/admin': typeof AppAdminRouteWithChildren
+  '/_app/archived': typeof AppArchivedRoute
+  '/_app/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/permissions': typeof AppAdminPermissionsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
+  '/_app/c/$collectionId': typeof AppCCollectionIdRoute
   '/_app/admin/': typeof AppAdminIndexRoute
+  '/_app/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/_app/admin/groups/': typeof AppAdminGroupsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -93,21 +147,45 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/admin'
+    | '/archived'
+    | '/personal'
     | '/invite/$token'
+    | '/admin/permissions'
     | '/admin/users'
+    | '/c/$collectionId'
     | '/admin/'
+    | '/admin/groups/$groupId'
+    | '/admin/groups/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/setup' | '/invite/$token' | '/' | '/admin/users' | '/admin'
+  to:
+    | '/login'
+    | '/setup'
+    | '/archived'
+    | '/personal'
+    | '/invite/$token'
+    | '/'
+    | '/admin/permissions'
+    | '/admin/users'
+    | '/c/$collectionId'
+    | '/admin'
+    | '/admin/groups/$groupId'
+    | '/admin/groups'
   id:
     | '__root__'
     | '/_app'
     | '/login'
     | '/setup'
     | '/_app/admin'
+    | '/_app/archived'
+    | '/_app/personal'
     | '/invite/$token'
     | '/_app/'
+    | '/_app/admin/permissions'
     | '/_app/admin/users'
+    | '/_app/c/$collectionId'
     | '/_app/admin/'
+    | '/_app/admin/groups/$groupId'
+    | '/_app/admin/groups/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -154,6 +232,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/archived': {
+      id: '/_app/archived'
+      path: '/archived'
+      fullPath: '/archived'
+      preLoaderRoute: typeof AppArchivedRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/personal': {
+      id: '/_app/personal'
+      path: '/personal'
+      fullPath: '/personal'
+      preLoaderRoute: typeof AppPersonalRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -168,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminIndexRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/permissions': {
+      id: '/_app/admin/permissions'
+      path: '/permissions'
+      fullPath: '/admin/permissions'
+      preLoaderRoute: typeof AppAdminPermissionsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/users': {
       id: '/_app/admin/users'
       path: '/users'
@@ -175,17 +274,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminUsersRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/c/$collectionId': {
+      id: '/_app/c/$collectionId'
+      path: '/c/$collectionId'
+      fullPath: '/c/$collectionId'
+      preLoaderRoute: typeof AppCCollectionIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/groups/': {
+      id: '/_app/admin/groups/'
+      path: '/groups'
+      fullPath: '/admin/groups/'
+      preLoaderRoute: typeof AppAdminGroupsIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/groups/$groupId': {
+      id: '/_app/admin/groups/$groupId'
+      path: '/groups/$groupId'
+      fullPath: '/admin/groups/$groupId'
+      preLoaderRoute: typeof AppAdminGroupsGroupIdRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
 interface AppAdminRouteChildren {
+  AppAdminPermissionsRoute: typeof AppAdminPermissionsRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
+  AppAdminGroupsGroupIdRoute: typeof AppAdminGroupsGroupIdRoute
+  AppAdminGroupsIndexRoute: typeof AppAdminGroupsIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminPermissionsRoute: AppAdminPermissionsRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
+  AppAdminGroupsGroupIdRoute: AppAdminGroupsGroupIdRoute,
+  AppAdminGroupsIndexRoute: AppAdminGroupsIndexRoute,
 }
 
 const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
@@ -194,12 +320,18 @@ const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRouteWithChildren
+  AppArchivedRoute: typeof AppArchivedRoute
+  AppPersonalRoute: typeof AppPersonalRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCCollectionIdRoute: typeof AppCCollectionIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRouteWithChildren,
+  AppArchivedRoute: AppArchivedRoute,
+  AppPersonalRoute: AppPersonalRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCCollectionIdRoute: AppCCollectionIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

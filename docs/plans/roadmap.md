@@ -5,10 +5,10 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 
 | #   | Feature          | Phase | Spec                       | Status |
 | --- | ---------------- | ----- | -------------------------- | ------ |
-| 1   | foundation       | 1     | [spec](spec-foundation.md) | building |
-| 2   | auth             | 1     | [spec](spec-auth.md) | building |
-| 3   | access           | 1     | —                          | todo   |
-| 4   | llm-providers    | 1     | —                          | todo   |
+| 1   | foundation       | 1     | [spec](spec-foundation.md) | done   |
+| 2   | auth             | 1     | [spec](spec-auth.md)       | done   |
+| 3   | access           | 1     | [spec](spec-access.md)     | done   |
+| 4   | llm-providers    | 1     | [spec](spec-llm-providers.md) | spec   |
 | 5   | document         | 1     | —                          | todo   |
 | 6   | assistant        | 1     | —                          | todo   |
 | 7   | export           | 1     | —                          | todo   |
@@ -22,6 +22,8 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 
 ## Completed work
 
-Cutoff: 2026-10-23
+Cutoff: 2026-10-24
 
-_Nothing completed yet._
+- **foundation** — monorepo, env validation, crypto util, Drizzle base, error shape, `audit()` no-op, Docker image + compose, SPA shell + design tokens.
+- **auth** — setup wizard (token + advisory lock), password login, rolling sessions, CSRF origin check, `/auth/me`, invite + password-reset links, admin users page, Playwright e2e.
+- **access** — `packages/permissions` resolver, groups + membership, collection tree with personal collections, archive/restore, grants, permissions matrix + access check, collection-based e2e.

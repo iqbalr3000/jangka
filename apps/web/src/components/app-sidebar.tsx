@@ -1,7 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Plus } from "lucide-react";
+import { useState } from "react";
+import { collectionTreeQuery, ROOT_NAME } from "@/lib/collections";
 import { modKeyLabel } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
+import { CollectionTree } from "./collection-tree";
+import {
+  CollectionNameDialog,
+  type CollectionNameTarget,
+} from "./collections/collection-name-dialog";
 import type { ShellOrg } from "./shell-types";
 
 export type ShellSection = "documents" | "admin";
@@ -19,10 +27,26 @@ const navItemClass =
 const sectionLabelClass =
   "font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground";
 
-// Further admin pages (groups, permissions, LLM, auth, settings) are added by their features.
-const adminLinks = [{ to: "/admin/users", label: "Users & invites" }] as const;
+// Further admin pages (LLM, auth, settings) are added by their features.
+const adminLinks = [
+  { to: "/admin/users", label: "Users & invites" },
+  { to: "/admin/groups", label: "Groups" },
+  { to: "/admin/permissions", label: "Permissions" },
+] as const;
+
+function NavIcon() {
+  return (
+    <span
+      className="size-[11px] shrink-0 rounded-[2px] border-[1.5px] border-current opacity-70"
+      aria-hidden
+    />
+  );
+}
 
 function DocumentsNav({ collapsed }: { collapsed: boolean }) {
+  const tree = useQuery(collectionTreeQuery);
+  const [creating, setCreating] = useState<CollectionNameTarget | null>(null);
+
   return (
     <>
       <div className="flex flex-col gap-px px-2 pt-2">
@@ -32,21 +56,39 @@ function DocumentsNav({ collapsed }: { collapsed: boolean }) {
           className={navItemClass}
           title={collapsed ? "Home" : undefined}
         >
-          <span
-            className="size-[11px] shrink-0 rounded-[2px] border-[1.5px] border-current opacity-70"
-            aria-hidden
-          />
+          <NavIcon />
           {!collapsed && "Home"}
+        </Link>
+        <Link to="/personal" className={navItemClass} title={collapsed ? "Personal" : undefined}>
+          <NavIcon />
+          {!collapsed && "Personal"}
         </Link>
       </div>
       {!collapsed && (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           <div className="flex items-center justify-between px-[18px] pt-5 pb-2">
             <span className={sectionLabelClass}>COLLECTIONS</span>
+            {tree.data?.rootLevel === "edit" && (
+              <button
+                type="button"
+                aria-label="New collection"
+                onClick={() =>
+                  setCreating({ kind: "create", parentId: null, parentName: ROOT_NAME })
+                }
+                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-hover"
+              >
+                <Plus className="size-3.5" />
+              </button>
+            )}
           </div>
-          {/* Personal + collection tree arrive with feature `access`. */}
-          <p className="px-[18px] text-xs text-muted-foreground">No collections yet.</p>
-        </>
+          {tree.data && <CollectionTree items={tree.data.items} />}
+          <div className="px-2 pt-3">
+            <Link to="/archived" className={cn(navItemClass, "text-xs text-muted-foreground")}>
+              Archived
+            </Link>
+          </div>
+          <CollectionNameDialog target={creating} onClose={() => setCreating(null)} />
+        </div>
       )}
     </>
   );
@@ -97,12 +139,16 @@ export function AppSidebar({ org, section, collapsed, onToggle }: AppSidebarProp
       )}
 
       {section === "admin" ? (
-        <AdminNav collapsed={collapsed} />
+        <>
+          <AdminNav collapsed={collapsed} />
+          <div className="flex-1" />
+        </>
       ) : (
-        <DocumentsNav collapsed={collapsed} />
+        <>
+          <DocumentsNav collapsed={collapsed} />
+          {collapsed && <div className="flex-1" />}
+        </>
       )}
-
-      <div className="flex-1" />
 
       <div className="border-t border-border p-2">
         <button

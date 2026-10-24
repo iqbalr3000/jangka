@@ -6,6 +6,7 @@ import pg from "pg";
 import pino from "pino";
 import { createApp } from "../src/app";
 import { RateLimiter } from "../src/lib/rate-limit";
+import { createPersonalCollection } from "../src/services/access";
 import { ensureSetupToken, SetupState } from "../src/services/setup";
 
 export const silentLogger = pino({ level: "silent" });
@@ -106,6 +107,7 @@ export async function createUser(
     })
     .returning({ id: users.id });
   if (!user) throw new Error("user not created");
+  await createPersonalCollection(db, { id: user.id, name: input.name });
   if (input.admin) {
     const [admins] = await db.select().from(groups).where(eq(groups.systemKey, "admins"));
     if (!admins) throw new Error("admins group missing — run setupInstance first");

@@ -6,18 +6,13 @@ import {
   type Transaction,
 } from "@jangka/db";
 import type { MeResponse, SessionUser } from "@jangka/shared/auth";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { memberships } from "./access";
 
 type Db = Database | Transaction;
 
 export async function isAdmin(db: Db, userId: string): Promise<boolean> {
-  const rows = await db
-    .select({ userId: groupMembers.userId })
-    .from(groupMembers)
-    .innerJoin(groups, eq(groups.id, groupMembers.groupId))
-    .where(and(eq(groups.systemKey, "admins"), eq(groupMembers.userId, userId)))
-    .limit(1);
-  return rows.length > 0;
+  return (await memberships(db, userId)).isAdmin;
 }
 
 export async function adminUserIds(db: Db): Promise<Set<string>> {
