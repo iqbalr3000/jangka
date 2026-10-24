@@ -30,6 +30,10 @@ export const instanceSettings = pgTable(
     orgName: text("org_name"),
     setupCompletedAt: tz("setup_completed_at"),
     setupTokenHash: text("setup_token_hash"),
+    defaultLlmProviderId: uuid("default_llm_provider_id").references(() => llmProviders.id, {
+      onDelete: "set null",
+    }),
+    defaultModel: text("default_model"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -150,5 +154,29 @@ export const collectionGrants = pgTable(
   (t) => [
     unique("collection_grants_collection_group").on(t.collectionId, t.groupId).nullsNotDistinct(),
     check("collection_grants_level", sql`${t.level} in ('none', 'view', 'edit')`),
+  ],
+);
+
+export const llmProviders = pgTable(
+  "llm_providers",
+  {
+    id: id(),
+    kind: text("kind", { enum: ["anthropic", "openai", "gemini", "openrouter", "fake"] }).notNull(),
+    label: text("label").notNull(),
+    // Null only for the fake provider. Encrypted with MASTER_KEY (packages/shared/crypto).
+    apiKeyEnc: text("api_key_enc"),
+    keyLast4: text("key_last4"),
+    baseUrl: text("base_url"),
+    enabled: boolean("enabled").notNull().default(true),
+    lastTestedAt: tz("last_tested_at"),
+    lastTestError: text("last_test_error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      "llm_providers_kind",
+      sql`${t.kind} in ('anthropic', 'openai', 'gemini', 'openrouter', 'fake')`,
+    ),
   ],
 );

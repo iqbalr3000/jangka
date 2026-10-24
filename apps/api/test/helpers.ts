@@ -1,11 +1,14 @@
+import { randomBytes } from "node:crypto";
 import { createDb, type Database, groupMembers, groups, users } from "@jangka/db";
 import { requireTestDatabaseUrl } from "@jangka/db/testing";
+import type { ProviderFactory } from "@jangka/llm";
 import { hashPassword } from "@jangka/shared/crypto";
 import { eq } from "drizzle-orm";
 import pg from "pg";
 import pino from "pino";
 import { createApp } from "../src/app";
 import { RateLimiter } from "../src/lib/rate-limit";
+import type { Logger } from "../src/logger";
 import { createPersonalCollection } from "../src/services/access";
 import { ensureSetupToken, SetupState } from "../src/services/setup";
 
@@ -25,13 +28,25 @@ export function testDatabase() {
   return createDb(requireTestDatabaseUrl());
 }
 
-export function buildApp(db: Database, pool: pg.Pool) {
+export const TEST_MASTER_KEY = randomBytes(32);
+
+export function buildApp(
+  db: Database,
+  pool: pg.Pool,
+  options: { logger?: Logger; llm?: ProviderFactory; enableFakeLlm?: boolean } = {},
+) {
   const setupState = new SetupState(db);
   const app = createApp({
     db,
     pool,
-    logger: silentLogger,
-    config: { publicUrl: PUBLIC_URL, sessionTtlDays: 30 },
+    logger: options.logger ?? silentLogger,
+    llm: options.llm,
+    config: {
+      publicUrl: PUBLIC_URL,
+      sessionTtlDays: 30,
+      masterKey: TEST_MASTER_KEY,
+      enableFakeLlm: options.enableFakeLlm ?? true,
+    },
     setupState,
     loginLimiter: new RateLimiter(10, 15 * 60_000),
   });

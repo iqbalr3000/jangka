@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CollectionPage } from "@/components/collections/collection-page";
+import { LlmBanner } from "@/components/llm/llm-banner";
 import { collectionItemsQuery } from "@/lib/collections";
 
 export const Route = createFileRoute("/_app/")({
@@ -8,5 +9,10 @@ export const Route = createFileRoute("/_app/")({
 
 function Home() {
   const { me } = Route.useRouteContext();
-  return <CollectionPage query={collectionItemsQuery("root")} userId={me.user.id} />;
+  return (
+    <>
+      {me.user.isAdmin && <LlmBanner />}
+      <CollectionPage query={collectionItemsQuery("root")} userId={me.user.id} />
+    </>
+  );
 }

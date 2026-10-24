@@ -25,6 +25,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  ENABLE_FAKE_LLM: z.stringbool({ error: "must be true or false" }).default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;

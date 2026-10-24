@@ -8,7 +8,7 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 1   | foundation       | 1     | [spec](spec-foundation.md) | done   |
 | 2   | auth             | 1     | [spec](spec-auth.md)       | done   |
 | 3   | access           | 1     | [spec](spec-access.md)     | done   |
-| 4   | llm-providers    | 1     | [spec](spec-llm-providers.md) | spec   |
+| 4   | llm-providers    | 1     | [spec](spec-llm-providers.md) | building |
 | 5   | document         | 1     | —                          | todo   |
 | 6   | assistant        | 1     | —                          | todo   |
 | 7   | export           | 1     | —                          | todo   |

@@ -21,6 +21,12 @@ export default defineConfig({
       dependencies: ["onboarding"],
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "llm",
+      testMatch: "llm.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
   ],
   webServer: {
     // Uses the production build (`pnpm build` first); output is kept so tests can read the setup token.

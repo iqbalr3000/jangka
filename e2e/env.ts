@@ -26,5 +26,6 @@ export function serverEnv(): Record<string, string> {
     PORT: String(PORT),
     NODE_ENV: "production",
     LOG_LEVEL: "warn",
+    ENABLE_FAKE_LLM: "true",
   };
 }

@@ -4,3 +4,6 @@ packages:
   - e2e
 allowBuilds:
   esbuild: true
+  # Dev-only scripts, not needed at runtime.
+  "@google/genai": false
+  protobufjs: false

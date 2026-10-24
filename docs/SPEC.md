@@ -50,6 +50,7 @@ Browser (SPA) ──HTTP/SSE──> api (Hono) ──> Postgres
 | `APP_ROLE`         | no       | `api` / `worker` / `all` (default `all`)                              |
 | `LOG_LEVEL`        | no       | default `info`                                                        |
 | `SESSION_TTL_DAYS` | no       | default 30                                                            |
+| `ENABLE_FAKE_LLM`  | no       | default `false`; offers the deterministic fake provider (dev, e2e)    |
 
 ## 3. Data model
 

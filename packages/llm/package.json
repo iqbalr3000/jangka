@@ -1,0 +1,18 @@
+{
+  "name": "@jangka/llm",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
+    "@google/genai": "^2.31.0",
+    "openai": "^7.43.0",
+    "zod": "^4.6.7"
+  }
+}

@@ -27,11 +27,12 @@ const navItemClass =
 const sectionLabelClass =
   "font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground";
 
-// Further admin pages (LLM, auth, settings) are added by their features.
+// Further admin pages (auth, settings) are added by their features.
 const adminLinks = [
   { to: "/admin/users", label: "Users & invites" },
   { to: "/admin/groups", label: "Groups" },
   { to: "/admin/permissions", label: "Permissions" },
+  { to: "/admin/llm", label: "LLM providers" },
 ] as const;
 
 function NavIcon() {

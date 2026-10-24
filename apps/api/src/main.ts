@@ -43,7 +43,12 @@ const app = createApp({
   db,
   pool,
   logger,
-  config: { publicUrl: env.PUBLIC_URL, sessionTtlDays: env.SESSION_TTL_DAYS },
+  config: {
+    publicUrl: env.PUBLIC_URL,
+    sessionTtlDays: env.SESSION_TTL_DAYS,
+    masterKey: env.MASTER_KEY,
+    enableFakeLlm: env.ENABLE_FAKE_LLM,
+  },
   setupState: new SetupState(db),
   loginLimiter: new RateLimiter(10, 15 * 60_000),
   webDistDir: env.NODE_ENV === "production" ? webDistDir : undefined,

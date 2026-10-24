@@ -1,17 +1,19 @@
 import { meResponse, passwordSchema, setupRequest } from "@jangka/shared/auth";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 import { CopyButton } from "@/components/copy-button";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
+import { AddProviderFlow } from "@/components/llm/add-provider-flow";
 import { PublicPage } from "@/components/public-page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Wordmark } from "@/components/wordmark";
 import { ApiError, apiFetch } from "@/lib/api";
 import { errorMessage, type FieldErrors, fieldErrors } from "@/lib/form-errors";
+import { llmProvidersQuery } from "@/lib/llm";
 import { meQuery, setupStatusQuery } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +25,7 @@ export const Route = createFileRoute("/setup")({
   component: SetupPage,
 });
 
-// The optional LLM step is added by feature `llm-providers`.
-const steps = ["Token", "Organization", "Admin"] as const;
+const steps = ["Token", "Organization", "Admin", "LLM (optional)"] as const;
 const LOG_COMMAND = 'docker logs jangka | grep "SETUP TOKEN"';
 
 const adminStep = setupRequest
@@ -77,6 +78,10 @@ function SetupPage() {
     password: "",
     confirm: "",
   });
+
+  // Step 4 runs signed in as the new admin, so admin endpoints work.
+  const llmProviders = useQuery({ ...llmProvidersQuery, enabled: step === 3 });
+  const finish = () => navigate({ to: "/" });
 
   const update = (field: keyof typeof form) => (event: { target: { value: string } }) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -152,7 +157,7 @@ function SetupPage() {
       if (!me) return;
       queryClient.setQueryData(setupStatusQuery.queryKey, { completed: true });
       queryClient.setQueryData(meQuery.queryKey, me);
-      await navigate({ to: "/" });
+      setStep(3);
     });
   }
 
@@ -280,6 +285,31 @@ function SetupPage() {
               </Button>
             </div>
           </form>
+        )}
+
+        {step === 3 && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="text-xl font-semibold">Connect an LLM</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Jangka drafts with your own provider key. You can do this later in Admin → LLM
+                providers.
+              </p>
+            </div>
+            {llmProviders.error && <ErrorBanner>{errorMessage(llmProviders.error)}</ErrorBanner>}
+            {llmProviders.data && (
+              <AddProviderFlow
+                fakeEnabled={llmProviders.data.fakeEnabled}
+                requireDefault
+                onSaved={() => void finish()}
+                secondaryAction={
+                  <Button type="button" variant="ghost" onClick={() => void finish()}>
+                    Skip for now
+                  </Button>
+                }
+              />
+            )}
+          </div>
         )}
       </div>
     </PublicPage>

@@ -1,18 +1,5 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
-
-// Accounts created by onboarding.spec.ts.
-const ADMIN = { email: "ada@acme.co", password: "admin-password-123" };
-const MEMBER = { email: "rina@acme.co", password: "rina-password-123" };
-
-async function signIn(browser: Browser, account: { email: string; password: string }) {
-  const page = await (await browser.newContext()).newPage();
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Password").fill(account.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
-  return page;
-}
+import { expect, type Page, test } from "@playwright/test";
+import { ADMIN, MEMBER, signIn } from "../session";
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Main" });
 

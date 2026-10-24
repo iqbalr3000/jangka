@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import type { Database } from "@jangka/db";
+import { createProvider, type ProviderFactory } from "@jangka/llm";
 import { AppError, type ErrorCode, type ErrorResponse } from "@jangka/shared/errors";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -14,12 +15,14 @@ import { sessionMiddleware } from "./lib/session";
 import { setupGate } from "./lib/setup-gate";
 import type { Logger } from "./logger";
 import { adminGroupRoutes } from "./routes/admin-groups";
+import { adminLlmRoutes } from "./routes/admin-llm";
 import { adminPermissionRoutes } from "./routes/admin-permissions";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
 import { collectionRoutes } from "./routes/collections";
 import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
+import { llmRoutes } from "./routes/llm";
 import { setupRoutes } from "./routes/setup";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
@@ -31,6 +34,8 @@ export type AppDeps = {
   config: AppConfig;
   setupState: SetupState;
   loginLimiter: RateLimiter;
+  /** Defaults to the real adapters. */
+  llm?: ProviderFactory;
   /** Built SPA directory; set in production only (dev uses the Vite server). */
   webDistDir?: string;
 };
@@ -49,6 +54,7 @@ function errorBody(code: string, message: string, details?: unknown): ErrorRespo
 
 export function createApp(deps: AppDeps) {
   const { db, pool, logger, config, setupState, loginLimiter, webDistDir } = deps;
+  const llm = deps.llm ?? createProvider;
   const app = new Hono<AppEnv>();
 
   app.use(requestId());
@@ -90,7 +96,7 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", setupGate(setupState));
   app.use("/api/*", sessionMiddleware(db, config));
 
-  const routeDeps = { db, config };
+  const routeDeps = { db, config, logger, llm };
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth", authRoutes(routeDeps, loginLimiter));
@@ -98,6 +104,8 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/admin", adminUserRoutes(routeDeps));
   app.route("/api/v1/admin/groups", adminGroupRoutes(routeDeps));
   app.route("/api/v1/admin/permissions", adminPermissionRoutes(routeDeps));
+  app.route("/api/v1/admin", adminLlmRoutes(routeDeps));
+  app.route("/api/v1/llm", llmRoutes(routeDeps));
   app.route("/api/v1/collections", collectionRoutes(routeDeps));
 
   if (webDistDir) {
