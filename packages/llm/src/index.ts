@@ -4,7 +4,7 @@ import { geminiProvider } from "./adapters/gemini";
 import { openAICompatibleProvider } from "./adapters/openai";
 import type { LLMProvider, ProviderConfig } from "./types";
 
-export { FAKE_INVALID_KEY, fakeResponses } from "./adapters/fake";
+export { FAKE_INVALID_KEY, FAKE_SLOW_MARKER, fakeResponses } from "./adapters/fake";
 export { LLMError, type LLMErrorCode, llmErrorCodes } from "./errors";
 export * from "./types";
 

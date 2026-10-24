@@ -198,7 +198,7 @@ export function documentRoutes({ db }: RouteDeps) {
       async (c) => {
         const auth = requireAuth(c);
         const { id, key } = c.req.valid("param");
-        const { content, revision } = c.req.valid("json");
+        const { content, revision, source } = c.req.valid("json");
         const data = await access(c);
         const row = await viewableDocument(db, data, id);
         requireDocEdit(data, row);
@@ -207,6 +207,7 @@ export function documentRoutes({ db }: RouteDeps) {
           content,
           revision,
           userId: auth.user.id,
+          source,
         });
         const current = await sectionByKey(db, row, key);
         if (result === "conflict") {

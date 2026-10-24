@@ -37,6 +37,8 @@ type SectionEditorProps = {
   editable: boolean;
   onSaved: (section: Section) => void;
   onSaveState: (key: string, state: SaveState) => void;
+  /** Unsaved starting content (e.g. "Edit before accepting"); saved like a human edit. */
+  seed?: DocNode;
 };
 
 type ToolbarButton = { label: string; icon: LucideIcon; active?: boolean; run: () => void };
@@ -138,6 +140,7 @@ export function SectionEditor({
   editable,
   onSaved,
   onSaveState,
+  seed,
 }: SectionEditorProps) {
   const revision = useRef(section.revision);
   const pending = useRef<DocNode | null>(null);
@@ -195,7 +198,7 @@ export function SectionEditor({
 
   const editor = useEditor({
     extensions: sectionExtensions(PLACEHOLDER),
-    content: section.content,
+    content: seed ?? section.content,
     editable,
     immediatelyRender: true,
     editorProps: {
@@ -235,6 +238,15 @@ export function SectionEditor({
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable, false);
   }, [editor, editable]);
+
+  // A seed is an edit the user hasn't saved yet: queue it like one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once for the seed the editor mounted with
+  useEffect(() => {
+    if (!seed) return;
+    pending.current = seed;
+    report("saving");
+    timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
+  }, []);
 
   // Don't lose the last keystrokes when leaving the page.
   useEffect(() => () => void flush(), [flush]);

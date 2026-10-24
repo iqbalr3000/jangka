@@ -224,6 +224,8 @@ export const moveDocumentRequest = z.object({ collectionId: z.uuid().nullable() 
 export const saveSectionRequest = z.object({
   content: docContent,
   revision: z.number().int().min(0),
+  /** "llm" when accepting an assistant revision: always versioned as such. */
+  source: z.enum(["human", "llm"]).optional(),
 });
 
 /** `details` of `409 revision_conflict`. */

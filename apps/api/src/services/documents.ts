@@ -18,7 +18,7 @@ import {
   type Section,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AccessData, isHidden, resolveDocLevel } from "./access";
 import { definitionOf } from "./templates";
 
@@ -172,10 +172,18 @@ export async function createDocumentSections(
   );
 }
 
-type SaveInput = { content: DocNode; revision: number; userId: string };
+type SaveInput = {
+  content: DocNode;
+  revision: number;
+  userId: string;
+  /** LLM writes (drafts, accepted revisions) are always versioned. */
+  source?: "human" | "llm";
+  /** From the assistant's completeness check; human saves derive it from the content. */
+  completeness?: Completeness;
+};
 
 /**
- * Optimistic-locked human save. Versions are per editing session: a new session versions the
+ * Optimistic-locked save. Human versions are per editing session: a new session versions the
  * current (not yet versioned) state first, so each session's end state survives in history.
  * Returns "conflict" when `revision` is stale.
  */
@@ -201,7 +209,9 @@ export async function saveSection(
       .orderBy(desc(sectionVersions.revision))
       .limit(1);
     const now = Date.now();
+    const source = input.source ?? "human";
     const newSession =
+      source === "llm" ||
       latest?.source !== "human" ||
       latest.createdBy !== input.userId ||
       now - latest.createdAt.getTime() > VERSION_SESSION_MS;
@@ -221,7 +231,7 @@ export async function saveSection(
         sectionId: section.id,
         revision: nextRevision,
         content: input.content,
-        source: "human",
+        source,
         createdBy: input.userId,
       });
     }
@@ -231,16 +241,16 @@ export async function saveSection(
       .set({
         content: input.content,
         contentMd: toMarkdown(input.content),
-        completeness: completenessOf(input.content),
+        completeness: isBlankDoc(input.content)
+          ? "empty"
+          : (input.completeness ?? completenessOf(input.content)),
         revision: nextRevision,
         updatedBy: input.userId,
-        updatedAt: new Date(now),
+        // Database clock, like the default timestamps it's compared with.
+        updatedAt: sql`now()`,
       })
       .where(eq(documentSections.id, section.id));
-    await tx
-      .update(documents)
-      .set({ updatedAt: new Date(now) })
-      .where(eq(documents.id, documentId));
+    await tx.update(documents).set({ updatedAt: sql`now()` }).where(eq(documents.id, documentId));
     return "saved";
   });
 }

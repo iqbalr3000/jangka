@@ -276,3 +276,50 @@ export const sectionVersions = pgTable(
     check("section_versions_source", sql`${t.source} in ('llm', 'human')`),
   ],
 );
+
+/** One shared thread per document. */
+export const chatThreads = pgTable("chat_threads", {
+  id: id(),
+  documentId: uuid("document_id")
+    .notNull()
+    .unique()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: id(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => chatThreads.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "assistant"] }).notNull(),
+    kind: text("kind", { enum: ["chat", "draft", "revise"] }).notNull(),
+    content: text("content").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    // Stopped by the user or cut off by a provider error; content is what arrived.
+    interrupted: boolean("interrupted").notNull().default(false),
+    providerKind: text("provider_kind"),
+    model: text("model"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("chat_messages_thread_id_idx").on(t.threadId),
+    check("chat_messages_role", sql`${t.role} in ('user', 'assistant')`),
+    check("chat_messages_kind", sql`${t.kind} in ('chat', 'draft', 'revise')`),
+  ],
+);
+
+export const interviewStates = pgTable("interview_states", {
+  documentId: uuid("document_id")
+    .primaryKey()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  // InterviewState (packages/shared/assistant), normalized to every template section.
+  state: jsonb("state").notNull(),
+  updatedAt: updatedAt(),
+});

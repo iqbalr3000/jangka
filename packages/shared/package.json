@@ -9,7 +9,8 @@
     "./auth": "./src/auth.ts",
     "./access": "./src/access.ts",
     "./llm": "./src/llm.ts",
-    "./document": "./src/document.ts"
+    "./document": "./src/document.ts",
+    "./assistant": "./src/assistant.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

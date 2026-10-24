@@ -16,6 +16,9 @@ export const errorCodes = [
   "invite_invalid",
   "llm_error",
   "revision_conflict",
+  "llm_not_configured",
+  "generation_in_progress",
+  "coverage_incomplete",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

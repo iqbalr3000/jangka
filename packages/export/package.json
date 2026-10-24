@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jangka/shared": "workspace:*"
+    "@jangka/shared": "workspace:*",
+    "marked": "^18.1.1"
   }
 }

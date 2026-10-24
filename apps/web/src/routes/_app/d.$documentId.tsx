@@ -1,15 +1,35 @@
-import type { DocumentDetail, Section } from "@jangka/shared/document";
+import { fromMarkdown } from "@jangka/export";
+import {
+  type DocNode,
+  type DocumentDetail,
+  type Section,
+  section as sectionSchema,
+} from "@jangka/shared/document";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
-import { type SaveState, SectionEditor } from "@/components/documents/section-editor";
+import { SectionBlock } from "@/components/documents/section-block";
+import type { SaveState } from "@/components/documents/section-editor";
 import { SectionOutline } from "@/components/documents/section-outline";
-import { SectionStatusIcon } from "@/components/documents/section-status-icon";
 import { ErrorBanner } from "@/components/error-banner";
-import { ApiError } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ApiError, apiFetch } from "@/lib/api";
+import { chatQuery } from "@/lib/assistant";
 import { documentQuery, sectionAnchor } from "@/lib/documents";
 import { errorMessage } from "@/lib/form-errors";
+import { llmStatusQuery } from "@/lib/llm";
+import { usePersistentState } from "@/lib/persistent-state";
+import { useAssistant } from "@/lib/use-assistant";
 
 export const Route = createFileRoute("/_app/d/$documentId")({
   component: DocumentRoute,
@@ -47,12 +67,26 @@ function DocumentRoute() {
   return <DocumentWorkspace key={documentId} detail={detail.data} userId={me.user.id} />;
 }
 
+type DraftConfirm = { targets: string[]; sections?: string[]; message: string };
+
 function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId: string }) {
   const queryClient = useQueryClient();
+  const { me } = Route.useRouteContext();
   const { document: doc } = detail;
   const editable = detail.level === "edit";
   const states = useRef(new Map<string, SaveState>());
   const [save, setSave] = useState<SaveSummary>({ state: "idle", at: null });
+  // Bumped to remount a section's editor with content written outside it (drafts, accepts).
+  const [generations, setGenerations] = useState<Record<string, number>>({});
+  const [seeds, setSeeds] = useState<Record<string, DocNode>>({});
+  const [accepted, setAccepted] = useState<Record<string, DocNode>>({});
+  const [composer, setComposer] = useState("");
+  const [confirm, setConfirm] = useState<DraftConfirm | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
+  const llmStatus = useQuery(llmStatusQuery);
+  const chat = useQuery(chatQuery(doc.id));
+  const llmConfigured = llmStatus.data?.configured ?? false;
 
   const onSaveState = useCallback((key: string, state: SaveState) => {
     states.current.set(key, state);
@@ -85,49 +119,252 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     [queryClient, doc.id],
   );
 
+  const replaceSection = useCallback(
+    (saved: Section) => {
+      onSaved(saved);
+      setGenerations((g) => ({ ...g, [saved.key]: (g[saved.key] ?? 0) + 1 }));
+    },
+    [onSaved],
+  );
+
+  const assistant = useAssistant(doc.id, replaceSection);
+  const running = assistant.running !== null;
+  const canGenerate = editable && llmConfigured && !running;
+
+  const pendingDraft = new Set(
+    assistant.draft
+      ? assistant.draft.targets.filter((key) => !assistant.draft?.finished.includes(key))
+      : [],
+  );
+  const outlineLabels = Object.fromEntries(
+    [...pendingDraft].map((key) => [key, key === assistant.draft?.current ? "Drafting" : "Queued"]),
+  );
+
+  // Esc stops, ⌘. toggles the assistant panel.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && running) assistant.stop();
+      if (event.key === "." && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setPanel(panel === "open" ? "closed" : "open");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [running, assistant.stop, panel, setPanel]);
+
+  function coverageOf(key: string) {
+    return chat.data?.state?.sections.find((s) => s.key === key)?.coverage ?? "missing";
+  }
+
+  function draftAll() {
+    const targets = detail.sections.filter((s) => s.completeness === "empty").map((s) => s.key);
+    const missing = detail.sections.filter(
+      (s) => s.required && targets.includes(s.key) && coverageOf(s.key) === "missing",
+    );
+    if (missing.length > 0) {
+      setConfirm({
+        targets,
+        message: `${missing.length} required section${missing.length === 1 ? "" : "s"} lack information and will stay empty.`,
+      });
+    } else {
+      assistant.draftSections({ targets });
+    }
+  }
+
+  function draftOne(section: Section) {
+    if (section.completeness === "empty") {
+      assistant.draftSections({ sections: [section.key], force: true, targets: [section.key] });
+    } else {
+      setConfirm({
+        targets: [section.key],
+        sections: [section.key],
+        message: `Redrafting replaces the current “${section.title}”. The current text stays in the history.`,
+      });
+    }
+  }
+
+  async function put(section: Section, content: DocNode, source: "human" | "llm") {
+    setBusy(true);
+    try {
+      const saved = await apiFetch(`/documents/${doc.id}/sections/${section.key}`, {
+        method: "PUT",
+        body: { content, revision: section.revision, source },
+        schema: sectionSchema,
+      });
+      replaceSection(saved);
+      return true;
+    } catch (error) {
+      window.alert(errorMessage(error));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function accept(section: Section) {
+    const proposal = assistant.proposals[section.key];
+    if (!proposal) return;
+    const previous = section.content;
+    if (await put(section, fromMarkdown(proposal.markdown), "llm")) {
+      assistant.clearProposal(section.key);
+      setAccepted((a) => ({ ...a, [section.key]: previous }));
+    }
+  }
+
+  async function undo(section: Section) {
+    const previous = accepted[section.key];
+    if (previous && (await put(section, previous, "human"))) {
+      setAccepted(({ [section.key]: _undone, ...rest }) => rest);
+    }
+  }
+
+  function editBeforeAccepting(section: Section) {
+    const proposal = assistant.proposals[section.key];
+    if (!proposal) return;
+    setSeeds((s) => ({ ...s, [section.key]: fromMarkdown(proposal.markdown) }));
+    setGenerations((g) => ({ ...g, [section.key]: (g[section.key] ?? 0) + 1 }));
+    assistant.clearProposal(section.key);
+  }
+
+  function revise(key: string, instruction: string) {
+    setAccepted(({ [key]: _replaced, ...rest }) => rest);
+    assistant.revise(key, instruction);
+    document
+      .getElementById(sectionAnchor(key))
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function askAbout(section: Section) {
+    setPanel("open");
+    setComposer(`About ${section.title}: `);
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Message the assistant"]',
+      );
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
+
+  const emptyCount = detail.sections.filter((s) => s.completeness === "empty").length;
+  const draft = assistant.draft;
+  const headerActions = running ? (
+    <span className="flex items-center gap-2 text-[13px]">
+      {draft && (
+        <span className="text-muted-foreground">
+          Drafting {Math.min(draft.finished.length + 1, draft.targets.length)} of{" "}
+          {draft.targets.length} section{draft.targets.length === 1 ? "" : "s"}…
+        </span>
+      )}
+      <Button size="sm" variant="outline" onClick={assistant.stop}>
+        ■ Stop
+      </Button>
+    </span>
+  ) : editable ? (
+    <Button
+      size="sm"
+      onClick={draftAll}
+      disabled={!llmConfigured || emptyCount === 0}
+      title={
+        !llmConfigured
+          ? "Add an LLM provider to start drafting"
+          : emptyCount === 0
+            ? "Every section has content; redraft sections one at a time"
+            : undefined
+      }
+    >
+      Draft all
+    </Button>
+  ) : null;
+
   return (
     <div className="flex h-full flex-col">
-      <DocumentHeader detail={detail} userId={userId} save={save} />
+      <DocumentHeader detail={detail} userId={userId} save={save} actions={headerActions} />
       {!editable && (
         <div className="border-b border-border bg-secondary px-4 py-2 text-[13px] text-muted-foreground">
           You have view access.
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        <SectionOutline sections={detail.sections} />
+        <SectionOutline sections={detail.sections} labels={outlineLabels} />
         <main className="min-w-0 flex-1 overflow-auto">
           <article className="mx-auto flex max-w-[72ch] flex-col gap-10 px-6 py-10">
             <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
               {doc.title}
             </h1>
-            {detail.sections.map((section) => (
-              <section
-                key={section.key}
-                id={sectionAnchor(section.key)}
-                aria-labelledby={`${sectionAnchor(section.key)}-title`}
-                className="flex scroll-mt-6 flex-col gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <h2
-                    id={`${sectionAnchor(section.key)}-title`}
-                    className="text-xl font-semibold tracking-[-0.01em]"
-                  >
-                    {section.title}
-                  </h2>
-                  <SectionStatusIcon completeness={section.completeness} withLabel />
-                </div>
-                <SectionEditor
+            {detail.sections.map((section) => {
+              const locked =
+                pendingDraft.has(section.key) || assistant.proposals[section.key] !== undefined;
+              return (
+                <SectionBlock
+                  key={`${section.key}:${generations[section.key] ?? 0}`}
                   documentId={doc.id}
                   section={section}
-                  editable={editable}
+                  editable={editable && !locked}
+                  canGenerate={canGenerate}
+                  queued={pendingDraft.has(section.key) && assistant.draft?.current !== section.key}
+                  streaming={assistant.streaming[section.key]}
+                  proposal={assistant.proposals[section.key]}
+                  accepted={accepted[section.key] !== undefined}
+                  busy={busy}
+                  seed={seeds[section.key]}
                   onSaved={onSaved}
                   onSaveState={onSaveState}
+                  onRevise={(instruction) => revise(section.key, instruction)}
+                  onDraft={() => draftOne(section)}
+                  onAccept={() => void accept(section)}
+                  onDiscard={() => assistant.clearProposal(section.key)}
+                  onEdit={() => editBeforeAccepting(section)}
+                  onUndo={() => void undo(section)}
+                  onAsk={() => askAbout(section)}
                 />
-              </section>
-            ))}
+              );
+            })}
           </article>
         </main>
+        {panel === "open" && (
+          <AssistantPanel
+            documentId={doc.id}
+            sections={detail.sections}
+            assistant={assistant}
+            editable={editable}
+            llmConfigured={llmConfigured}
+            isAdmin={me.user.isAdmin}
+            composer={composer}
+            onComposerChange={setComposer}
+            onRevise={revise}
+          />
+        )}
       </div>
+
+      <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{confirm?.sections ? "Redraft section?" : "Draft anyway?"}</DialogTitle>
+            <DialogDescription>{confirm?.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (confirm) {
+                  assistant.draftSections({
+                    sections: confirm.sections,
+                    force: true,
+                    targets: confirm.targets,
+                  });
+                }
+                setConfirm(null);
+              }}
+            >
+              {confirm?.sections ? "Redraft" : "Draft anyway"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

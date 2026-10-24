@@ -2,8 +2,17 @@ import type { Section } from "@jangka/shared/document";
 import { completenessSummary, sectionAnchor } from "@/lib/documents";
 import { SectionStatusIcon } from "./section-status-icon";
 
-/** Left rail: status + title per section; ◇ marks sections that expect a diagram. */
-export function SectionOutline({ sections }: { sections: Section[] }) {
+/**
+ * Left rail: status + title per section; ◇ marks sections that expect a diagram.
+ * `labels`: transient status per section key, e.g. "Queued" / "Drafting".
+ */
+export function SectionOutline({
+  sections,
+  labels = {},
+}: {
+  sections: Section[];
+  labels?: Record<string, string>;
+}) {
   return (
     <nav
       aria-label="Outline"
@@ -27,6 +36,9 @@ export function SectionOutline({ sections }: { sections: Section[] }) {
             >
               <SectionStatusIcon completeness={section.completeness} />
               <span className="min-w-0 flex-1 truncate">{section.title}</span>
+              {labels[section.key] && (
+                <span className="text-[11px] text-primary">{labels[section.key]}</span>
+              )}
               {section.expectsDiagram && (
                 <span className="text-muted-foreground" title="Expects a diagram" aria-hidden>
                   ◇

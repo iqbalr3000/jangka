@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./pipelines": "./src/pipelines/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -12,6 +13,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
     "@google/genai": "^2.31.0",
+    "@jangka/shared": "workspace:*",
+    "@jangka/templates": "workspace:*",
     "openai": "^7.43.0",
     "zod": "^4.6.7"
   }

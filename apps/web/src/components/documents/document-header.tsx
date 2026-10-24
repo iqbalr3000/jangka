@@ -2,7 +2,7 @@ import { type DocumentDetail, documentSummary } from "@jangka/shared/document";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, MoreHorizontal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { z } from "zod";
 import { ErrorBanner } from "@/components/error-banner";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,13 @@ export type SaveSummary = {
   at: string | null;
 };
 
-type DocumentHeaderProps = { detail: DocumentDetail; userId: string; save: SaveSummary };
+type DocumentHeaderProps = {
+  detail: DocumentDetail;
+  userId: string;
+  save: SaveSummary;
+  /** Assistant controls (Draft all / progress / Stop). */
+  actions?: ReactNode;
+};
 
 const saveText = (save: SaveSummary) => {
   switch (save.state) {
@@ -49,7 +55,7 @@ const saveText = (save: SaveSummary) => {
   }
 };
 
-export function DocumentHeader({ detail, userId, save }: DocumentHeaderProps) {
+export function DocumentHeader({ detail, userId, save, actions }: DocumentHeaderProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { document: doc, collection, level } = detail;
@@ -140,6 +146,7 @@ export function DocumentHeader({ detail, userId, save }: DocumentHeaderProps) {
       <span className="rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
         Draft
       </span>
+      {actions}
       <span
         className="w-36 text-right text-xs text-muted-foreground"
         role="status"

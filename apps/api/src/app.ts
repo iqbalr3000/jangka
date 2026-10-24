@@ -18,6 +18,7 @@ import { adminGroupRoutes } from "./routes/admin-groups";
 import { adminLlmRoutes } from "./routes/admin-llm";
 import { adminPermissionRoutes } from "./routes/admin-permissions";
 import { adminUserRoutes } from "./routes/admin-users";
+import { assistantRoutes } from "./routes/assistant";
 import { authRoutes } from "./routes/auth";
 import { collectionRoutes } from "./routes/collections";
 import { documentRoutes, templateRoutes } from "./routes/documents";
@@ -109,6 +110,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/llm", llmRoutes(routeDeps));
   app.route("/api/v1/collections", collectionRoutes(routeDeps));
   app.route("/api/v1/documents", documentRoutes(routeDeps));
+  app.route("/api/v1/documents", assistantRoutes(routeDeps));
   app.route("/api/v1/templates", templateRoutes(routeDeps));
 
   if (webDistDir) {
