@@ -48,6 +48,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "templates",
+      testMatch: "templates.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "sso",
       testMatch: "sso.spec.ts",
       dependencies: ["onboarding"],

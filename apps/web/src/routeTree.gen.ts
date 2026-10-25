@@ -27,6 +27,8 @@ import { Route as AppCCollectionIdRouteImport } from './routes/_app/c.$collectio
 import { Route as AppDDocumentIdRouteImport } from './routes/_app/d.$documentId'
 import { Route as AppAdminGroupsIndexRouteImport } from './routes/_app/admin/groups.index'
 import { Route as AppAdminGroupsGroupIdRouteImport } from './routes/_app/admin/groups.$groupId'
+import { Route as AppAdminTemplatesIndexRouteImport } from './routes/_app/admin/templates.index'
+import { Route as AppAdminTemplatesTemplateIdRouteImport } from './routes/_app/admin/templates.$templateId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -117,6 +119,17 @@ const AppAdminGroupsGroupIdRoute = AppAdminGroupsGroupIdRouteImport.update({
   path: '/groups/$groupId',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminTemplatesIndexRoute = AppAdminTemplatesIndexRouteImport.update({
+  id: '/templates/',
+  path: '/templates/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminTemplatesTemplateIdRoute =
+  AppAdminTemplatesTemplateIdRouteImport.update({
+    id: '/templates/$templateId',
+    path: '/templates/$templateId',
+    getParentRoute: () => AppAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -135,7 +148,9 @@ export interface FileRoutesByFullPath {
   '/d/$documentId': typeof AppDDocumentIdRoute
   '/admin/': typeof AppAdminIndexRoute
   '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/admin/templates/$templateId': typeof AppAdminTemplatesTemplateIdRoute
   '/admin/groups/': typeof AppAdminGroupsIndexRoute
+  '/admin/templates/': typeof AppAdminTemplatesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -153,7 +168,9 @@ export interface FileRoutesByTo {
   '/d/$documentId': typeof AppDDocumentIdRoute
   '/admin': typeof AppAdminIndexRoute
   '/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/admin/templates/$templateId': typeof AppAdminTemplatesTemplateIdRoute
   '/admin/groups': typeof AppAdminGroupsIndexRoute
+  '/admin/templates': typeof AppAdminTemplatesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -174,7 +191,9 @@ export interface FileRoutesById {
   '/_app/d/$documentId': typeof AppDDocumentIdRoute
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/groups/$groupId': typeof AppAdminGroupsGroupIdRoute
+  '/_app/admin/templates/$templateId': typeof AppAdminTemplatesTemplateIdRoute
   '/_app/admin/groups/': typeof AppAdminGroupsIndexRoute
+  '/_app/admin/templates/': typeof AppAdminTemplatesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -195,7 +214,9 @@ export interface FileRouteTypes {
     | '/d/$documentId'
     | '/admin/'
     | '/admin/groups/$groupId'
+    | '/admin/templates/$templateId'
     | '/admin/groups/'
+    | '/admin/templates/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -213,7 +234,9 @@ export interface FileRouteTypes {
     | '/d/$documentId'
     | '/admin'
     | '/admin/groups/$groupId'
+    | '/admin/templates/$templateId'
     | '/admin/groups'
+    | '/admin/templates'
   id:
     | '__root__'
     | '/_app'
@@ -233,7 +256,9 @@ export interface FileRouteTypes {
     | '/_app/d/$documentId'
     | '/_app/admin/'
     | '/_app/admin/groups/$groupId'
+    | '/_app/admin/templates/$templateId'
     | '/_app/admin/groups/'
+    | '/_app/admin/templates/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -371,6 +396,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminGroupsGroupIdRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/templates/': {
+      id: '/_app/admin/templates/'
+      path: '/templates'
+      fullPath: '/admin/templates/'
+      preLoaderRoute: typeof AppAdminTemplatesIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/templates/$templateId': {
+      id: '/_app/admin/templates/$templateId'
+      path: '/templates/$templateId'
+      fullPath: '/admin/templates/$templateId'
+      preLoaderRoute: typeof AppAdminTemplatesTemplateIdRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
@@ -382,7 +421,9 @@ interface AppAdminRouteChildren {
   AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppAdminGroupsGroupIdRoute: typeof AppAdminGroupsGroupIdRoute
+  AppAdminTemplatesTemplateIdRoute: typeof AppAdminTemplatesTemplateIdRoute
   AppAdminGroupsIndexRoute: typeof AppAdminGroupsIndexRoute
+  AppAdminTemplatesIndexRoute: typeof AppAdminTemplatesIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
@@ -393,7 +434,9 @@ const AppAdminRouteChildren: AppAdminRouteChildren = {
   AppAdminUsersRoute: AppAdminUsersRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAdminGroupsGroupIdRoute: AppAdminGroupsGroupIdRoute,
+  AppAdminTemplatesTemplateIdRoute: AppAdminTemplatesTemplateIdRoute,
   AppAdminGroupsIndexRoute: AppAdminGroupsIndexRoute,
+  AppAdminTemplatesIndexRoute: AppAdminTemplatesIndexRoute,
 }
 
 const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(

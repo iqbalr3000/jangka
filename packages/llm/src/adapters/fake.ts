@@ -33,7 +33,9 @@ function reply(lastUser: string): string {
  * the first code the source offers, so traceability works end to end without a real model.
  */
 export function fakeRequirementTable(system: string): string | null {
-  const guidance = /Write the "[^"]+" section\. Guidance: ([^\n]*)/.exec(system)?.[1] ?? "";
+  // The drafted section's part of the prompt: its guidance and the requirement table rule.
+  const marker = system.indexOf('Write the "');
+  const guidance = marker === -1 ? "" : system.slice(marker);
   const prefix = /IDs are ([A-Z]+)-001/.exec(guidance)?.[1];
   if (!prefix) return null;
   const upstream = guidance.includes("| Upstream");

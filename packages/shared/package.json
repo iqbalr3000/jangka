@@ -13,12 +13,14 @@
     "./assistant": "./src/assistant.ts",
     "./export": "./src/export.ts",
     "./trace": "./src/trace.ts",
-    "./audit": "./src/audit.ts"
+    "./audit": "./src/audit.ts",
+    "./templates": "./src/templates.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@jangka/templates": "workspace:*",
     "zod": "^4.6.7"
   }
 }

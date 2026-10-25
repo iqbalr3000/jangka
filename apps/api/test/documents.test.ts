@@ -140,12 +140,11 @@ describe("creating documents", () => {
   it("lists templates", async () => {
     const res = await call(app, "GET", "/templates", { cookie: rinaCookie });
     const { items } = templateList.parse(await res.json());
-    // Ordered by type, newest version first.
-    expect(items.map((t) => `${t.docType}@${t.version}`)).toEqual([
-      "brd@1",
-      "prd@2",
-      "prd@1",
-      "tsd@1",
+    // The newest published version of each family, built-ins as defaults.
+    expect(items.map((t) => [`${t.docType}@${t.version}`, t.isBuiltin, t.isDefault])).toEqual([
+      ["brd@1", true, true],
+      ["prd@2", true, true],
+      ["tsd@1", true, true],
     ]);
   });
 });

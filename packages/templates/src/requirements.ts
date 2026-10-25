@@ -8,6 +8,13 @@ export const REQUIREMENT_PREFIX: Record<RequirementKind, string> = {
   technical: "TR",
 };
 
+/** Requirement kinds a template of each type may use (the index and upstream links assume this). */
+export const REQUIREMENT_KINDS_BY_TYPE = {
+  brd: ["business"],
+  prd: ["functional", "non_functional"],
+  tsd: ["technical"],
+} as const satisfies Record<"brd" | "prd" | "tsd", readonly RequirementKind[]>;
+
 /** The document type a document of this type may be generated from. */
 export const UPSTREAM_DOC_TYPE = { brd: null, prd: "brd", tsd: "prd" } as const;
 
@@ -38,4 +45,17 @@ export function requirementTableGuidance(
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+const UPSTREAM_CODES = { brd: null, prd: "BR", tsd: "FR and NFR" } as const;
+
+/**
+ * The table convention for a requirement section, added by the prompt layer whatever the
+ * section's (possibly custom) guidance says, so traceability can't be edited away.
+ */
+export function requirementTableRule(
+  kind: RequirementKind,
+  docType: "brd" | "prd" | "tsd",
+): string {
+  return `Requirement table: ${requirementTableGuidance(kind, "This section lists requirements.", UPSTREAM_CODES[docType])}`;
 }

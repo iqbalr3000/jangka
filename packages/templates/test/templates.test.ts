@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   builtinTemplates,
+  customTemplateDefinition,
   REQUIREMENT_PREFIX,
+  sectionKeyFor,
   type TemplateDefinition,
   templateDefinition,
 } from "../src/index";
@@ -94,5 +96,52 @@ describe("built-in templates", () => {
       sections: [section, section],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("custom templates", () => {
+  const base = builtinTemplates.find((t) => t.docType === "prd" && t.version === 2);
+  if (!base) throw new Error("PRD v2 missing");
+  const issues = (template: unknown) => {
+    const result = customTemplateDefinition.safeParse(template);
+    return result.success ? [] : result.error.issues.map((i) => [i.path.join("."), i.message]);
+  };
+
+  it("accepts every built-in", () => {
+    for (const template of builtinTemplates) expect(issues(template)).toEqual([]);
+  });
+
+  it("allows one section per requirement kind, of the kinds the type supports", () => {
+    const fr = base.sections.findIndex((s) => s.key === "functional_requirements");
+    const twice = {
+      ...base,
+      sections: [...base.sections, { ...base.sections[fr], key: "more_frs" }],
+    };
+    expect(issues(twice)).toEqual([
+      [`sections.${base.sections.length}.requirementKind`, "Only one section per requirement kind"],
+    ]);
+    const wrongKind = {
+      ...base,
+      sections: base.sections.map((s, i) =>
+        i === fr ? { ...s, requirementKind: "business" as const } : s,
+      ),
+    };
+    expect(issues(wrongKind)).toEqual([
+      [`sections.${fr}.requirementKind`, "A PRD can't have business requirements"],
+    ]);
+  });
+
+  it("rejects an empty template and duplicate keys", () => {
+    expect(issues({ ...base, sections: [] })).not.toEqual([]);
+    expect(issues({ ...base, sections: [base.sections[0], base.sections[0]] })).not.toEqual([]);
+  });
+
+  it("derives stable, unique keys from titles", () => {
+    expect(sectionKeyFor("Risks & Mitigations", [])).toBe("risks_mitigations");
+    expect(sectionKeyFor("Risks & Mitigations", ["risks_mitigations"])).toBe("risks_mitigations_2");
+    expect(sectionKeyFor("Résumé 2026", [])).toBe("resume_2026");
+    expect(sectionKeyFor("2026 plan", [])).toBe("s_2026_plan");
+    expect(sectionKeyFor("!!!", [])).toBe("section");
+    expect(/^[a-z][a-z0-9_]*$/.test(sectionKeyFor("2026 plan", []))).toBe(true);
   });
 });

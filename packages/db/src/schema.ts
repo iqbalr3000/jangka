@@ -12,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
@@ -39,6 +40,8 @@ export const instanceSettings = pgTable(
     }),
     defaultModel: text("default_model"),
     passwordLoginEnabled: boolean("password_login_enabled").notNull().default(true),
+    // Doc type → template family name preselected for new documents (custom-templates).
+    defaultTemplates: jsonb("default_templates").notNull().default({}),
     // Group that auto-provisioned SSO users join (besides the implicit All Users).
     defaultGroupId: uuid("default_group_id").references((): AnyPgColumn => groups.id, {
       onDelete: "set null",
@@ -200,10 +203,16 @@ export const templates = pgTable(
     // TemplateDefinition (packages/templates); immutable once published.
     definition: jsonb("definition").notNull(),
     isBuiltin: boolean("is_builtin").notNull().default(false),
+    // Null = draft (custom-templates); published versions never change.
+    publishedAt: tz("published_at"),
+    // Family-wide: set on every version of a (doc_type, name).
+    archivedAt: tz("archived_at"),
+    createdBy: uuid("created_by").references((): AnyPgColumn => users.id),
     createdAt: createdAt(),
   },
   (t) => [
     unique("templates_doc_type_name_version").on(t.docType, t.name, t.version),
+    uniqueIndex("templates_one_draft").on(t.docType, t.name).where(sql`${t.publishedAt} is null`),
     check("templates_doc_type", sql`${t.docType} in ('brd', 'prd', 'tsd')`),
   ],
 );

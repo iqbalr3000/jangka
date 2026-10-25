@@ -160,13 +160,18 @@ export type Completeness = z.infer<typeof completeness>;
 export const documentStatus = z.enum(["draft", "in_review", "approved"]);
 export const docTypeSchema = z.enum(["brd", "prd", "tsd"]);
 
+/** A published template version a document can be created from. */
 export const templateSummary = z.object({
   id: z.string(),
   docType: docTypeSchema,
   name: z.string(),
   version: z.number(),
   sectionCount: z.number(),
+  isBuiltin: z.boolean(),
+  /** Preselected for new documents of this type. */
+  isDefault: z.boolean(),
 });
+export type TemplateSummary = z.infer<typeof templateSummary>;
 export const templateList = z.object({ items: z.array(templateSummary) });
 
 export const documentSummary = z.object({
@@ -228,6 +233,8 @@ export const createDocumentRequest = z.object({
   docType: docTypeSchema,
   /** PRD from a BRD, TSD from a PRD. */
   sourceDocumentId: z.uuid().optional(),
+  /** A published template of this type; omitted = the type's default. */
+  templateId: z.uuid().optional(),
 });
 export const updateDocumentRequest = z.object({ title });
 export const moveDocumentRequest = z.object({ collectionId: z.uuid().nullable() });

@@ -275,6 +275,28 @@ describe("fake requirement drafts", () => {
     expect(text).toContain("| FR-001 | Fake requirement one | Must | BR-001 |");
   });
 
+  it("keeps the table rule when a custom template rewrote the guidance", async () => {
+    const custom = {
+      ...prd,
+      sections: prd.sections.map((s) =>
+        s.key === "functional_requirements" ? { ...s, guidance: "List what it must do." } : s,
+      ),
+    };
+    const section = custom.sections.find((s) => s.key === "functional_requirements");
+    if (!section) throw new Error("functional_requirements missing");
+    const rec = recording();
+    const events = await collect(
+      draftSection(
+        { provider: rec.provider, model: "m" },
+        { doc: { ...prdDoc, template: custom }, transcript: [], section, note: "" },
+      ),
+    );
+    expect(rec.system[0]).toContain("Requirement table:");
+    expect(rec.system[0]).toContain("ID | Requirement | Priority | Upstream");
+    const text = events.flatMap((e) => (e.type === "text" ? [e.delta] : [])).join("");
+    expect(text).toContain("| FR-001 |");
+  });
+
   it("drafts other sections as plain replies", () => {
     expect(
       fakeRequirementTable('Write the "Overview" section. Guidance: Two sentences.'),

@@ -7,10 +7,11 @@ import {
   moveDocumentRequest,
   restoreSectionRequest,
   saveSectionRequest,
+  type TemplateSummary,
   updateDocumentRequest,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
-import { and, desc, eq, ilike, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, ilike, isNotNull, isNull, lt } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { audit } from "../lib/audit";
@@ -30,7 +31,7 @@ import {
   validSource,
   viewableDocument,
 } from "../services/documents";
-import { definitionOf, latestBuiltin } from "../services/templates";
+import { defaultTemplates, definitionOf, templateForNewDocument } from "../services/templates";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
@@ -45,22 +46,45 @@ const versionsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
+const templatesQuery = z.object({ docType: z.enum(["brd", "prd", "tsd"]).optional() });
+
+/** Picker for new documents: the newest published version of each non-archived family. */
 export function templateRoutes({ db }: RouteDeps) {
-  return new Hono<AppEnv>().get("/", async (c) => {
+  return new Hono<AppEnv>().get("/", zValidate("query", templatesQuery), async (c) => {
     requireAuth(c);
+    const { docType } = c.req.valid("query");
     const rows = await db
       .select()
       .from(templates)
-      .orderBy(templates.docType, desc(templates.version));
-    return c.json({
-      items: rows.map((row) => ({
+      .where(
+        and(
+          isNotNull(templates.publishedAt),
+          isNull(templates.archivedAt),
+          docType ? eq(templates.docType, docType) : undefined,
+        ),
+      )
+      .orderBy(templates.docType, templates.name, desc(templates.version));
+    const latest = rows.filter(
+      (row, i) => i === 0 || rows[i - 1]?.docType !== row.docType || rows[i - 1]?.name !== row.name,
+    );
+    const defaults = await defaultTemplates(db);
+    const items: TemplateSummary[] = latest.map((row) => {
+      const chosen = defaults[row.docType];
+      const isDefault =
+        chosen !== undefined && latest.some((r) => r.docType === row.docType && r.name === chosen)
+          ? row.name === chosen
+          : row.isBuiltin;
+      return {
         id: row.id,
         docType: row.docType,
         name: row.name,
         version: row.version,
         sectionCount: definitionOf(row).sections.length,
-      })),
+        isBuiltin: row.isBuiltin,
+        isDefault,
+      };
     });
+    return c.json({ items });
   });
 }
 
@@ -115,7 +139,7 @@ export function documentRoutes({ db }: RouteDeps) {
         ? await validSource(db, data, docType, sourceDocumentId)
         : null;
 
-      const template = await latestBuiltin(db, docType);
+      const template = await templateForNewDocument(db, docType, c.req.valid("json").templateId);
       const keys = definitionOf(template).sections.map((s) => s.key);
       const row = await db.transaction(async (tx) => {
         const [created] = await tx

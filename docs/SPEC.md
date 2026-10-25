@@ -64,6 +64,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `default_group_id uuid null` (group for auto-provisioned SSO users)
 - `password_login_enabled bool default true`
 - `default_llm_provider_id uuid null`, `default_model text null`
+- `default_templates jsonb` (doc type → template family name; feature `custom-templates`)
 
 **users**
 - `email text unique` (lowercased), `name text`, `password_hash text null` (argon2id PHC string; null for SSO-only)
@@ -105,7 +106,8 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **templates**
 - `doc_type text` (`brd` | `prd` | `tsd`), `name text`, `version int`, `definition jsonb`, `is_builtin bool`
-- unique(doc_type, name, version). Built-ins seeded from `packages/templates` on boot.
+- `published_at null` (null = draft, feature `custom-templates`), `archived_at null`, `created_by null`
+- unique(doc_type, name, version); one draft per (doc_type, name). Built-ins seeded from `packages/templates` on boot.
 
 **documents**
 - `collection_id uuid null` (null = root), `doc_type`, `template_id fk`, `title text`

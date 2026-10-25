@@ -1,4 +1,8 @@
-import type { TemplateDefinition, TemplateSection } from "@jangka/templates";
+import {
+  requirementTableRule,
+  type TemplateDefinition,
+  type TemplateSection,
+} from "@jangka/templates";
 
 export type SectionContext = {
   key: string;
@@ -96,13 +100,22 @@ function diagramInstruction(section: TemplateSection): string {
 const OUTPUT_RULES =
   "Output the section body as markdown only: no section heading, no preamble, no closing remarks. Use ### for sub-headings if needed.";
 
+function tableRule(doc: DocumentContext, section: TemplateSection): string {
+  return section.requirementKind
+    ? requirementTableRule(section.requirementKind, doc.template.docType)
+    : "";
+}
+
 export function draftSystem(doc: DocumentContext, section: TemplateSection): string {
   return [
     base(doc),
     `Write the "${section.title}" section. Guidance: ${section.guidance}`,
     diagramInstruction(section),
+    tableRule(doc, section),
     OUTPUT_RULES,
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function transcriptMessage(
@@ -136,8 +149,11 @@ export function reviseSystem(doc: DocumentContext, section: TemplateSection): st
     `Revise the "${section.title}" section following the user's instruction. Guidance: ${section.guidance}`,
     "Keep everything the instruction doesn't ask to change. Return the full revised section.",
     diagramInstruction(section),
+    tableRule(doc, section),
     OUTPUT_RULES,
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function reviseMessage(current: string, instruction: string): string {

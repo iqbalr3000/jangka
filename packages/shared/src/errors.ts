@@ -25,6 +25,7 @@ export const errorCodes = [
   "password_login_disabled",
   "lockout_risk",
   "invalid_provider",
+  "invalid_template",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

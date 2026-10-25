@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import { collectionsKey, collectionTreeQuery, editableDestinations } from "@/lib/collections";
 import { documentsOfTypeQuery } from "@/lib/documents";
 import { errorMessage } from "@/lib/form-errors";
+import { templatePickerQuery } from "@/lib/templates";
 import { docTypeLabels } from "@/lib/trace";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,8 @@ export function NewDocumentDialog({
   const [titleError, setTitleError] = useState<string>();
   const [docType, setDocType] = useState<DocType>("prd");
   const [source, setSource] = useState<string>(NO_SOURCE);
+  const [templateId, setTemplateId] = useState<string>("");
+  const picker = useQuery({ ...templatePickerQuery(docType), enabled: open });
   const upstream = UPSTREAM_DOC_TYPE[docType];
   const candidates = useQuery({
     ...documentsOfTypeQuery(upstream ?? "brd"),
@@ -70,6 +73,7 @@ export function NewDocumentDialog({
       collectionId: string | null;
       docType: DocType;
       sourceDocumentId?: string;
+      templateId?: string;
     }) =>
       apiFetch("/documents", {
         method: "POST",
@@ -90,6 +94,7 @@ export function NewDocumentDialog({
     setTitleError(undefined);
     setDocType("prd");
     setSource(NO_SOURCE);
+    setTemplateId("");
     reset();
   }, [open, reset]);
 
@@ -113,6 +118,7 @@ export function NewDocumentDialog({
       collectionId: target === ROOT_VALUE ? null : target,
       docType,
       sourceDocumentId: upstream && source !== NO_SOURCE ? source : undefined,
+      templateId: templateId || undefined,
     });
   }
 
@@ -151,6 +157,7 @@ export function NewDocumentDialog({
                     onChange={() => {
                       setDocType(type.value);
                       setSource(NO_SOURCE);
+                      setTemplateId("");
                     }}
                     className="sr-only"
                   />
@@ -162,6 +169,26 @@ export function NewDocumentDialog({
               ))}
             </div>
           </div>
+          {(picker.data?.items.length ?? 0) > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="document-template" className="text-[13px] font-medium">
+                Template
+              </Label>
+              <select
+                id="document-template"
+                value={templateId || (picker.data?.items.find((t) => t.isDefault)?.id ?? "")}
+                onChange={(event) => setTemplateId(event.target.value)}
+                className="h-[38px] rounded-sm border border-input bg-card px-2 text-sm"
+              >
+                {picker.data?.items.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} · v{template.version}
+                    {template.isDefault ? " (default)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <FormField
             id="document-title"
             label="Title"
