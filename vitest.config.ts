@@ -10,6 +10,7 @@ export default defineConfig({
       "packages/export",
       "packages/db",
       "apps/api",
+      "apps/worker",
     ],
   },
 });

@@ -15,6 +15,8 @@
     "format": "biome check --write .",
     "db:generate": "pnpm --filter @jangka/db generate",
     "db:migrate": "pnpm --filter @jangka/db migrate",
+    "db:dev:up": "docker compose -f docker/docker-compose.dev.yml up -d --wait",
+    "db:dev:down": "docker compose -f docker/docker-compose.dev.yml down",
     "test:db:up": "docker compose -f docker/docker-compose.test.yml up -d --wait",
     "test:db:down": "docker compose -f docker/docker-compose.test.yml down",
     "test:e2e": "pnpm build && pnpm --filter @jangka/e2e test"

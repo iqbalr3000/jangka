@@ -1,0 +1,33 @@
+{
+  "name": "@jangka/worker",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts"
+  },
+  "scripts": {
+    "dev": "APP_ROLE=worker tsx watch --env-file-if-exists=../../.env ../api/src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@jangka/db": "workspace:*",
+    "@jangka/export": "workspace:*",
+    "@jangka/shared": "workspace:*",
+    "@jangka/templates": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "mermaid": "^12.2.0",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.0",
+    "pino": "^10.4.0",
+    "playwright-core": "1.64.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "jszip": "^3.10.2",
+    "tsx": "^4.23.15"
+  }
+}

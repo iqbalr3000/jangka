@@ -6,11 +6,14 @@ export default defineConfig({
   platform: "node",
   target: "node24",
   clean: true,
-  // Single self-contained file: the runtime image ships no node_modules.
-  noExternal: [/.*/],
-  external: ["pg-native"],
+  // One bundle with everything that can be bundled. Playwright can't (it spawns its driver), and
+  // the worker reads mermaid's browser build and font files from node_modules at runtime; the
+  // image installs those prod dependencies with `pnpm deploy`.
+  noExternal: [/^(?!playwright-core)/],
+  external: ["pg-native", "playwright-core"],
   banner: {
     // Bundled CJS deps (pg, pino) call require() on Node builtins.
-    js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+    // Aliased: bundled ESM deps import createRequire themselves.
+    js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
   },
 });

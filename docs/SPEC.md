@@ -329,7 +329,7 @@ Template versions are immutable; documents pin `template_id`. Custom org templat
 
 - Mermaid lives in TipTap as a custom `mermaidBlock` node `{ source: string }`.
 - Client renders live with `mermaid`. Worker renders authoritative SVG/PNG with Playwright Chromium; cached in `diagram_renders` by hash.
-- **PDF**: TipTap JSON → HTML (`@tiptap/html` + shared print stylesheet), diagrams as inline SVG,
+- **PDF**: TipTap JSON → HTML (hand-written `toHtml`, ADR 0002, + shared print stylesheet), diagrams as inline SVG,
   cover page (title, type, status, author, date), requirements appendix; `page.pdf()` A4 with header/footer page numbers.
 - **DOCX**: TipTap JSON → `docx` library (headings, paragraphs, bold/italic/code, bullet/numbered lists, tables, code blocks),
   diagrams as PNG at 2x scale, same cover page + requirements appendix as a table.

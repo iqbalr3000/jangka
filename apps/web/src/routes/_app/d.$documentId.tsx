@@ -5,11 +5,14 @@ import {
   type Section,
   section as sectionSchema,
 } from "@jangka/shared/document";
+import type { ExportJob } from "@jangka/shared/export";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
+import { ExportDialog } from "@/components/documents/export-dialog";
+import { ExportToast } from "@/components/documents/export-toast";
 import { SectionBlock } from "@/components/documents/section-block";
 import type { SaveState } from "@/components/documents/section-editor";
 import { SectionOutline } from "@/components/documents/section-outline";
@@ -26,6 +29,7 @@ import {
 import { ApiError, apiFetch } from "@/lib/api";
 import { chatQuery } from "@/lib/assistant";
 import { documentQuery, sectionAnchor } from "@/lib/documents";
+import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
 import { llmStatusQuery } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
@@ -83,6 +87,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [composer, setComposer] = useState("");
   const [confirm, setConfirm] = useState<DraftConfirm | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
   const llmStatus = useQuery(llmStatusQuery);
   const chat = useQuery(chatQuery(doc.id));
@@ -140,13 +146,17 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     [...pendingDraft].map((key) => [key, key === assistant.draft?.current ? "Drafting" : "Queued"]),
   );
 
-  // Esc stops, ⌘. toggles the assistant panel.
+  // Esc stops, ⌘. toggles the assistant panel, ⌘⇧E exports.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && running) assistant.stop();
       if (event.key === "." && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setPanel(panel === "open" ? "closed" : "open");
+      }
+      if (event.key.toLowerCase() === "e" && event.shiftKey && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setExporting(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -247,6 +257,16 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     });
   }
 
+  async function retryExport(job: ExportJob) {
+    try {
+      setExportJob(
+        await createExport(doc.id, { format: job.format, includeCover: job.includeCover }),
+      );
+    } catch (error) {
+      window.alert(errorMessage(error));
+    }
+  }
+
   const emptyCount = detail.sections.filter((s) => s.completeness === "empty").length;
   const draft = assistant.draft;
   const headerActions = running ? (
@@ -280,7 +300,13 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
 
   return (
     <div className="flex h-full flex-col">
-      <DocumentHeader detail={detail} userId={userId} save={save} actions={headerActions} />
+      <DocumentHeader
+        detail={detail}
+        userId={userId}
+        save={save}
+        actions={headerActions}
+        onExport={() => setExporting(true)}
+      />
       {!editable && (
         <div className="border-b border-border bg-secondary px-4 py-2 text-[13px] text-muted-foreground">
           You have view access.
@@ -337,6 +363,22 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           />
         )}
       </div>
+
+      <ExportDialog
+        open={exporting}
+        onOpenChange={setExporting}
+        documentId={doc.id}
+        emptyCount={emptyCount}
+        onQueued={setExportJob}
+      />
+      {exportJob && (
+        <ExportToast
+          key={exportJob.id}
+          job={exportJob}
+          onRetry={() => void retryExport(exportJob)}
+          onDismiss={() => setExportJob(null)}
+        />
+      )}
 
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent className="sm:max-w-[440px]">

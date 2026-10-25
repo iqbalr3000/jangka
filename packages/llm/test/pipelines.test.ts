@@ -9,6 +9,7 @@ import {
   type DocumentContext,
   draftSection,
   fitBudget,
+  fixDiagram,
   interview,
   toTurns,
 } from "../src/pipelines/index";
@@ -174,5 +175,30 @@ describe("fitBudget", () => {
     expect(fitted.doc.sections.find((s) => s.key === "overview")?.markdown).toContain(
       "(truncated)",
     );
+  });
+});
+
+describe("fixDiagram", () => {
+  it("sends the source and the renderer error, and strips a code fence", async () => {
+    const rec = recording();
+    fakeResponses({ source: "```mermaid\nflowchart TD\n  A --> B\n```" });
+    const fixed = await fixDiagram(
+      { provider: rec.provider, model: "fake-small" },
+      {
+        source: "flowchart TD\n  A -->",
+        error: "Parse error on line 2",
+        expectsDiagram: "flowchart",
+      },
+    );
+    expect(fixed).toBe("flowchart TD\n  A --> B");
+    expect(rec.system[0]).toContain("expected type: flowchart");
+    expect(rec.messages[0]).toContain("Parse error on line 2");
+  });
+
+  it("retries when the output is invalid, then gives up", async () => {
+    fakeResponses({ source: "" }, { source: "" }, { source: "" });
+    await expect(
+      fixDiagram({ provider: fake, model: "fake-small" }, { source: "x", error: "bad" }),
+    ).rejects.toMatchObject({ code: "invalid_output" });
   });
 });

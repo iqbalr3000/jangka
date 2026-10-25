@@ -4,6 +4,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import type { Database } from "@jangka/db";
 import { createProvider, type ProviderFactory } from "@jangka/llm";
 import { AppError, type ErrorCode, type ErrorResponse } from "@jangka/shared/errors";
+import type { JobQueue } from "@jangka/worker/jobs";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
@@ -22,10 +23,12 @@ import { assistantRoutes } from "./routes/assistant";
 import { authRoutes } from "./routes/auth";
 import { collectionRoutes } from "./routes/collections";
 import { documentRoutes, templateRoutes } from "./routes/documents";
+import { exportRoutes } from "./routes/exports";
 import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
 import { llmRoutes } from "./routes/llm";
 import { setupRoutes } from "./routes/setup";
+import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
 
@@ -38,6 +41,9 @@ export type AppDeps = {
   loginLimiter: RateLimiter;
   /** Defaults to the real adapters. */
   llm?: ProviderFactory;
+  queue: JobQueue;
+  /** Defaults to rendering through the worker. */
+  diagrams?: DiagramChecker;
   /** Built SPA directory; set in production only (dev uses the Vite server). */
   webDistDir?: string;
 };
@@ -57,6 +63,8 @@ function errorBody(code: string, message: string, details?: unknown): ErrorRespo
 export function createApp(deps: AppDeps) {
   const { db, pool, logger, config, setupState, loginLimiter, webDistDir } = deps;
   const llm = deps.llm ?? createProvider;
+  const { queue } = deps;
+  const diagrams = deps.diagrams ?? queuedDiagramChecker(db, queue);
   const app = new Hono<AppEnv>();
 
   app.use(requestId());
@@ -98,7 +106,7 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", setupGate(setupState));
   app.use("/api/*", sessionMiddleware(db, config));
 
-  const routeDeps = { db, config, logger, llm };
+  const routeDeps = { db, config, logger, llm, queue, diagrams };
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth", authRoutes(routeDeps, loginLimiter));
@@ -112,6 +120,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/documents", documentRoutes(routeDeps));
   app.route("/api/v1/documents", assistantRoutes(routeDeps));
   app.route("/api/v1/templates", templateRoutes(routeDeps));
+  app.route("/api/v1", exportRoutes(routeDeps));
 
   if (webDistDir) {
     const indexHtml = readFileSync(path.join(webDistDir, "index.html"), "utf8");

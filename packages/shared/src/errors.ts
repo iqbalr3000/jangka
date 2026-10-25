@@ -19,6 +19,8 @@ export const errorCodes = [
   "llm_not_configured",
   "generation_in_progress",
   "coverage_incomplete",
+  "export_not_ready",
+  "export_expired",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

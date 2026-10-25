@@ -25,6 +25,7 @@ import { apiFetch } from "@/lib/api";
 import { collectionsKey, ROOT_NAME } from "@/lib/collections";
 import { documentsKey } from "@/lib/documents";
 import { errorMessage } from "@/lib/form-errors";
+import { modKeyLabel } from "@/lib/keyboard";
 import { timeAgo } from "@/lib/llm";
 import { DocTypeBadge } from "./doc-type-badge";
 import { MoveDocumentDialog } from "./move-document-dialog";
@@ -40,6 +41,8 @@ type DocumentHeaderProps = {
   save: SaveSummary;
   /** Assistant controls (Draft all / progress / Stop). */
   actions?: ReactNode;
+  /** Opens the export dialog; viewers can export too. */
+  onExport: () => void;
 };
 
 const saveText = (save: SaveSummary) => {
@@ -55,7 +58,7 @@ const saveText = (save: SaveSummary) => {
   }
 };
 
-export function DocumentHeader({ detail, userId, save, actions }: DocumentHeaderProps) {
+export function DocumentHeader({ detail, userId, save, actions, onExport }: DocumentHeaderProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { document: doc, collection, level } = detail;
@@ -147,6 +150,9 @@ export function DocumentHeader({ detail, userId, save, actions }: DocumentHeader
         Draft
       </span>
       {actions}
+      <Button size="sm" variant="outline" onClick={onExport} title={`Export (${modKeyLabel}⇧E)`}>
+        Export
+      </Button>
       <span
         className="w-36 text-right text-xs text-muted-foreground"
         role="status"

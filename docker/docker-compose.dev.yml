@@ -1,0 +1,23 @@
+# Local development database for `pnpm dev` (pnpm db:dev:up). Data persists in a named volume.
+name: jangka-dev
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: jangka
+      POSTGRES_PASSWORD: jangka
+      POSTGRES_DB: jangka
+    ports:
+      - "5432:5432"
+    volumes:
+      # PG18 image keeps data under /var/lib/postgresql/18/docker; mounting .../data would not persist.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jangka -d jangka"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:

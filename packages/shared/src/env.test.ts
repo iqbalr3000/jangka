@@ -29,6 +29,11 @@ describe("parseEnv", () => {
     expect(env.LOG_LEVEL).toBe("info");
     expect(env.NODE_ENV).toBe("production");
     expect(env.SESSION_TTL_DAYS).toBe(30);
+    expect(env.APP_ROLE).toBe("all");
+  });
+
+  it("rejects an unknown APP_ROLE", () => {
+    expect(errorOf({ ...valid, APP_ROLE: "web" }).lines[0]).toMatch(/^APP_ROLE:/);
   });
 
   it("accepts the postgresql:// scheme", () => {

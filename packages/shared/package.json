@@ -10,7 +10,8 @@
     "./access": "./src/access.ts",
     "./llm": "./src/llm.ts",
     "./document": "./src/document.ts",
-    "./assistant": "./src/assistant.ts"
+    "./assistant": "./src/assistant.ts",
+    "./export": "./src/export.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

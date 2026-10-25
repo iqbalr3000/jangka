@@ -3,6 +3,7 @@ import { createDb, type Database, groupMembers, groups, users } from "@jangka/db
 import { requireTestDatabaseUrl } from "@jangka/db/testing";
 import type { ProviderFactory } from "@jangka/llm";
 import { hashPassword } from "@jangka/shared/crypto";
+import type { JobQueue } from "@jangka/worker/jobs";
 import { eq } from "drizzle-orm";
 import pg from "pg";
 import pino from "pino";
@@ -10,6 +11,7 @@ import { createApp } from "../src/app";
 import { RateLimiter } from "../src/lib/rate-limit";
 import type { Logger } from "../src/logger";
 import { createPersonalCollection } from "../src/services/access";
+import type { DiagramChecker } from "../src/services/diagrams";
 import { ensureSetupToken, SetupState } from "../src/services/setup";
 import { ensureBuiltinTemplates } from "../src/services/templates";
 
@@ -31,17 +33,38 @@ export function testDatabase() {
 
 export const TEST_MASTER_KEY = randomBytes(32);
 
+/** Records sent jobs instead of queueing them (no worker runs in api tests). */
+export class RecordingQueue implements JobQueue {
+  readonly sent: { name: string; payload: unknown }[] = [];
+
+  async send(name: string, payload: unknown): Promise<void> {
+    this.sent.push({ name, payload });
+  }
+}
+
+/** Default for api tests: no verdict, so LLM diagrams are kept as written. */
+export const noDiagramVerdict: DiagramChecker = { check: async () => null };
+
 export function buildApp(
   db: Database,
   pool: pg.Pool,
-  options: { logger?: Logger; llm?: ProviderFactory; enableFakeLlm?: boolean } = {},
+  options: {
+    logger?: Logger;
+    llm?: ProviderFactory;
+    enableFakeLlm?: boolean;
+    queue?: JobQueue;
+    diagrams?: DiagramChecker;
+  } = {},
 ) {
   const setupState = new SetupState(db);
+  const queue = options.queue ?? new RecordingQueue();
   const app = createApp({
     db,
     pool,
     logger: options.logger ?? silentLogger,
     llm: options.llm,
+    queue,
+    diagrams: options.diagrams ?? noDiagramVerdict,
     config: {
       publicUrl: PUBLIC_URL,
       sessionTtlDays: 30,
@@ -51,7 +74,7 @@ export function buildApp(
     setupState,
     loginLimiter: new RateLimiter(10, 15 * 60_000),
   });
-  return { app, setupState };
+  return { app, setupState, queue };
 }
 
 export type TestApp = ReturnType<typeof buildApp>["app"];

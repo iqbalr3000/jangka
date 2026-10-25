@@ -34,6 +34,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // Runs the built app with the default APP_ROLE=all, so the worker renders in-process.
+      name: "export",
+      testMatch: "export.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       // Uses the fake provider the llm project sets as the default.
       name: "assistant",
       testMatch: "assistant.spec.ts",

@@ -121,3 +121,15 @@ export function reviseSystem(doc: DocumentContext, section: TemplateSection): st
 export function reviseMessage(current: string, instruction: string): string {
   return `Current section:\n${current.trim() || "(empty)"}\n\nInstruction: ${instruction}`;
 }
+
+export function fixDiagramSystem(expectsDiagram?: string): string {
+  return [
+    `You fix Mermaid diagram syntax${expectsDiagram ? ` (expected type: ${expectsDiagram})` : ""}.`,
+    "Return the corrected Mermaid source only, without code fences. Keep the meaning, nodes and labels;",
+    "change only what the renderer's error requires.",
+  ].join(" ");
+}
+
+export function fixDiagramMessage(source: string, error: string): string {
+  return `Mermaid source:\n${source}\n\nRenderer error:\n${error}`;
+}

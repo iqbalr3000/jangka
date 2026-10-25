@@ -10,6 +10,7 @@ One instance = one organization. Product name: **Jangka** (code-level name: `jan
 
 ```bash
 pnpm install
+pnpm db:dev:up        # start the local dev Postgres (port 5432, persistent volume)
 pnpm dev              # api + web + worker in watch mode
 pnpm test:db:up       # start throwaway Postgres 18 for integration tests (port 54329)
 pnpm test             # vitest (all packages); needs TEST_DATABASE_URL

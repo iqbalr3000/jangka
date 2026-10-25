@@ -1,4 +1,5 @@
 import { coverageLevel, type InterviewState } from "@jangka/shared/assistant";
+import { MAX_MERMAID_CHARS } from "@jangka/shared/document";
 import type { TemplateDefinition, TemplateSection } from "@jangka/templates";
 import { z } from "zod";
 import type { LLMProvider, StreamEvent } from "../types";
@@ -7,6 +8,8 @@ import {
   coverageSystem,
   type DocumentContext,
   draftSystem,
+  fixDiagramMessage,
+  fixDiagramSystem,
   interviewSystem,
   reviseMessage,
   reviseSystem,
@@ -196,4 +199,27 @@ export function reviseSection(
     },
     signal,
   );
+}
+
+export const fixedDiagram = z.object({
+  source: z.string().trim().min(1).max(MAX_MERMAID_CHARS),
+});
+
+/** One LLM attempt at fixing a diagram the renderer rejected; the caller re-renders it. */
+export async function fixDiagram(
+  { provider, model }: Common,
+  input: { source: string; error: string; expectsDiagram?: string },
+  signal?: AbortSignal,
+): Promise<string> {
+  const result = await provider.generateObject(
+    {
+      model,
+      system: fixDiagramSystem(input.expectsDiagram),
+      messages: [{ role: "user", content: fixDiagramMessage(input.source, input.error) }],
+    },
+    fixedDiagram,
+    signal,
+  );
+  // Models sometimes wrap the answer in a fence despite the instruction.
+  return result.source.replace(/^```(?:mermaid)?\n?|\n?```$/g, "").trim();
 }

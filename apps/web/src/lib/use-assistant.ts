@@ -181,6 +181,12 @@ export function useAssistant(documentId: string, onSectionSaved: (section: Secti
                 ? { ...p, [key]: { ...current, markdown: current.markdown + event.delta } }
                 : p;
             });
+          } else if (event.type === "proposal" && event.sectionKey === key) {
+            // The server fixed diagrams the stream contained.
+            setProposals((p) => {
+              const current = p[key];
+              return current ? { ...p, [key]: { ...current, markdown: event.markdown } } : p;
+            });
           } else if (event.type === "done") {
             setProposals((p) => {
               const current = p[key];

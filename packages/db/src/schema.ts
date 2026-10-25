@@ -3,6 +3,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -14,6 +15,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 const id = () => uuid("id").primaryKey().$defaultFn(uuidv7);
 const tz = (name: string) => timestamp(name, { withTimezone: true });
@@ -323,3 +326,51 @@ export const interviewStates = pgTable("interview_states", {
   state: jsonb("state").notNull(),
   updatedAt: updatedAt(),
 });
+
+/** Cache of authoritative Mermaid renders, keyed by `diagramHash` (packages/export). */
+export const diagramRenders = pgTable(
+  "diagram_renders",
+  {
+    sourceHash: text("source_hash").primaryKey(),
+    svg: text("svg"),
+    png: bytea("png"),
+    // Mermaid's parse/render error; cached so a broken source isn't rendered again.
+    error: text("error"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check(
+      "diagram_renders_result",
+      sql`(${t.svg} is not null and ${t.png} is not null) <> (${t.error} is not null)`,
+    ),
+  ],
+);
+
+export const documentExports = pgTable(
+  "exports",
+  {
+    id: id(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    format: text("format", { enum: ["pdf", "docx"] }).notNull(),
+    status: text("status", { enum: ["queued", "running", "done", "failed"] })
+      .notNull()
+      .default("queued"),
+    includeCover: boolean("include_cover").notNull().default(true),
+    file: bytea("file"),
+    fileName: text("file_name"),
+    error: text("error"),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    expiresAt: tz("expires_at").notNull(),
+  },
+  (t) => [
+    index("exports_expires_at_idx").on(t.expiresAt),
+    check("exports_format", sql`${t.format} in ('pdf', 'docx')`),
+    check("exports_status", sql`${t.status} in ('queued', 'running', 'done', 'failed')`),
+  ],
+);

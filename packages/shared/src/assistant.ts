@@ -52,6 +52,8 @@ export const assistantEvent = z.discriminatedUnion("type", [
     reason: z.literal("missing_coverage"),
   }),
   z.object({ type: z.literal("section_conflict"), key: z.string() }),
+  /** Replaces the streamed revision text (e.g. after diagrams were fixed). */
+  z.object({ type: z.literal("proposal"), sectionKey: z.string(), markdown: z.string() }),
   z.object({ type: z.literal("coverage"), state: interviewState }),
   z.object({
     type: z.literal("done"),

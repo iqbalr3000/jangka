@@ -1,10 +1,11 @@
 import { chatMessages } from "@jangka/db";
-import { fromMarkdown } from "@jangka/export";
+import { fromMarkdown, toMarkdown } from "@jangka/export";
 import { LLMError, type StreamEvent } from "@jangka/llm";
 import {
   assessCoverage,
   checkSection,
   draftSection,
+  fixDiagram,
   interview,
   reviseSection,
 } from "@jangka/llm/pipelines";
@@ -14,7 +15,9 @@ import {
   draftRequest,
   reviseRequest,
 } from "@jangka/shared/assistant";
+import type { DocNode } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
+import type { TemplateSection } from "@jangka/templates";
 import { type Context, Hono } from "hono";
 import { type SSEStreamingApi, streamSSE } from "hono/streaming";
 import { uuidv7 } from "uuidv7";
@@ -35,6 +38,7 @@ import {
   threadMessages,
   transcriptOf,
 } from "../services/assistant";
+import { ensureDiagrams } from "../services/diagrams";
 import {
   type DocumentRow,
   requireDocEdit,
@@ -69,8 +73,30 @@ async function relay(
   return { text, usage: { inputTokens: 0, outputTokens: 0 }, error: null };
 }
 
-export function assistantRoutes({ db, config, llm, logger }: RouteDeps) {
+export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps) {
   const locks = new GenerationLocks();
+
+  /** LLM-written diagrams are rendered and, when rejected, fixed before anyone sees them. */
+  function withRenderedDiagrams(
+    doc: DocNode,
+    resolved: ResolvedLlm,
+    section: TemplateSection,
+    signal: AbortSignal,
+  ): Promise<DocNode> {
+    return ensureDiagrams(
+      doc,
+      {
+        checker: diagrams,
+        fix: (source, error) =>
+          fixDiagram(
+            { provider: resolved.provider, model: resolved.model },
+            { source, error, expectsDiagram: section.expectsDiagram },
+            signal,
+          ),
+      },
+      signal,
+    );
+  }
 
   async function prepare(c: Context<AppEnv>, documentId: string) {
     const auth = requireAuth(c);
@@ -293,7 +319,12 @@ export function assistantRoutes({ db, config, llm, logger }: RouteDeps) {
             break;
           }
 
-          const content = fromMarkdown(result.text);
+          const content = await withRenderedDiagrams(
+            fromMarkdown(result.text),
+            resolved,
+            section,
+            signal,
+          );
           const check = await checkSection(
             common,
             { section, markdown: result.text },
@@ -387,6 +418,11 @@ export function assistantRoutes({ db, config, llm, logger }: RouteDeps) {
           if (result.error) {
             await send(providerError(resolved, result.error, logger));
             return;
+          }
+          const proposed = fromMarkdown(result.text);
+          const rendered = await withRenderedDiagrams(proposed, resolved, section, signal);
+          if (rendered !== proposed) {
+            await send({ type: "proposal", sectionKey: key, markdown: toMarkdown(rendered) });
           }
           await send({ type: "done", usage: result.usage });
         });
