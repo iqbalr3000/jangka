@@ -1,4 +1,11 @@
-import { documentSections, documents, sectionVersions, templates, users } from "@jangka/db";
+import {
+  comments,
+  documentSections,
+  documents,
+  sectionVersions,
+  templates,
+  users,
+} from "@jangka/db";
 import { can, personalOwnerOf } from "@jangka/permissions";
 import {
   createDocumentRequest,
@@ -11,6 +18,7 @@ import {
   updateDocumentRequest,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
+import { STATUS_TRANSITIONS, setStatusRequest } from "@jangka/shared/review";
 import { and, desc, eq, ilike, isNotNull, isNull, lt } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
@@ -98,6 +106,17 @@ export function documentRoutes({ db }: RouteDeps) {
     });
   };
 
+  async function statusChangeOf(row: DocumentRow) {
+    if (!row.statusChangedAt) return null;
+    const [by] = row.statusChangedBy
+      ? await db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(eq(users.id, row.statusChangedBy))
+      : [];
+    return { at: row.statusChangedAt.toISOString(), by: by ?? null };
+  }
+
   async function summaryOf(row: DocumentRow) {
     const [summary] = await summaries(db, [row]);
     if (!summary) throw new Error("summary missing");
@@ -172,6 +191,7 @@ export function documentRoutes({ db }: RouteDeps) {
       const detail: DocumentDetail = {
         document: await summaryOf(row),
         source: await linkedSource(db, data, row),
+        statusChange: await statusChangeOf(row),
         level: resolveDocLevel(data, row) === "edit" ? "edit" : "view",
         collection: collection
           ? {
@@ -232,6 +252,57 @@ export function documentRoutes({ db }: RouteDeps) {
           metadata: { from: row.collectionId, to: collectionId },
         });
         return c.json(await summaryOf(moved));
+      },
+    )
+    .post(
+      "/:id/status",
+      zValidate("param", idParam),
+      zValidate("json", setStatusRequest),
+      async (c) => {
+        const auth = requireAuth(c);
+        const data = await access(c);
+        const row = await viewableDocument(db, data, c.req.valid("param").id);
+        requireDocEdit(data, row);
+        const { status } = c.req.valid("json");
+        const allowed: readonly string[] = STATUS_TRANSITIONS[row.status];
+        if (!allowed.includes(status)) {
+          throw new AppError(
+            "validation_failed",
+            400,
+            `A ${row.status.replace("_", " ")} document can't move to ${status.replace("_", " ")}`,
+          );
+        }
+        if (status === "approved") {
+          const open = await db
+            .selectDistinct({ sectionKey: comments.sectionKey })
+            .from(comments)
+            .where(
+              and(
+                eq(comments.documentId, row.id),
+                isNull(comments.parentId),
+                isNull(comments.resolvedAt),
+                isNull(comments.deletedAt),
+              ),
+            );
+          if (open.length > 0) {
+            throw new AppError("open_comments", 409, "Resolve the open comments before approving", {
+              sections: open.map((o) => o.sectionKey),
+            });
+          }
+        }
+        const [updated] = await db
+          .update(documents)
+          .set({ status, statusChangedAt: new Date(), statusChangedBy: auth.user.id })
+          .where(eq(documents.id, row.id))
+          .returning();
+        if (!updated) throw new AppError("not_found", 404, "Document not found");
+        await audit(c, {
+          action: "document.status",
+          targetType: "document",
+          targetId: row.id,
+          metadata: { from: row.status, to: status },
+        });
+        return c.json(await summaryOf(updated));
       },
     )
     .post("/:id/archive", zValidate("param", idParam), async (c) => {

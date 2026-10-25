@@ -14,7 +14,8 @@
     "./export": "./src/export.ts",
     "./trace": "./src/trace.ts",
     "./audit": "./src/audit.ts",
-    "./templates": "./src/templates.ts"
+    "./templates": "./src/templates.ts",
+    "./review": "./src/review.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

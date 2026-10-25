@@ -26,6 +26,8 @@ export const errorCodes = [
   "lockout_risk",
   "invalid_provider",
   "invalid_template",
+  "document_approved",
+  "open_comments",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

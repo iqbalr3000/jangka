@@ -46,6 +46,19 @@ export async function viewableDocument(db: Db, data: AccessData, id: string): Pr
   return row;
 }
 
+export function documentApproved(): AppError {
+  return new AppError(
+    "document_approved",
+    409,
+    "This document is approved. Reopen it to make changes.",
+  );
+}
+
+/** Approved documents are frozen until they're reopened. */
+export function requireNotApproved(row: DocumentRow): void {
+  if (row.status === "approved") throw documentApproved();
+}
+
 export function requireDocEdit(data: AccessData, row: DocumentRow): void {
   if (resolveDocLevel(data, row) !== "edit") {
     throw new AppError("forbidden", 403, "You need edit access to do this");
@@ -241,6 +254,13 @@ export async function saveSection(
   input: SaveInput,
 ): Promise<"saved" | "conflict"> {
   return db.transaction(async (tx) => {
+    // Locked against a concurrent status change: approval freezes the content (feature `review`).
+    const [document] = await tx
+      .select({ status: documents.status })
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .for("update");
+    if (document?.status === "approved") throw documentApproved();
     const [section] = await tx
       .select()
       .from(documentSections)

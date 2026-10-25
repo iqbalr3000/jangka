@@ -48,6 +48,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // Needs the Platform collection the member can view (access).
+      name: "review",
+      testMatch: "review.spec.ts",
+      dependencies: ["access"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "templates",
       testMatch: "templates.spec.ts",
       dependencies: ["onboarding"],

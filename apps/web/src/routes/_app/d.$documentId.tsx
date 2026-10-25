@@ -32,8 +32,9 @@ import { documentQuery, sectionAnchor } from "@/lib/documents";
 import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
 import { versionsKey } from "@/lib/history";
-import { llmStatusQuery } from "@/lib/llm";
+import { llmStatusQuery, timeAgo } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
+import { commentsQuery } from "@/lib/review";
 import { traceKey, traceQuery } from "@/lib/trace";
 import { useAssistant } from "@/lib/use-assistant";
 
@@ -79,7 +80,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const queryClient = useQueryClient();
   const { me } = Route.useRouteContext();
   const { document: doc } = detail;
-  const editable = detail.level === "edit";
+  // Approved documents are frozen until reopened (feature `review`).
+  const approved = doc.status === "approved";
+  const editable = detail.level === "edit" && !approved;
   const states = useRef(new Map<string, SaveState>());
   const [save, setSave] = useState<SaveSummary>({ state: "idle", at: null });
   // Bumped to remount a section's editor with content written outside it (drafts, accepts).
@@ -94,6 +97,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
   const [panelTab, setPanelTab] = usePersistentState("jangka.panel-tab", panelTabs, "chat");
   const [historyKey, setHistoryKey] = useState(detail.sections[0]?.key ?? "");
+  const [commentsSection, setCommentsSection] = useState("");
+  const openComments = useQuery(commentsQuery(doc.id, "open")).data?.openCountBySection ?? {};
   const trace = useQuery(traceQuery(doc.id));
   const hasRequirements = (trace.data?.requirements.length ?? 0) > 0;
   const canDraftFromSource = detail.source !== null && !("restricted" in detail.source);
@@ -343,10 +348,19 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         actions={headerActions}
         onExport={() => setExporting(true)}
       />
-      {!editable && (
+      {approved ? (
         <div className="border-b border-border bg-secondary px-4 py-2 text-[13px] text-muted-foreground">
-          You have view access.
+          Approved
+          {detail.statusChange?.by ? ` by ${detail.statusChange.by.name}` : ""}
+          {detail.statusChange ? ` · ${timeAgo(detail.statusChange.at)}` : ""}.
+          {detail.level === "edit" ? " Reopen it from the status menu to make changes." : ""}
         </div>
+      ) : (
+        !editable && (
+          <div className="border-b border-border bg-secondary px-4 py-2 text-[13px] text-muted-foreground">
+            You have view access.
+          </div>
+        )
       )}
       <div className="flex min-h-0 flex-1">
         <SectionOutline sections={detail.sections} labels={outlineLabels} />
@@ -380,6 +394,12 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
                   onEdit={() => editBeforeAccepting(section)}
                   onUndo={() => void undo(section)}
                   onAsk={() => askAbout(section)}
+                  openComments={openComments[section.key] ?? 0}
+                  onComments={() => {
+                    setCommentsSection(section.key);
+                    setPanelTab("comments");
+                    setPanel("open");
+                  }}
                   onHistory={() => {
                     setHistoryKey(section.key);
                     setPanelTab("history");
@@ -399,6 +419,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
             historyKey={historyKey}
             onHistoryKeyChange={setHistoryKey}
             onRestored={replaceSection}
+            commentsKey={commentsSection}
+            onCommentsKeyChange={setCommentsSection}
             sections={detail.sections}
             assistant={assistant}
             editable={editable}

@@ -197,6 +197,12 @@ describe("can", () => {
     expect(can(ctx, { action: "view", collectionId: "archive" })).toBe(false);
   });
 
+  it("lets anyone who can view a collection comment on its documents", () => {
+    expect(can(ctx, { action: "comment", collectionId: "product" })).toBe(true);
+    expect(can(ctx, { action: "comment", collectionId: "payments" })).toBe(true);
+    expect(can(ctx, { action: "comment", collectionId: "archive" })).toBe(false);
+  });
+
   it("denies moving a document from edit to view", () => {
     expect(can(ctx, { action: "move_document", from: "platform", to: "product" })).toBe(false);
     expect(can(ctx, { action: "move_document", from: "product", to: "platform" })).toBe(false);

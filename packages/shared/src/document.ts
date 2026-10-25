@@ -215,6 +215,8 @@ export const documentDetail = z.object({
   document: documentSummary,
   /** The document this one was generated from (PRD ← BRD, TSD ← PRD). */
   source: linkedDocument.nullable(),
+  /** Last status change (feature `review`); null until the status first changes. */
+  statusChange: z.object({ at: z.string(), by: userRef.nullable() }).nullable(),
   level: z.enum(["view", "edit"]),
   collection: z
     .object({ id: z.string(), name: z.string(), personalOwnerId: z.string().nullable() })

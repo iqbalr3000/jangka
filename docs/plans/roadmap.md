@@ -15,8 +15,8 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 8   | traceability     | 2     | [spec](spec-traceability.md) | done   |
 | 9   | sso              | 2     | [spec](spec-sso.md)        | done   |
 | 10  | history-audit    | 2     | [spec](spec-history-audit.md) | done   |
-| 11  | custom-templates | 3     | [spec](spec-custom-templates.md) | building |
-| 12  | review           | 3     | —                          | todo   |
+| 11  | custom-templates | 3     | [spec](spec-custom-templates.md) | done   |
+| 12  | review           | 3     | [spec](spec-review.md)     | building |
 | 13  | impact-retrieval | 3     | —                          | todo   |
 | 14  | search           | 3     | —                          | todo   |
 
@@ -34,3 +34,4 @@ Cutoff: 2026-10-25
 - **traceability** — BRD/PRD v2/TSD templates, requirement index derived from section tables, source documents (PRD ← BRD, TSD ← PRD) with source-aware LLM context and Draft from source, trace API + Trace panel with restricted links, requirements appendix in exports.
 - **sso** — runtime OIDC providers (Google preset + generic), PKCE flow with encrypted state cookie and single callback URI, SPEC §5 account linking + auto-provision + domain rules, lockout guards + FORCE_PASSWORD_LOGIN, Authentication admin page, SSO login buttons.
 - **history-audit** — append-only audit_logs with real audit() writes and a guard that fails un-audited mutations in tests, failed sign-in auditing, section restore as a new marked version, History panel with diff, admin audit log viewer.
+- **custom-templates** — template drafts and immutable published versions, custom validation (requirement kinds per type, stable keys), prompt-level requirement table rule, admin lifecycle API + Templates page and editor, per-type default template, Template picker in New document.

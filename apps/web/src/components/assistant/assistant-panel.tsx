@@ -3,6 +3,7 @@ import type { Section } from "@jangka/shared/document";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { CommentsPanel } from "@/components/documents/comments-panel";
 import { HistoryPanel } from "@/components/documents/history-panel";
 import { TracePanel } from "@/components/documents/trace-panel";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { CoverageChecklist } from "./coverage-checklist";
 
-export const panelTabs = ["chat", "history", "trace"] as const;
+export const panelTabs = ["chat", "history", "trace", "comments"] as const;
 export type PanelTab = (typeof panelTabs)[number];
 
 type AssistantPanelProps = {
@@ -23,6 +24,8 @@ type AssistantPanelProps = {
   historyKey: string;
   onHistoryKeyChange: (key: string) => void;
   onRestored: (section: Section) => void;
+  commentsKey: string;
+  onCommentsKeyChange: (key: string) => void;
   sections: Section[];
   assistant: Assistant;
   editable: boolean;
@@ -79,6 +82,8 @@ export function AssistantPanel({
   historyKey,
   onHistoryKeyChange,
   onRestored,
+  commentsKey,
+  onCommentsKeyChange,
   sections,
   assistant,
   editable,
@@ -130,6 +135,13 @@ export function AssistantPanel({
       </div>
       {tab === "trace" ? (
         <TracePanel documentId={documentId} title={documentTitle} />
+      ) : tab === "comments" ? (
+        <CommentsPanel
+          documentId={documentId}
+          sections={sections}
+          sectionKey={commentsKey}
+          onSectionChange={onCommentsKeyChange}
+        />
       ) : tab === "history" ? (
         <HistoryPanel
           documentId={documentId}

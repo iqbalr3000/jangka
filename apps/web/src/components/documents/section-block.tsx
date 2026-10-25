@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { sectionAnchor } from "@/lib/documents";
 import type { Proposal } from "@/lib/use-assistant";
+import { cn } from "@/lib/utils";
 import { ReviseProposal } from "./revise-proposal";
 import { type SaveState, SectionEditor } from "./section-editor";
 import { SectionStatusIcon } from "./section-status-icon";
@@ -41,6 +42,9 @@ type SectionBlockProps = {
   onAsk: () => void;
   /** Opens the History tab on this section. */
   onHistory: () => void;
+  /** Open review threads on this section. */
+  openComments: number;
+  onComments: () => void;
 };
 
 export function SectionBlock(props: SectionBlockProps) {
@@ -76,6 +80,23 @@ export function SectionBlock(props: SectionBlockProps) {
           <SectionStatusIcon completeness={section.completeness} withLabel />
         )}
         <span className="flex-1" />
+        <button
+          type="button"
+          onClick={props.onComments}
+          className={cn(
+            "rounded-sm px-1.5 py-0.5 text-xs hover:bg-secondary",
+            props.openComments > 0
+              ? "text-status-partial"
+              : "text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100",
+          )}
+          aria-label={
+            props.openComments > 0
+              ? `${props.openComments} open comments on ${section.title}`
+              : `Comment on ${section.title}`
+          }
+        >
+          💬{props.openComments > 0 ? ` ${props.openComments}` : ""}
+        </button>
         <button
           type="button"
           onClick={props.onHistory}

@@ -232,6 +232,8 @@ export const documents = pgTable(
       .notNull()
       .default("draft"),
     createdBy: uuid("created_by").references(() => users.id),
+    statusChangedAt: tz("status_changed_at"),
+    statusChangedBy: uuid("status_changed_by").references(() => users.id),
     archivedAt: tz("archived_at"),
     sourceDocumentId: uuid("source_document_id").references((): AnyPgColumn => documents.id),
     createdAt: createdAt(),
@@ -488,5 +490,32 @@ export const auditLogs = pgTable(
   (t) => [
     index("audit_logs_target_idx").on(t.targetType, t.targetId),
     index("audit_logs_actor_id_idx").on(t.actorId),
+  ],
+);
+
+/** Review comments (feature `review`): root comments on a section, one level of replies. */
+export const comments = pgTable(
+  "comments",
+  {
+    id: id(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sectionKey: text("section_key").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => comments.id),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    editedAt: tz("edited_at"),
+    // Soft delete: the thread keeps its replies.
+    deletedAt: tz("deleted_at"),
+    resolvedAt: tz("resolved_at"),
+    resolvedBy: uuid("resolved_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("comments_document_section_idx").on(t.documentId, t.sectionKey),
+    index("comments_parent_id_idx").on(t.parentId),
   ],
 );

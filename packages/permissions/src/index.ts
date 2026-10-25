@@ -17,7 +17,7 @@ export type AccessReason =
 export type Access = { level: Level; reason: AccessReason };
 
 export type Check =
-  | { action: "view" | "edit"; collectionId: string | null }
+  | { action: "view" | "edit" | "comment"; collectionId: string | null }
   | { action: "move_document"; from: string | null; to: string | null }
   | { action: "move_collection"; collectionId: string; to: string | null };
 
@@ -120,6 +120,9 @@ export function can(ctx: PermissionContext, check: Check): boolean {
     case "view":
     case "edit":
       return atLeast(ctx, check.collectionId, check.action);
+    // Reviewers often have view access only (SPEC §4).
+    case "comment":
+      return atLeast(ctx, check.collectionId, "view");
     case "move_document":
       return atLeast(ctx, check.from, "edit") && atLeast(ctx, check.to, "edit");
     case "move_collection": {

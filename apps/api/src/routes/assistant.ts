@@ -43,6 +43,7 @@ import { ensureDiagrams } from "../services/diagrams";
 import {
   type DocumentRow,
   requireDocEdit,
+  requireNotApproved,
   saveSection,
   sectionByKey,
   sectionsOf,
@@ -246,6 +247,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
     })
     .post("/:id/draft", zValidate("param", idParam), zValidate("json", draftRequest), async (c) => {
       const { auth, doc, resolved, data } = await prepare(c, c.req.valid("param").id);
+      requireNotApproved(doc);
       const { sections: requested, force, fromSource } = c.req.valid("json");
       if (fromSource && !(await sourceContext(db, doc, data))) {
         throw new AppError("invalid_source", 409, "This document has no source you can view");
@@ -392,6 +394,8 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       async (c) => {
         const { id, key } = c.req.valid("param");
         const { auth, doc, resolved, data } = await prepare(c, id);
+        // A proposal couldn't be accepted anyway while the document is approved.
+        requireNotApproved(doc);
         const { instruction } = c.req.valid("json");
         const { template } = await documentContext(db, doc, data);
         const section = template.sections.find((s) => s.key === key);

@@ -111,7 +111,8 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **documents**
 - `collection_id uuid null` (null = root), `doc_type`, `template_id fk`, `title text`
-- `status text` (`draft` | `in_review` | `approved`), `created_by fk users`, `archived_at null`
+- `status text` (`draft` | `in_review` | `approved`; approved = sections frozen, feature `review`), `status_changed_at null`, `status_changed_by null`
+- `created_by fk users`, `archived_at null`
 - `source_document_id uuid null` (e.g. PRD generated from BRD; feature `traceability`)
 
 **document_sections**
@@ -148,7 +149,8 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `document_id fk`, `format text` (`pdf` | `docx`), `status text` (`queued` | `running` | `done` | `failed`)
 - `file bytea null`, `file_name text null`, `error text null`, `requested_by fk`, `expires_at` (24h; cleanup job)
 
-**comments** (feature `review`) — `section_id fk`, `parent_id null`, `author_id`, `body text`, `resolved_at null`
+**comments** (feature `review`) — `document_id fk`, `section_key`, `parent_id null` (one level of replies), `author_id`, `body text`,
+`edited_at null`, `deleted_at null` (soft delete), `resolved_at null`, `resolved_by null`
 
 **audit_logs** (feature `history-audit`; append-only, a trigger rejects UPDATE/DELETE; no `updated_at`)
 - `actor_id null`, `action text` (e.g. `document.update_section`), `target_type`, `target_id`, `metadata jsonb`, `ip`, `user_agent`
@@ -161,7 +163,7 @@ Implemented as a **pure function** in `packages/permissions`. Callers load the c
 ### Semantics
 
 - Levels ordered: `none < view < edit`.
-- **view**: see the collection and its documents, read sections, export, view chat history.
+- **view**: see the collection and its documents, read sections, export, view chat history, comment.
 - **edit**: view + create/edit/move/archive documents and sub-collections, run LLM generation.
 - **Only admins** (members of `admins`) manage users, groups, grants, LLM providers, auth providers, settings.
 - Admins have effective `edit` everywhere, including personal collections.

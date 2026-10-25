@@ -26,6 +26,7 @@ import { adminUserRoutes } from "./routes/admin-users";
 import { assistantRoutes } from "./routes/assistant";
 import { authRoutes } from "./routes/auth";
 import { collectionRoutes } from "./routes/collections";
+import { commentRoutes } from "./routes/comments";
 import { documentRoutes, templateRoutes } from "./routes/documents";
 import { exportRoutes } from "./routes/exports";
 import { healthRoutes } from "./routes/health";
@@ -133,6 +134,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/documents", traceRoutes(routeDeps));
   app.route("/api/v1/templates", templateRoutes(routeDeps));
   app.route("/api/v1", exportRoutes(routeDeps));
+  app.route("/api/v1", commentRoutes(routeDeps));
 
   if (webDistDir) {
     const indexHtml = readFileSync(path.join(webDistDir, "index.html"), "utf8");
