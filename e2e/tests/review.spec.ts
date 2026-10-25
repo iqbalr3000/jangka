@@ -29,9 +29,18 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
     "Which markets are in scope?",
   );
 
-  // The editor sees the badge, replies and resolves.
+  // Approving with an open thread is refused, and the dialog leads to it.
   await admin.reload();
-  await admin.getByRole("button", { name: "1 open comments on Overview" }).click();
+  await admin.getByRole("button", { name: "Status: Draft" }).click();
+  await admin.getByRole("menuitem", { name: "Request review" }).click();
+  await admin.getByRole("button", { name: "Status: In review" }).click();
+  await admin.getByRole("menuitem", { name: "Approve" }).click();
+  const blocked = admin.getByRole("dialog", { name: "Resolve comments before approving" });
+  await expect(blocked).toContainText("Overview");
+  await blocked.getByRole("button", { name: "Show comments" }).click();
+  await expect(blocked).toHaveCount(0);
+
+  // The editor replies and resolves.
   const thread = panel(admin).getByRole("listitem", { name: "Thread on Overview" });
   await expect(thread).toContainText("Which markets are in scope?");
   await thread.getByRole("button", { name: "Reply" }).click();
@@ -42,9 +51,7 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   await expect(panel(admin)).toContainText("No open comments.");
   await expect(admin.getByRole("button", { name: "Comment on Overview" })).toBeAttached();
 
-  // Review and approve: the content freezes.
-  await admin.getByRole("button", { name: "Status: Draft" }).click();
-  await admin.getByRole("menuitem", { name: "Request review" }).click();
+  // Approve: the content freezes.
   await admin.getByRole("button", { name: "Status: In review" }).click();
   await admin.getByRole("menuitem", { name: "Approve" }).click();
   await expect(admin.getByText(/Approved by Ada Admin/)).toBeVisible();

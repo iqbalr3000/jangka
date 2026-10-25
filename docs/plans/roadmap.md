@@ -26,7 +26,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Status change errors use `window.alert` | UI polish | e.g. "Resolve the open comments before approving" |
 | Empty sections in read-only view | UI polish | No "Not yet specified" placeholder for viewers and approved documents |
 | Smaller Docker image (1.49 GB) | Optimization | Copy only `mermaid.min.js` and font files instead of mermaid's `node_modules` (~150 MB) |
 | Assistant proposes document updates from chat | Feature | When chat adds new information, offer updates to affected sections as diff + Accept |
@@ -55,3 +54,4 @@ Cutoff: 2026-10-25
 - **search** — permission-filtered title + full-text search with snippets, shared visibility scope, ⌘K command palette (documents, collections, admin pages, actions), /search page with type filter.
 - **Phase 4: sidebar icons + pointer cursor** — lucide icons for navigation, collections (folder / open folder) and admin pages; global pointer cursor for interactive elements (Tailwind v4 preflight reset).
 - **Phase 4: editor toolbar placement** — the formatting toolbar renders in the section heading row beside the section actions instead of covering them.
+- **Phase 4: status change errors** — a dialog instead of `window.alert`; a blocked approval lists the sections with open threads and opens them in the Comments tab.

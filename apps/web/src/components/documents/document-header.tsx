@@ -45,6 +45,8 @@ type DocumentHeaderProps = {
   actions?: ReactNode;
   /** Opens the export dialog; viewers can export too. */
   onExport: () => void;
+  /** Opens the Comments tab on a section. */
+  onShowComments: (sectionKey: string) => void;
 };
 
 const saveText = (save: SaveSummary) => {
@@ -60,7 +62,14 @@ const saveText = (save: SaveSummary) => {
   }
 };
 
-export function DocumentHeader({ detail, userId, save, actions, onExport }: DocumentHeaderProps) {
+export function DocumentHeader({
+  detail,
+  userId,
+  save,
+  actions,
+  onExport,
+  onShowComments,
+}: DocumentHeaderProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { document: doc, collection, level } = detail;
@@ -149,7 +158,12 @@ export function DocumentHeader({ detail, userId, save, actions, onExport }: Docu
         className="min-w-0 flex-1 truncate rounded-sm bg-transparent px-1 py-0.5 text-[15px] font-semibold outline-none hover:bg-secondary focus:bg-secondary read-only:hover:bg-transparent"
       />
       {detail.source && <SourceChip source={detail.source} />}
-      <StatusMenu document={doc} editable={editable} />
+      <StatusMenu
+        document={doc}
+        editable={editable}
+        sections={detail.sections}
+        onShowComments={onShowComments}
+      />
       {actions}
       <Button size="sm" variant="outline" onClick={onExport} title={`Export (${modKeyLabel}⇧E)`}>
         Export

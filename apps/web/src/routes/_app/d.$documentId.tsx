@@ -347,6 +347,11 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         save={save}
         actions={headerActions}
         onExport={() => setExporting(true)}
+        onShowComments={(key) => {
+          setCommentsSection(key);
+          setPanelTab("comments");
+          setPanel("open");
+        }}
       />
       {approved ? (
         <div className="border-b border-border bg-secondary px-4 py-2 text-[13px] text-muted-foreground">
