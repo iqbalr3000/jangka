@@ -1,12 +1,12 @@
-import { createRequire } from "node:module";
 import type { DiagramResult } from "@jangka/export/render";
 import { type Browser, type BrowserContext, chromium } from "playwright-core";
 import { z } from "zod";
+import { assetPath, MERMAID_SCRIPT } from "./assets";
 
 const RENDER_TIMEOUT_MS = 15_000;
 const MAX_ERROR_CHARS = 500;
 
-const mermaidScript = createRequire(import.meta.url).resolve("mermaid/dist/mermaid.min.js");
+const mermaidScript = assetPath(MERMAID_SCRIPT);
 
 // Runs in the page; a string because the worker is typed without DOM globals.
 const RENDER_IN_PAGE = `async ({ source, id }) => {

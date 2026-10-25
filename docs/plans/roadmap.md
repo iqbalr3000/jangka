@@ -26,7 +26,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Smaller Docker image (1.49 GB) | Optimization | Copy only `mermaid.min.js` and font files instead of mermaid's `node_modules` (~150 MB) |
 | Assistant proposes document updates from chat | Feature | When chat adds new information, offer updates to affected sections as diff + Accept |
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
@@ -56,3 +55,4 @@ Cutoff: 2026-10-25
 - **Phase 4: status change errors** — a dialog instead of `window.alert`; a blocked approval lists the sections with open threads and opens them in the Comments tab.
 - **Phase 4: no native alert/confirm** — shared `ConfirmDialog` for deleting comments, discarding and leaving template drafts (router blocker with resolver), and section save / export retry errors.
 - **Phase 4: read-only empty sections** — the dashed placeholder also shows read-only (viewers, approved documents) as "Not yet specified.", matching the export; the streaming preview has none.
+- **Phase 4: smaller Docker image** — 1.49 GB → 965 MB: worker runtime files copied to `dist/assets` (Playwright is the only prod dependency, node_modules 217 → 14 MB); xvfb and the Mesa/LLVM it pulls in, and ffmpeg, removed from the Playwright layer (611 → 399 MB); fonts kept for CJK/emoji diagrams.

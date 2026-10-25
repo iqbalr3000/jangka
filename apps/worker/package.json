@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./jobs": "./src/jobs.ts"
+    "./jobs": "./src/jobs.ts",
+    "./assets": "./src/assets.ts"
   },
   "scripts": {
     "dev": "APP_ROLE=worker tsx watch --env-file-if-exists=../../.env ../api/src/main.ts",

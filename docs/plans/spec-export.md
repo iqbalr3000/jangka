@@ -127,12 +127,13 @@ Error codes `export_expired`, `export_not_ready`. `assistantEvent` gains `propos
 
 ## Docker
 
-- `apps/api` `dependencies` are only what the bundle reads from `node_modules` at runtime: `playwright-core` (external
-  in tsup), `mermaid` (browser build injected into the page), the two fontsource packages; everything bundled is a
-  devDependency. Build: `pnpm --filter @jangka/api deploy --prod --legacy /deploy` → runtime `node_modules`.
-- Runtime: `playwright-core/cli.js install --with-deps --only-shell chromium` (Playwright pinned to the `@jangka/e2e`
-  version), browsers in `/ms-playwright`. Measured image: 1.49 GB (browser 280 MB, runtime node_modules 207 MB — mostly
-  mermaid's dependency tree, Chromium's apt libraries the rest).
+- `apps/api` `dependencies` = `playwright-core` only (external in tsup). The worker's runtime files (mermaid's browser
+  build, the font CSS and woff2 subsets) are copied by `apps/worker/scripts/copy-assets.ts` into `apps/api/dist/assets`
+  during the api build; `assetPath()` prefers them and falls back to node_modules in dev and tests.
+  Build: `pnpm --filter @jangka/api deploy --prod --legacy /deploy` → runtime `node_modules` (14 MB).
+- Runtime: `playwright-core/cli.js install --with-deps --only-shell chromium`, then `apt-get purge --auto-remove xvfb`
+  (xvfb drags in Mesa/LLVM, needed only by headed browsers) and ffmpeg removed. Fonts stay (CJK / emoji in diagrams).
+  Measured image: 965 MB (was 1.49 GB): base ±550 MB, Chromium + libraries 399 MB.
 - `CMD` unchanged (`node apps/api/dist/main.js`); role from `APP_ROLE`.
 
 ## Dependencies

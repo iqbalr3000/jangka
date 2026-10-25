@@ -6,9 +6,9 @@ export default defineConfig({
   platform: "node",
   target: "node24",
   clean: true,
-  // One bundle with everything that can be bundled. Playwright can't (it spawns its driver), and
-  // the worker reads mermaid's browser build and font files from node_modules at runtime; the
-  // image installs those prod dependencies with `pnpm deploy`.
+  // One bundle with everything that can be bundled. Playwright can't (it spawns its driver): it's
+  // the only prod dependency, installed in the image with `pnpm deploy`. The worker's runtime
+  // files (mermaid's browser build, fonts) are copied to dist/assets by the build script.
   noExternal: [/^(?!playwright-core)/],
   external: ["pg-native", "playwright-core"],
   banner: {
