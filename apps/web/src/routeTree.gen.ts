@@ -18,6 +18,7 @@ import { Route as AppArchivedRouteImport } from './routes/_app/archived'
 import { Route as AppPersonalRouteImport } from './routes/_app/personal'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminAuthRouteImport } from './routes/_app/admin/auth'
 import { Route as AppAdminLlmRouteImport } from './routes/_app/admin/llm'
 import { Route as AppAdminPermissionsRouteImport } from './routes/_app/admin/permissions'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
@@ -70,6 +71,11 @@ const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminAuthRoute = AppAdminAuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminLlmRoute = AppAdminLlmRouteImport.update({
   id: '/llm',
   path: '/llm',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/archived': typeof AppArchivedRoute
   '/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/auth': typeof AppAdminAuthRoute
   '/admin/llm': typeof AppAdminLlmRoute
   '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
+  '/admin/auth': typeof AppAdminAuthRoute
   '/admin/llm': typeof AppAdminLlmRoute
   '/admin/permissions': typeof AppAdminPermissionsRoute
   '/admin/users': typeof AppAdminUsersRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/_app/personal': typeof AppPersonalRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/auth': typeof AppAdminAuthRoute
   '/_app/admin/llm': typeof AppAdminLlmRoute
   '/_app/admin/permissions': typeof AppAdminPermissionsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/archived'
     | '/personal'
     | '/invite/$token'
+    | '/admin/auth'
     | '/admin/llm'
     | '/admin/permissions'
     | '/admin/users'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/personal'
     | '/invite/$token'
     | '/'
+    | '/admin/auth'
     | '/admin/llm'
     | '/admin/permissions'
     | '/admin/users'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/_app/personal'
     | '/invite/$token'
     | '/_app/'
+    | '/_app/admin/auth'
     | '/_app/admin/llm'
     | '/_app/admin/permissions'
     | '/_app/admin/users'
@@ -284,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminIndexRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/auth': {
+      id: '/_app/admin/auth'
+      path: '/auth'
+      fullPath: '/admin/auth'
+      preLoaderRoute: typeof AppAdminAuthRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/llm': {
       id: '/_app/admin/llm'
       path: '/llm'
@@ -337,6 +356,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAdminRouteChildren {
+  AppAdminAuthRoute: typeof AppAdminAuthRoute
   AppAdminLlmRoute: typeof AppAdminLlmRoute
   AppAdminPermissionsRoute: typeof AppAdminPermissionsRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
@@ -346,6 +366,7 @@ interface AppAdminRouteChildren {
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminAuthRoute: AppAdminAuthRoute,
   AppAdminLlmRoute: AppAdminLlmRoute,
   AppAdminPermissionsRoute: AppAdminPermissionsRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,

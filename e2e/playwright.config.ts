@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_URL, SERVER_LOG, serverEnv } from "./env";
+import { BASE_URL, IDP_ISSUER, SERVER_LOG, serverEnv } from "./env";
 
 export default defineConfig({
   testDir: "tests",
@@ -41,6 +41,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "sso",
+      testMatch: "sso.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       // Runs the built app with the default APP_ROLE=all, so the worker renders in-process.
       name: "export",
       testMatch: "export.spec.ts",
@@ -55,12 +61,21 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    // Uses the production build (`pnpm build` first); output is kept so tests can read the setup token.
-    command: `mkdir -p test-results && tsx reset-db.ts && node ../apps/api/dist/main.js > ${SERVER_LOG} 2>&1`,
-    url: `${BASE_URL}/api/v1/health`,
-    env: serverEnv(),
-    reuseExistingServer: false,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      // Uses the production build (`pnpm build` first); output is kept so tests can read the setup token.
+      command: `mkdir -p test-results && tsx reset-db.ts && node ../apps/api/dist/main.js > ${SERVER_LOG} 2>&1`,
+      url: `${BASE_URL}/api/v1/health`,
+      env: serverEnv(),
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      // Stub OpenID provider for the SSO spec.
+      command: "tsx oidc-idp.ts",
+      url: `${IDP_ISSUER}/.well-known/openid-configuration`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+  ],
 });

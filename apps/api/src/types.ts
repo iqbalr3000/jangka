@@ -16,6 +16,8 @@ export type AppConfig = {
   /** Encrypts stored secrets (LLM keys). */
   masterKey: Buffer;
   enableFakeLlm: boolean;
+  /** FORCE_PASSWORD_LOGIN: password login works even when disabled in settings. */
+  forcePasswordLogin: boolean;
 };
 
 export type AppEnv = {

@@ -3,6 +3,8 @@ import path from "node:path";
 
 export const PORT = 3100;
 export const BASE_URL = `http://localhost:${PORT}`;
+export const IDP_PORT = 3101;
+export const IDP_ISSUER = `http://127.0.0.1:${IDP_PORT}`;
 export const SERVER_LOG = path.resolve(import.meta.dirname, "test-results", "server.log");
 
 /** A dedicated database next to the integration-test one, recreated for every run. */

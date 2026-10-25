@@ -118,7 +118,18 @@ function UsersPage() {
                 <span className="font-normal text-muted-foreground"> (you)</span>
               )}
             </span>
-            <span className="truncate">{user.email}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate">{user.email}</span>
+              {user.identities.map((provider) => (
+                <span
+                  key={provider}
+                  title={`Signs in with ${provider}`}
+                  className="shrink-0 rounded-sm border border-border px-1.5 text-[11px] text-muted-foreground"
+                >
+                  {provider}
+                </span>
+              ))}
+            </span>
             <span>{user.isAdmin ? "Admin" : "Member"}</span>
             <span className="flex items-center gap-1.5">
               <span

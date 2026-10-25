@@ -9,6 +9,7 @@ import type { RateLimiter } from "../lib/rate-limit";
 import { clientIp, requestMeta } from "../lib/request-meta";
 import { clearSessionCookie, requireAuth, startSession } from "../lib/session";
 import { zValidate } from "../lib/validate";
+import { passwordLoginAllowed } from "../services/auth-settings";
 import { isAdmin, meFor } from "../services/users";
 import type { AppEnv, RouteDeps } from "../types";
 
@@ -26,6 +27,13 @@ export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter)
   return new Hono<AppEnv>()
     .post("/login", zValidate("json", loginRequest), async (c) => {
       const { email, password } = c.req.valid("json");
+      if (!(await passwordLoginAllowed(db, config))) {
+        throw new AppError(
+          "password_login_disabled",
+          403,
+          "Password sign-in is turned off. Use SSO.",
+        );
+      }
       const limitKey = `${clientIp(c)}|${email}`;
       if (loginLimiter.isLimited(limitKey)) {
         throw new AppError("rate_limited", 429, "Too many attempts. Try again in 15 minutes.");

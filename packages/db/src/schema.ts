@@ -38,6 +38,11 @@ export const instanceSettings = pgTable(
       onDelete: "set null",
     }),
     defaultModel: text("default_model"),
+    passwordLoginEnabled: boolean("password_login_enabled").notNull().default(true),
+    // Group that auto-provisioned SSO users join (besides the implicit All Users).
+    defaultGroupId: uuid("default_group_id").references((): AnyPgColumn => groups.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -327,6 +332,49 @@ export const interviewStates = pgTable("interview_states", {
   state: jsonb("state").notNull(),
   updatedAt: updatedAt(),
 });
+
+/** OIDC providers (feature `sso`); configured at runtime by admins. */
+export const authProviders = pgTable(
+  "auth_providers",
+  {
+    id: id(),
+    kind: text("kind", { enum: ["google", "oidc"] }).notNull(),
+    name: text("name").notNull(),
+    issuer: text("issuer").notNull(),
+    clientId: text("client_id").notNull(),
+    clientSecretEnc: text("client_secret_enc").notNull(),
+    secretLast4: text("secret_last4").notNull(),
+    // Lowercased; empty = any domain.
+    allowedDomains: text("allowed_domains").array().notNull().default(sql`'{}'::text[]`),
+    autoProvision: boolean("auto_provision").notNull().default(false),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("auth_providers_kind", sql`${t.kind} in ('google', 'oidc')`)],
+);
+
+export const userIdentities = pgTable(
+  "user_identities",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => authProviders.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    // The email the identity had when it was linked.
+    email: text("email"),
+    createdAt: createdAt(),
+    lastLoginAt: tz("last_login_at"),
+  },
+  (t) => [
+    unique("user_identities_provider_subject").on(t.providerId, t.subject),
+    index("user_identities_user_id_idx").on(t.userId),
+  ],
+);
 
 /**
  * Index of the requirement tables in section content, rewritten on every section save (ADR 0003).

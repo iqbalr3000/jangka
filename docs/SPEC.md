@@ -51,6 +51,7 @@ Browser (SPA) ──HTTP/SSE──> api (Hono) ──> Postgres
 | `LOG_LEVEL`        | no       | default `info`                                                        |
 | `SESSION_TTL_DAYS` | no       | default 30                                                            |
 | `ENABLE_FAKE_LLM`  | no       | default `false`; offers the deterministic fake provider (dev, e2e)    |
+| `FORCE_PASSWORD_LOGIN` | no   | default `false`; enables password login even if disabled in settings (SSO lockout escape hatch) |
 
 ## 3. Data model
 
@@ -80,9 +81,9 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **auth_providers** (OIDC; feature `sso`)
 - `kind text` (`google` | `oidc`), `name text`, `issuer text`, `client_id text`
-- `client_secret_enc text`, `allowed_domains text[]` (empty = any), `auto_provision bool`, `enabled bool`
+- `client_secret_enc text`, `secret_last4 text`, `allowed_domains text[]` (empty = any), `auto_provision bool`, `enabled bool`
 
-**user_identities** (feature `sso`) — `user_id`, `provider_id`, `subject text`, unique(provider_id, subject)
+**user_identities** (feature `sso`) — `user_id`, `provider_id`, `subject text`, `email text`, `last_login_at`, unique(provider_id, subject)
 
 ### LLM
 
@@ -217,11 +218,12 @@ filterViewable<T extends { collectionId: string | null }>(ctx, items: T[]): T[];
 - Admin configures providers at runtime (no restart). Library: `openid-client`. Discovery via `issuer`.
 - Google preset: issuer `https://accounts.google.com`.
 - Flow: authorization code + PKCE + `state` + `nonce`, stored in a short-lived signed cookie.
-- Redirect URI shown to admin: `${PUBLIC_URL}/api/v1/auth/oidc/{providerId}/callback`.
+- Redirect URI shown to admin: `${PUBLIC_URL}/api/v1/auth/oidc/callback` (one for all providers; the flow cookie names the provider).
 - Domain restriction: check email domain (and Google `hd` claim when kind = google) against `allowed_domains`.
 - Account linking: match by `(provider, subject)` first. Else if email matches an existing user **and**
   `email_verified === true` → link. Else if `auto_provision` → create user, add to `default_group_id`. Else deny.
 - Admin can disable password login only if at least one enabled OIDC provider exists and an admin has a linked identity.
+  While it is disabled, the last enabled provider can't be disabled or deleted. `FORCE_PASSWORD_LOGIN=true` re-enables it (escape hatch).
 
 ## 6. LLM layer (`packages/llm`)
 
@@ -341,7 +343,7 @@ GET  /api/v1/setup/status          POST /api/v1/setup
 POST /api/v1/setup/verify-token
 POST /api/v1/auth/login            POST /api/v1/auth/logout       GET /api/v1/auth/me
 GET  /api/v1/invites/:token        POST /api/v1/invites/:token/accept
-GET  /api/v1/auth/oidc/providers   GET  /api/v1/auth/oidc/:id/start   GET /api/v1/auth/oidc/:id/callback
+GET  /api/v1/auth/oidc/providers   GET  /api/v1/auth/oidc/:id/start   GET /api/v1/auth/oidc/callback
 
 # admin
 GET/PATCH /api/v1/admin/users       POST /admin/users/:id/reset-link

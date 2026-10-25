@@ -12,8 +12,8 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 5   | document         | 1     | [spec](spec-document.md)   | done   |
 | 6   | assistant        | 1     | [spec](spec-assistant.md)  | done   |
 | 7   | export           | 1     | [spec](spec-export.md)     | done   |
-| 8   | traceability     | 2     | [spec](spec-traceability.md) | building |
-| 9   | sso              | 2     | —                          | todo   |
+| 8   | traceability     | 2     | [spec](spec-traceability.md) | done   |
+| 9   | sso              | 2     | [spec](spec-sso.md)        | building |
 | 10  | history-audit    | 2     | —                          | todo   |
 | 11  | custom-templates | 3     | —                          | todo   |
 | 12  | review           | 3     | —                          | todo   |
@@ -31,3 +31,4 @@ Cutoff: 2026-10-25
 - **document** — PRD template, TipTap content whitelist + markdown serializer, documents/sections/append-only versions (DB trigger), session versioning, optimistic locking with conflict UI, per-section editors with autosave, Mermaid blocks, document lists and counts.
 - **assistant** — interview chat with coverage checklist, per-section drafting with live streaming, revise with inline diff + undo, SSE with abort, context budget, usage tracking.
 - **export** — worker app + pg-boss + `APP_ROLE`, sandboxed Chromium diagram render cache, LLM diagram fix loop in draft/revise, PDF + DOCX with cover page and page numbers, export API with 24h expiry, export dialog + toast, Docker image with Playwright.
+- **traceability** — BRD/PRD v2/TSD templates, requirement index derived from section tables, source documents (PRD ← BRD, TSD ← PRD) with source-aware LLM context and Draft from source, trace API + Trace panel with restricted links, requirements appendix in exports.

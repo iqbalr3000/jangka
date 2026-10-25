@@ -1,4 +1,4 @@
-import { invites, sessions, users } from "@jangka/db";
+import { authProviders, invites, sessions, userIdentities, users } from "@jangka/db";
 import {
   type AdminUser,
   createInviteRequest,
@@ -7,7 +7,7 @@ import {
   updateUserRequest,
 } from "@jangka/shared/auth";
 import { AppError } from "@jangka/shared/errors";
-import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { audit } from "../lib/audit";
@@ -37,6 +37,19 @@ export function adminUserRoutes({ db, config }: RouteDeps) {
         .limit(limit + 1);
       const admins = await adminUserIds(db);
       const page = rows.slice(0, limit);
+      const linked = page.length
+        ? await db
+            .select({ userId: userIdentities.userId, name: authProviders.name })
+            .from(userIdentities)
+            .innerJoin(authProviders, eq(authProviders.id, userIdentities.providerId))
+            .where(
+              inArray(
+                userIdentities.userId,
+                page.map((u) => u.id),
+              ),
+            )
+            .orderBy(asc(authProviders.name))
+        : [];
       const items: AdminUser[] = page.map((user) => ({
         id: user.id,
         name: user.name,
@@ -44,6 +57,7 @@ export function adminUserRoutes({ db, config }: RouteDeps) {
         isAdmin: admins.has(user.id),
         isActive: user.isActive,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+        identities: linked.filter((l) => l.userId === user.id).map((l) => l.name),
       }));
       const nextCursor = rows.length > limit ? (page.at(-1)?.id ?? null) : null;
       return c.json({ items, nextCursor });

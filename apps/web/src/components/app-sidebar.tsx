@@ -33,6 +33,7 @@ const adminLinks = [
   { to: "/admin/groups", label: "Groups" },
   { to: "/admin/permissions", label: "Permissions" },
   { to: "/admin/llm", label: "LLM providers" },
+  { to: "/admin/auth", label: "Authentication" },
 ] as const;
 
 function NavIcon() {

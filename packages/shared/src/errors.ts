@@ -22,6 +22,9 @@ export const errorCodes = [
   "export_not_ready",
   "export_expired",
   "invalid_source",
+  "password_login_disabled",
+  "lockout_risk",
+  "invalid_provider",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

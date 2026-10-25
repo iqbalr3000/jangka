@@ -48,6 +48,9 @@ const stopWorker = env.APP_ROLE !== "api" ? await startWorker({ db, boss, logger
 const server = serveApi ? await startApi() : null;
 
 async function startApi() {
+  if (env.FORCE_PASSWORD_LOGIN) {
+    logger.warn("FORCE_PASSWORD_LOGIN is set: password login is enabled regardless of settings");
+  }
   await ensureBuiltinTemplates(db);
   await ensureSetupToken(db);
 
@@ -60,6 +63,7 @@ async function startApi() {
       sessionTtlDays: env.SESSION_TTL_DAYS,
       masterKey: env.MASTER_KEY,
       enableFakeLlm: env.ENABLE_FAKE_LLM,
+      forcePasswordLogin: env.FORCE_PASSWORD_LOGIN,
     },
     setupState: new SetupState(db),
     loginLimiter: new RateLimiter(10, 15 * 60_000),

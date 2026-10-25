@@ -26,6 +26,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   ENABLE_FAKE_LLM: z.stringbool({ error: "must be true or false" }).default(false),
+  // SSO lockout escape hatch: password login works even when disabled in settings.
+  FORCE_PASSWORD_LOGIN: z.stringbool({ error: "must be true or false" }).default(false),
   APP_ROLE: z
     .enum(["api", "worker", "all"], { error: "must be api, worker or all" })
     .default("all"),

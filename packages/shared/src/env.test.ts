@@ -30,6 +30,7 @@ describe("parseEnv", () => {
     expect(env.NODE_ENV).toBe("production");
     expect(env.SESSION_TTL_DAYS).toBe(30);
     expect(env.APP_ROLE).toBe("all");
+    expect(env.FORCE_PASSWORD_LOGIN).toBe(false);
   });
 
   it("rejects an unknown APP_ROLE", () => {

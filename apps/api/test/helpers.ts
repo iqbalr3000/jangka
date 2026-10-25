@@ -52,6 +52,7 @@ export function buildApp(
     logger?: Logger;
     llm?: ProviderFactory;
     enableFakeLlm?: boolean;
+    forcePasswordLogin?: boolean;
     queue?: JobQueue;
     diagrams?: DiagramChecker;
   } = {},
@@ -70,6 +71,7 @@ export function buildApp(
       sessionTtlDays: 30,
       masterKey: TEST_MASTER_KEY,
       enableFakeLlm: options.enableFakeLlm ?? true,
+      forcePasswordLogin: options.forcePasswordLogin ?? false,
     },
     setupState,
     loginLimiter: new RateLimiter(10, 15 * 60_000),
