@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AssistantPanel, panelTabs } from "@/components/assistant/assistant-panel";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
 import { ExportDialog } from "@/components/documents/export-dialog";
 import { ExportToast } from "@/components/documents/export-toast";
@@ -93,6 +94,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [confirm, setConfirm] = useState<DraftConfirm | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [problem, setProblem] = useState<{ title: string; message: string } | null>(null);
   const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
   const [panelTab, setPanelTab] = usePersistentState("jangka.panel-tab", panelTabs, "chat");
@@ -220,7 +222,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
       replaceSection(saved);
       return true;
     } catch (error) {
-      window.alert(errorMessage(error));
+      setProblem({ title: "Couldn't save the section", message: errorMessage(error) });
       return false;
     } finally {
       setBusy(false);
@@ -282,7 +284,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         }),
       );
     } catch (error) {
-      window.alert(errorMessage(error));
+      setProblem({ title: "Couldn't start the export", message: errorMessage(error) });
     }
   }
 
@@ -454,6 +456,13 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           onDismiss={() => setExportJob(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={problem !== null}
+        title={problem?.title ?? ""}
+        description={problem?.message}
+        onClose={() => setProblem(null)}
+      />
 
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent className="sm:max-w-[440px]">

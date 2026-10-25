@@ -55,3 +55,4 @@ Cutoff: 2026-10-25
 - **Phase 4: sidebar icons + pointer cursor** — lucide icons for navigation, collections (folder / open folder) and admin pages; global pointer cursor for interactive elements (Tailwind v4 preflight reset).
 - **Phase 4: editor toolbar placement** — the formatting toolbar renders in the section heading row beside the section actions instead of covering them.
 - **Phase 4: status change errors** — a dialog instead of `window.alert`; a blocked approval lists the sections with open threads and opens them in the Comments tab.
+- **Phase 4: no native alert/confirm** — shared `ConfirmDialog` for deleting comments, discarding and leaving template drafts (router blocker with resolver), and section save / export retry errors.

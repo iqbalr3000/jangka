@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { TemplateSectionCard } from "@/components/admin/template-section-card";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
@@ -73,11 +74,12 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
 
   // Set before navigating away on purpose (discard), when state can't re-render in time.
   const leaving = useRef(false);
-  useBlocker({
-    shouldBlockFn: () =>
-      dirty && !leaving.current && !window.confirm("Leave without saving the draft?"),
+  const blocker = useBlocker({
+    shouldBlockFn: () => dirty && !leaving.current,
     enableBeforeUnload: () => dirty,
+    withResolver: true,
   });
+  const [discarding, setDiscarding] = useState(false);
 
   const afterSave = async (next: TemplateDetail) => {
     queryClient.setQueryData(templateDetailQuery(next.id).queryKey, next);
@@ -169,7 +171,7 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
               variant="ghost"
               size="sm"
               disabled={discard.isPending}
-              onClick={() => window.confirm("Discard this draft?") && discard.mutate()}
+              onClick={() => setDiscarding(true)}
             >
               Discard draft
             </Button>
@@ -245,6 +247,26 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
           </Button>
         )}
       </section>
+
+      <ConfirmDialog
+        open={blocker.status === "blocked"}
+        title="Leave without saving?"
+        description="Changes to this draft since the last save will be lost."
+        confirmLabel="Leave"
+        destructive
+        onConfirm={() => blocker.proceed?.()}
+        onClose={() => blocker.reset?.()}
+      />
+      <ConfirmDialog
+        open={discarding}
+        title="Discard this draft?"
+        description="The draft is deleted. Published versions aren't affected."
+        confirmLabel="Discard draft"
+        destructive
+        pending={discard.isPending}
+        onConfirm={() => discard.mutate()}
+        onClose={() => setDiscarding(false)}
+      />
     </div>
   );
 }

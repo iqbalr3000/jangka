@@ -3,6 +3,7 @@ import type { CommentThread, CommentView } from "@jangka/shared/review";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -75,6 +76,7 @@ type CommentActions = {
   pending: boolean;
   onReply: (rootId: string) => void;
   onEdit: (id: string | null) => void;
+  onDelete: (id: string) => void;
   onRequest: (request: { path: string; method: string; body?: unknown }) => void;
 };
 
@@ -133,10 +135,7 @@ function Comment({
             <button
               type="button"
               className="text-muted-foreground hover:text-destructive hover:underline"
-              onClick={() =>
-                window.confirm("Delete this comment?") &&
-                actions.onRequest({ path: `/comments/${comment.id}`, method: "DELETE" })
-              }
+              onClick={() => actions.onDelete(comment.id)}
             >
               Delete
             </button>
@@ -172,6 +171,7 @@ export function CommentsPanel({
   const [showResolved, setShowResolved] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   // Bumped after each successful request so the new-comment box starts empty again.
   const [round, setRound] = useState(0);
   const list = useQuery(commentsQuery(documentId, showResolved ? "all" : "open"));
@@ -188,6 +188,7 @@ export function CommentsPanel({
     onSuccess: async () => {
       setReplyTo(null);
       setEditing(null);
+      setDeleting(null);
       setRound((n) => n + 1);
       await queryClient.invalidateQueries({ queryKey: commentsKey(documentId) });
     },
@@ -198,6 +199,7 @@ export function CommentsPanel({
     pending: run.isPending,
     onReply: setReplyTo,
     onEdit: setEditing,
+    onDelete: setDeleting,
     onRequest: (request) => run.mutate(request),
   };
   const threads = (list.data?.threads ?? []).filter(
@@ -300,6 +302,18 @@ export function CommentsPanel({
         ))}
       </ol>
 
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this comment?"
+        description="Replies stay in the thread; the comment shows as deleted."
+        confirmLabel="Delete"
+        destructive
+        pending={run.isPending}
+        onConfirm={() =>
+          deleting && run.mutate({ path: `/comments/${deleting}`, method: "DELETE" })
+        }
+        onClose={() => setDeleting(null)}
+      />
       {target && (
         <div className="border-t border-border px-4 py-3">
           <Composer

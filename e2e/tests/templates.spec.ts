@@ -24,6 +24,13 @@ test("an admin publishes a custom PRD template and new PRDs use it", async ({ br
     .getByRole("group", { name: "Rollout Plan" })
     .getByLabel("Guidance")
     .fill("Phases, flags, rollback.");
+  // Unsaved changes: leaving asks first, and Cancel stays on the editor.
+  await page.getByRole("link", { name: "Templates" }).first().click();
+  const leave = page.getByRole("dialog", { name: "Leave without saving?" });
+  await expect(leave).toBeVisible();
+  await leave.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v1 · Draft");
+
   await page.getByRole("button", { name: "Publish v1" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("v1 · Published");
   await expect(page.getByRole("group", { name: "Rollout Plan" })).toContainText("rollout_plan");
