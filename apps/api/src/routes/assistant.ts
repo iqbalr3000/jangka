@@ -35,6 +35,7 @@ import {
   type ResolvedLlm,
   resolveLlm,
   saveState,
+  sourceContext,
   threadMessages,
   transcriptOf,
 } from "../services/assistant";
@@ -108,7 +109,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
     const doc = await viewableDocument(db, data, documentId);
     requireDocEdit(data, doc);
     const resolved = await resolveLlm(db, config, llm);
-    return { auth, doc, resolved };
+    return { auth, doc, resolved, data };
   }
 
   /**
@@ -186,7 +187,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       });
     })
     .post("/:id/chat", zValidate("param", idParam), zValidate("json", chatRequest), async (c) => {
-      const { auth, doc, resolved } = await prepare(c, c.req.valid("param").id);
+      const { auth, doc, resolved, data } = await prepare(c, c.req.valid("param").id);
       const { message } = c.req.valid("json");
       const threadId = await ensureThread(db, doc.id, auth.user.id);
       await db.insert(chatMessages).values({
@@ -201,7 +202,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       return generate(c, doc, async (send, signal) => {
         const messageId = uuidv7();
         await send({ type: "message_start", messageId });
-        const { context } = await documentContext(db, doc);
+        const { context } = await documentContext(db, doc, data);
         const transcript = transcriptOf(await threadMessages(db, doc.id));
         const common = { provider: resolved.provider, model: resolved.model };
 
@@ -244,9 +245,12 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       });
     })
     .post("/:id/draft", zValidate("param", idParam), zValidate("json", draftRequest), async (c) => {
-      const { auth, doc, resolved } = await prepare(c, c.req.valid("param").id);
-      const { sections: requested, force } = c.req.valid("json");
-      const { template } = await documentContext(db, doc);
+      const { auth, doc, resolved, data } = await prepare(c, c.req.valid("param").id);
+      const { sections: requested, force, fromSource } = c.req.valid("json");
+      if (fromSource && !(await sourceContext(db, doc, data))) {
+        throw new AppError("invalid_source", 409, "This document has no source you can view");
+      }
+      const { template } = await documentContext(db, doc, data);
       const current = await sectionsOf(db, doc);
       const known = new Set(current.map((s) => s.key));
       for (const key of requested ?? []) {
@@ -256,14 +260,15 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       const targets =
         requested ?? current.filter((s) => s.completeness === "empty").map((s) => s.key);
       const state = await loadState(db, doc.id);
-      const coverage = new Map(state?.sections.map((s) => [s.key, s]) ?? []);
+      let coverage = new Map(state?.sections.map((s) => [s.key, s]) ?? []);
       const missingRequired = template.sections.filter(
         (s) =>
           s.required &&
           targets.includes(s.key) &&
           (coverage.get(s.key)?.coverage ?? "missing") === "missing",
       );
-      if (!force && missingRequired.length > 0) {
+      // From a source, coverage is assessed in the stream below, so the gate doesn't apply yet.
+      if (!force && !fromSource && missingRequired.length > 0) {
         throw new AppError(
           "coverage_incomplete",
           409,
@@ -289,6 +294,20 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
         const skipped: string[] = [];
         let stopped = false;
 
+        if (fromSource) {
+          const { context } = await documentContext(db, doc, data);
+          try {
+            const assessed = await assessCoverage(common, { doc: context, transcript }, signal);
+            await saveState(db, doc.id, assessed);
+            await send({ type: "coverage", state: assessed });
+            coverage = new Map(assessed.sections.map((s) => [s.key, s]));
+          } catch (error) {
+            if (!(error instanceof LLMError)) throw error;
+            await send(providerError(resolved, error, logger));
+            return;
+          }
+        }
+
         for (const key of targets) {
           const section = template.sections.find((s) => s.key === key);
           if (!section) continue;
@@ -301,7 +320,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
           const before = await sectionByKey(db, doc, key);
           await send({ type: "section_start", key });
           // Context is reloaded per section so later sections see earlier drafts.
-          const { context } = await documentContext(db, doc);
+          const { context } = await documentContext(db, doc, data);
           const result = await relay(
             draftSection(
               common,
@@ -372,9 +391,9 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       zValidate("json", reviseRequest),
       async (c) => {
         const { id, key } = c.req.valid("param");
-        const { auth, doc, resolved } = await prepare(c, id);
+        const { auth, doc, resolved, data } = await prepare(c, id);
         const { instruction } = c.req.valid("json");
-        const { template } = await documentContext(db, doc);
+        const { template } = await documentContext(db, doc, data);
         const section = template.sections.find((s) => s.key === key);
         if (!section) throw new AppError("not_found", 404, "Section not found");
         const threadId = await ensureThread(db, doc.id, auth.user.id);
@@ -395,7 +414,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
         return generate(c, doc, async (send, signal) => {
           const messageId = uuidv7();
           await send({ type: "message_start", messageId });
-          const { context } = await documentContext(db, doc);
+          const { context } = await documentContext(db, doc, data);
           const current = context.sections.find((s) => s.key === key)?.markdown ?? "";
           const result = await relay(
             reviseSection(

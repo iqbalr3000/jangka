@@ -8,6 +8,9 @@ import type {
 } from "@jangka/shared/document";
 import { diagramHash } from "./hash";
 import {
+  APPENDIX_COLUMNS,
+  APPENDIX_TITLE,
+  appendixCells,
   DIAGRAM_MISSING,
   DOC_TYPE_LABEL,
   EMPTY_SECTION_TEXT,
@@ -137,6 +140,18 @@ function cover(doc: ExportInput["document"]): string {
   ].join("");
 }
 
+function appendix(rows: ExportInput["appendix"]): string {
+  if (!rows?.length) return "";
+  const head = APPENDIX_COLUMNS.map((name) => `<th>${name}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const [code, text, priority, upstream] = appendixCells(row).map(escapeHtml);
+      return `<tr><td class="mono">${code}</td><td>${text}</td><td>${priority}</td><td class="mono">${upstream}</td></tr>`;
+    })
+    .join("");
+  return `<section class="appendix"><h2>${APPENDIX_TITLE}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
+}
+
 const PRINT_CSS = `
 @page { size: A4; }
 * { box-sizing: border-box; }
@@ -166,6 +181,8 @@ th p, td p { margin: 0; }
 figure { margin: 10pt 0 12pt; text-align: center; break-inside: avoid; }
 figure svg { max-width: 100%; height: auto; }
 figcaption { margin-top: 6pt; font-size: 9pt; color: #5c5c58; }
+.mono { font-family: "JetBrains Mono Variable", ui-monospace, monospace; font-size: 9pt; white-space: nowrap; }
+.appendix { break-before: page; }
 .empty { background: #f4f4f2; border-radius: 4px; padding: 10pt; color: #5c5c58; }
 .diagram-error p { color: #b91c1c; font-size: 9pt; }
 .cover { height: 250mm; display: flex; flex-direction: column; break-after: page; }
@@ -196,7 +213,7 @@ export function toHtml(input: ExportInput, opts: { fontCss: string }): string {
     `<title>${escapeHtml(input.document.title)}</title>`,
     `<style>${opts.fontCss}${PRINT_CSS}</style></head><body>`,
     input.includeCover ? cover(input.document) : "",
-    `<main>${title}${sections}</main></body></html>`,
+    `<main>${title}${sections}${appendix(input.appendix)}</main></body></html>`,
   ].join("");
 }
 

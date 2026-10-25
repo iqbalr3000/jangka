@@ -96,6 +96,7 @@ export function input(overrides: Partial<ExportInput> = {}): ExportInput {
       [diagramHash(BROKEN_DIAGRAM), { error: "Parse error on line 2" }],
     ]),
     includeCover: true,
+    appendix: null,
     ...overrides,
   };
 }

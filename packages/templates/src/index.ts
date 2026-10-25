@@ -1,5 +1,17 @@
 import { z } from "zod";
+import { brdV1 } from "./brd";
 import { prdV1 } from "./prd";
+import { prdV2 } from "./prd-v2";
+import { requirementKinds } from "./requirements";
+import { tsdV1 } from "./tsd";
+
+export {
+  NO_INVENTION,
+  REQUIREMENT_PREFIX,
+  type RequirementKind,
+  requirementKinds,
+  UPSTREAM_DOC_TYPE,
+} from "./requirements";
 
 export const docType = z.enum(["brd", "prd", "tsd"]);
 export type DocType = z.infer<typeof docType>;
@@ -13,7 +25,7 @@ export const templateSection = z.object({
   guidance: z.string().min(1),
   /** What the interview should ask the user about. */
   interviewHints: z.array(z.string().min(1)),
-  requirementKind: z.enum(["business", "functional", "non_functional"]).optional(),
+  requirementKind: z.enum(requirementKinds).optional(),
   expectsDiagram: z.enum(["flowchart", "sequence", "erd", "state"]).optional(),
 });
 export type TemplateSection = z.infer<typeof templateSection>;
@@ -31,4 +43,4 @@ export const templateDefinition = z
 export type TemplateDefinition = z.infer<typeof templateDefinition>;
 
 /** Seeded on boot; a published version never changes (documents pin it). */
-export const builtinTemplates: TemplateDefinition[] = [prdV1];
+export const builtinTemplates: TemplateDefinition[] = [prdV1, prdV2, brdV1, tsdV1];

@@ -21,6 +21,7 @@ export const errorCodes = [
   "coverage_incomplete",
   "export_not_ready",
   "export_expired",
+  "invalid_source",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

@@ -28,6 +28,9 @@ import {
 } from "docx";
 import { diagramHash } from "./hash";
 import {
+  APPENDIX_COLUMNS,
+  APPENDIX_TITLE,
+  appendixCells,
   DIAGRAM_MISSING,
   DOC_TYPE_LABEL,
   EMPTY_SECTION_TEXT,
@@ -268,6 +271,64 @@ function blocks(nodes: BlockNode[], ctx: Context): Child[] {
   return nodes.flatMap((node) => block(node, ctx));
 }
 
+function appendix(rows: ExportInput["appendix"]): Child[] {
+  if (!rows?.length) return [];
+  const border = { style: BorderStyle.SINGLE, size: 4, color: BORDER };
+  const cellOf = (text: string, opts: { header?: boolean; mono?: boolean; zebra?: boolean }) =>
+    new TableCell({
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text,
+              bold: opts.header || undefined,
+              ...(opts.mono ? { font: MONO, size: 18 } : {}),
+            }),
+          ],
+        }),
+      ],
+      shading: opts.header ? shade("ECECE9") : opts.zebra ? shade(SURFACE_2) : undefined,
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    });
+  return [
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      pageBreakBefore: true,
+      children: [new TextRun(APPENDIX_TITLE)],
+    }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: border,
+        bottom: border,
+        left: border,
+        right: border,
+        insideHorizontal: border,
+        insideVertical: border,
+      },
+      rows: [
+        new TableRow({
+          tableHeader: true,
+          children: APPENDIX_COLUMNS.map((name) => cellOf(name, { header: true })),
+        }),
+        ...rows.map((row, i) => {
+          const [code, text, priority, upstream] = appendixCells(row);
+          const zebra = i % 2 === 1;
+          return new TableRow({
+            cantSplit: true,
+            children: [
+              cellOf(code, { mono: true, zebra }),
+              cellOf(text, { zebra }),
+              cellOf(priority, { zebra }),
+              cellOf(upstream, { mono: true, zebra }),
+            ],
+          });
+        }),
+      ],
+    }),
+  ];
+}
+
 function numberingDefinition(reference: string, format: "bullet" | "decimal", start = 1) {
   const bullets = ["•", "◦", "▪"];
   return {
@@ -390,6 +451,7 @@ export async function toDocx(input: ExportInput): Promise<Buffer> {
       body.push(...blocks(section.content.content ?? [], ctx));
     }
   }
+  body.push(...appendix(input.appendix));
 
   const page = {
     size: { width: PAGE.width, height: PAGE.height },

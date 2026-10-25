@@ -9,7 +9,7 @@ import type { ExportJob } from "@jangka/shared/export";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { AssistantPanel, panelTabs } from "@/components/assistant/assistant-panel";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
 import { ExportDialog } from "@/components/documents/export-dialog";
 import { ExportToast } from "@/components/documents/export-toast";
@@ -33,6 +33,7 @@ import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
 import { llmStatusQuery } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
+import { traceKey, traceQuery } from "@/lib/trace";
 import { useAssistant } from "@/lib/use-assistant";
 
 export const Route = createFileRoute("/_app/d/$documentId")({
@@ -90,6 +91,10 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [exporting, setExporting] = useState(false);
   const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
+  const [panelTab, setPanelTab] = usePersistentState("jangka.panel-tab", panelTabs, "chat");
+  const trace = useQuery(traceQuery(doc.id));
+  const hasRequirements = (trace.data?.requirements.length ?? 0) > 0;
+  const canDraftFromSource = detail.source !== null && !("restricted" in detail.source);
   const llmStatus = useQuery(llmStatusQuery);
   const chat = useQuery(chatQuery(doc.id));
   const llmConfigured = llmStatus.data?.configured ?? false;
@@ -113,6 +118,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   // Keep outline/completeness live without re-seeding the editors (they own their content).
   const onSaved = useCallback(
     (saved: Section) => {
+      // Requirement tables are indexed on save.
+      void queryClient.invalidateQueries({ queryKey: traceKey(doc.id) });
       queryClient.setQueryData(documentQuery(doc.id).queryKey, (current) =>
         current
           ? {
@@ -260,7 +267,11 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   async function retryExport(job: ExportJob) {
     try {
       setExportJob(
-        await createExport(doc.id, { format: job.format, includeCover: job.includeCover }),
+        await createExport(doc.id, {
+          format: job.format,
+          includeCover: job.includeCover,
+          includeAppendix: job.includeAppendix,
+        }),
       );
     } catch (error) {
       window.alert(errorMessage(error));
@@ -282,20 +293,42 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
       </Button>
     </span>
   ) : editable ? (
-    <Button
-      size="sm"
-      onClick={draftAll}
-      disabled={!llmConfigured || emptyCount === 0}
-      title={
-        !llmConfigured
-          ? "Add an LLM provider to start drafting"
-          : emptyCount === 0
-            ? "Every section has content; redraft sections one at a time"
-            : undefined
-      }
-    >
-      Draft all
-    </Button>
+    <span className="flex items-center gap-2">
+      {canDraftFromSource && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!llmConfigured || emptyCount === 0}
+          title={
+            !llmConfigured
+              ? "Add an LLM provider to start drafting"
+              : "Assess the source document, then draft every empty section"
+          }
+          onClick={() =>
+            assistant.draftSections({
+              fromSource: true,
+              targets: detail.sections.filter((s) => s.completeness === "empty").map((s) => s.key),
+            })
+          }
+        >
+          Draft from source
+        </Button>
+      )}
+      <Button
+        size="sm"
+        onClick={draftAll}
+        disabled={!llmConfigured || emptyCount === 0}
+        title={
+          !llmConfigured
+            ? "Add an LLM provider to start drafting"
+            : emptyCount === 0
+              ? "Every section has content; redraft sections one at a time"
+              : undefined
+        }
+      >
+        Draft all
+      </Button>
+    </span>
   ) : null;
 
   return (
@@ -352,6 +385,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         {panel === "open" && (
           <AssistantPanel
             documentId={doc.id}
+            documentTitle={doc.title}
+            tab={panelTab}
+            onTabChange={setPanelTab}
             sections={detail.sections}
             assistant={assistant}
             editable={editable}
@@ -369,6 +405,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         onOpenChange={setExporting}
         documentId={doc.id}
         emptyCount={emptyCount}
+        hasRequirements={hasRequirements}
         onQueued={setExportJob}
       />
       {exportJob && (

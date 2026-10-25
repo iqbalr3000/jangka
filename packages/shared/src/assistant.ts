@@ -37,6 +37,8 @@ export const draftRequest = z.object({
   sections: z.array(sectionKey).min(1).max(50).optional(),
   /** Draft even when required sections lack coverage (those stay empty). */
   force: z.boolean().optional(),
+  /** Assess coverage from the source document first, then draft every empty section. */
+  fromSource: z.boolean().optional(),
 });
 export const reviseRequest = z.object({ instruction: z.string().trim().min(1).max(2000) });
 

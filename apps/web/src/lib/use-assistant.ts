@@ -132,12 +132,17 @@ export function useAssistant(documentId: string, onSectionSaved: (section: Secti
   );
 
   const draftSections = useCallback(
-    (options: { sections?: string[]; force?: boolean; targets: string[] }) => {
+    (options: {
+      sections?: string[];
+      force?: boolean;
+      fromSource?: boolean;
+      targets: string[];
+    }) => {
       setDraft({ targets: options.targets, current: null, finished: [] });
       void run(
         "draft",
         `/documents/${documentId}/draft`,
-        { sections: options.sections, force: options.force },
+        { sections: options.sections, force: options.force, fromSource: options.fromSource },
         (event) => {
           if (event.type === "section_start") {
             setDraft((d) => d && { ...d, current: event.key });

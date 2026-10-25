@@ -9,6 +9,7 @@ export type ExportStatus = z.infer<typeof exportStatus>;
 export const createExportRequest = z.object({
   format: exportFormat,
   includeCover: z.boolean().default(true),
+  includeAppendix: z.boolean().default(true),
 });
 
 export const exportJob = z.object({
@@ -17,6 +18,7 @@ export const exportJob = z.object({
   format: exportFormat,
   status: exportStatus,
   includeCover: z.boolean(),
+  includeAppendix: z.boolean(),
   fileName: z.string().nullable(),
   error: z.string().nullable(),
   createdAt: z.string(),

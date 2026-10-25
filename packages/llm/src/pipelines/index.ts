@@ -17,7 +17,7 @@ import {
   transcriptMessage,
 } from "./prompts";
 
-export type { DocumentContext, SectionContext, Turn } from "./prompts";
+export type { DocumentContext, SectionContext, SourceContext, Turn } from "./prompts";
 
 export const DEFAULT_CONTEXT_TOKENS = 128_000;
 const BUDGET_SHARE = 0.7;
@@ -38,22 +38,29 @@ export function fitBudget(
   const guidance = input.doc.template.sections.map((s) => s.guidance).join("");
   const size = (doc: DocumentContext, transcript: Turn[]) =>
     estimateTokens(guidance) +
+    estimateTokens(doc.source?.markdown ?? "") +
     doc.sections.reduce((n, s) => n + estimateTokens(s.markdown), 0) +
     transcript.reduce((n, t) => n + estimateTokens(t.content), 0);
 
   const transcript = [...input.transcript];
   while (size(input.doc, transcript) > budget && transcript.length > 1) transcript.splice(1, 1);
 
+  const clip = (markdown: string) =>
+    markdown.length <= CLIPPED_SECTION_CHARS
+      ? markdown
+      : `${markdown.slice(0, CLIPPED_SECTION_CHARS)}… (truncated)`;
   let doc = input.doc;
   if (size(doc, transcript) > budget) {
     doc = {
       ...doc,
       sections: doc.sections.map((s) =>
-        s.key === input.focusKey || s.markdown.length <= CLIPPED_SECTION_CHARS
-          ? s
-          : { ...s, markdown: `${s.markdown.slice(0, CLIPPED_SECTION_CHARS)}… (truncated)` },
+        s.key === input.focusKey ? s : { ...s, markdown: clip(s.markdown) },
       ),
     };
+  }
+  // The source's requirement list is kept whole: drafts cite its codes.
+  if (doc.source && size(doc, transcript) > budget) {
+    doc = { ...doc, source: { ...doc.source, markdown: clip(doc.source.markdown) } };
   }
   return { doc, transcript };
 }

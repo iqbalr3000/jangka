@@ -15,11 +15,14 @@ import {
   type DocumentSummary,
   docContent,
   isBlankDoc,
+  type LinkedDocument,
   type Section,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
+import { UPSTREAM_DOC_TYPE } from "@jangka/templates";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AccessData, isHidden, resolveDocLevel } from "./access";
+import { indexRequirements } from "./requirements";
 import { definitionOf } from "./templates";
 
 type Db = Database | Transaction;
@@ -59,6 +62,48 @@ export function assertUsableCollection(data: AccessData, collectionId: string | 
   if (isHidden(data, collectionId)) {
     throw new AppError("conflict", 409, "The collection is archived");
   }
+}
+
+/** The document `row` was generated from, as the viewer may see it. */
+export async function linkedSource(
+  db: Db,
+  data: AccessData,
+  row: DocumentRow,
+): Promise<LinkedDocument | null> {
+  if (!row.sourceDocumentId) return null;
+  const source = await findDocument(db, row.sourceDocumentId);
+  if (!source || resolveDocLevel(data, source) === "none") return { restricted: true };
+  return { id: source.id, title: source.title, docType: source.docType };
+}
+
+/**
+ * A source must be the upstream type (PRD ← BRD, TSD ← PRD), viewable and not archived. An
+ * unviewable source gets the same answer as a missing one, so existence never leaks.
+ */
+export async function validSource(
+  db: Db,
+  data: AccessData,
+  docType: DocumentRow["docType"],
+  sourceId: string,
+): Promise<DocumentRow> {
+  const source = await findDocument(db, sourceId);
+  const upstream = UPSTREAM_DOC_TYPE[docType];
+  if (
+    !upstream ||
+    !source ||
+    resolveDocLevel(data, source) === "none" ||
+    source.archivedAt ||
+    source.docType !== upstream
+  ) {
+    throw new AppError(
+      "invalid_source",
+      400,
+      upstream
+        ? `The source must be a ${upstream.toUpperCase()} you can view`
+        : `A ${docType.toUpperCase()} has no source document`,
+    );
+  }
+  return source;
 }
 
 function completenessOf(content: DocNode): Completeness {
@@ -251,6 +296,18 @@ export async function saveSection(
       })
       .where(eq(documentSections.id, section.id));
     await tx.update(documents).set({ updatedAt: sql`now()` }).where(eq(documents.id, documentId));
+
+    const [template] = await tx
+      .select({ template: templates })
+      .from(documents)
+      .innerJoin(templates, eq(templates.id, documents.templateId))
+      .where(eq(documents.id, documentId));
+    const kind = template
+      ? definitionOf(template.template).sections.find((s) => s.key === key)?.requirementKind
+      : undefined;
+    if (kind) {
+      await indexRequirements(tx, { documentId, sectionKey: key, kind, content: input.content });
+    }
     return "saved";
   });
 }

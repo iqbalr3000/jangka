@@ -28,6 +28,7 @@ import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
 import { llmRoutes } from "./routes/llm";
 import { setupRoutes } from "./routes/setup";
+import { traceRoutes } from "./routes/trace";
 import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
@@ -119,6 +120,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/collections", collectionRoutes(routeDeps));
   app.route("/api/v1/documents", documentRoutes(routeDeps));
   app.route("/api/v1/documents", assistantRoutes(routeDeps));
+  app.route("/api/v1/documents", traceRoutes(routeDeps));
   app.route("/api/v1/templates", templateRoutes(routeDeps));
   app.route("/api/v1", exportRoutes(routeDeps));
 

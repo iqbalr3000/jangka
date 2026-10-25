@@ -1,6 +1,6 @@
 import { builtinTemplates } from "@jangka/templates";
 import { describe, expect, it } from "vitest";
-import { sampleFromSchema } from "../src/adapters/fake";
+import { fakeRequirementTable, sampleFromSchema } from "../src/adapters/fake";
 import { createProvider, fakeResponses, type LLMProvider } from "../src/index";
 import {
   assessCoverage,
@@ -120,6 +120,38 @@ describe("prompts", () => {
     expect(rec.messages[0]).toContain("no decision points");
   });
 
+  it("includes the source document and its citable codes only when given", async () => {
+    const rec = recording();
+    const section = template.sections.find((s) => s.key === "functional_requirements");
+    if (!section) throw new Error("functional_requirements missing");
+    const withSource: DocumentContext = {
+      ...doc,
+      source: {
+        docType: "brd",
+        title: "Refund BRD",
+        markdown: "Customers lose trust when refunds take 7 days.",
+        requirements: [{ code: "BR-001", text: "Refunds within 24 hours" }],
+      },
+    };
+    await collect(
+      draftSection(
+        { provider: rec.provider, model: "m" },
+        { doc: withSource, transcript: [], section, note: "" },
+      ),
+    );
+    await collect(
+      draftSection(
+        { provider: rec.provider, model: "m" },
+        { doc, transcript: [], section, note: "" },
+      ),
+    );
+    expect(rec.system[0]).toContain('Source BRD "Refund BRD"');
+    expect(rec.system[0]).toContain("refunds take 7 days");
+    expect(rec.system[0]).toContain("only codes you may cite");
+    expect(rec.system[0]).toContain("- BR-001: Refunds within 24 hours");
+    expect(rec.system[1]).not.toContain("Source BRD");
+  });
+
   it("checkSection returns a validated completeness", async () => {
     const section = template.sections[0];
     if (!section) throw new Error("section missing");
@@ -147,6 +179,17 @@ describe("toTurns", () => {
 });
 
 describe("fitBudget", () => {
+  it("clips the source markdown last and keeps its requirement list", () => {
+    const requirements = [{ code: "BR-001", text: "Refunds within 24 hours" }];
+    const big: DocumentContext = {
+      ...doc,
+      source: { docType: "brd", title: "BRD", markdown: "z".repeat(40_000), requirements },
+    };
+    const fitted = fitBudget({ doc: big, transcript: [] }, 10_000);
+    expect(fitted.doc.source?.markdown).toContain("(truncated)");
+    expect(fitted.doc.source?.requirements).toEqual(requirements);
+  });
+
   const turn = (i: number) => ({
     role: i % 2 ? ("assistant" as const) : ("user" as const),
     content: `${i} ${"x".repeat(4000)}`,
@@ -200,5 +243,41 @@ describe("fixDiagram", () => {
     await expect(
       fixDiagram({ provider: fake, model: "fake-small" }, { source: "x", error: "bad" }),
     ).rejects.toMatchObject({ code: "invalid_output" });
+  });
+});
+
+describe("fake requirement drafts", () => {
+  const prd = builtinTemplates.find((t) => t.docType === "prd" && t.version === 2);
+  if (!prd) throw new Error("PRD v2 missing");
+  const prdDoc: DocumentContext = {
+    template: prd,
+    title: "Refunds",
+    sections: prd.sections.map((s) => ({ key: s.key, title: s.title, markdown: "" })),
+    source: {
+      docType: "brd",
+      title: "BRD",
+      markdown: "",
+      requirements: [{ code: "BR-001", text: "Refunds within 24 hours" }],
+    },
+  };
+
+  it("drafts a requirement section as a table citing the source", async () => {
+    const section = prd.sections.find((s) => s.key === "functional_requirements");
+    if (!section) throw new Error("functional_requirements missing");
+    const events = await collect(
+      draftSection(
+        { provider: fake, model: "m" },
+        { doc: prdDoc, transcript: [], section, note: "" },
+      ),
+    );
+    const text = events.flatMap((e) => (e.type === "text" ? [e.delta] : [])).join("");
+    expect(text).toContain("| ID | Requirement | Priority | Upstream |");
+    expect(text).toContain("| FR-001 | Fake requirement one | Must | BR-001 |");
+  });
+
+  it("drafts other sections as plain replies", () => {
+    expect(
+      fakeRequirementTable('Write the "Overview" section. Guidance: Two sentences.'),
+    ).toBeNull();
   });
 });

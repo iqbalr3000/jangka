@@ -1,0 +1,112 @@
+import type { TemplateDefinition } from "./index";
+import { NO_INVENTION, requirementTableGuidance } from "./requirements";
+
+export const tsdV1: TemplateDefinition = {
+  docType: "tsd",
+  name: "Technical Specification Document",
+  version: 1,
+  sections: [
+    {
+      key: "overview",
+      title: "Overview",
+      required: true,
+      guidance: `What is being built technically, the systems involved, and links to the product requirements it serves. ${NO_INVENTION}`,
+      interviewHints: ["What are you building, and which systems does it touch?"],
+    },
+    {
+      key: "architecture",
+      title: "Architecture",
+      required: true,
+      expectsDiagram: "flowchart",
+      guidance: `The high-level architecture: components and how they interact, with a Mermaid flowchart. ${NO_INVENTION}`,
+      interviewHints: ["What are the main components and how do they talk to each other?"],
+    },
+    {
+      key: "components",
+      title: "Components",
+      required: true,
+      guidance: `One entry per component: responsibility, interfaces, technology choices and why. ${NO_INVENTION}`,
+      interviewHints: ["What does each component own, and what is it built with?"],
+    },
+    {
+      key: "technical_requirements",
+      title: "Technical Requirements",
+      required: true,
+      requirementKind: "technical",
+      guidance: requirementTableGuidance(
+        "technical",
+        "Technical requirements that implement the product requirements, each naming the component or interface responsible.",
+        "FR and NFR",
+      ),
+      interviewHints: [
+        "How does the design satisfy each functional and non-functional requirement?",
+        "Which component is responsible for each?",
+      ],
+    },
+    {
+      key: "data_model",
+      title: "Data Model",
+      required: false,
+      expectsDiagram: "erd",
+      guidance: `Entities, key fields and relationships, with a Mermaid erDiagram. ${NO_INVENTION}`,
+      interviewHints: ["What data is stored, and how do the entities relate?"],
+    },
+    {
+      key: "api_design",
+      title: "API Design",
+      required: false,
+      guidance: `Endpoints or interfaces: method, path, request, response, errors, auth. ${NO_INVENTION}`,
+      interviewHints: ["Which APIs are added or changed, and what do they accept and return?"],
+    },
+    {
+      key: "key_sequences",
+      title: "Key Sequences",
+      required: false,
+      expectsDiagram: "sequence",
+      guidance: `The most important interactions as Mermaid sequence diagrams, each with one sentence of context. ${NO_INVENTION}`,
+      interviewHints: ["Which flows across components matter most?"],
+    },
+    {
+      key: "non_functional_design",
+      title: "Non-Functional Design",
+      required: true,
+      guidance: `How the design meets performance, security and scalability needs, with numbers where given. ${NO_INVENTION}`,
+      interviewHints: ["How will it meet the performance, security and scale targets?"],
+    },
+    {
+      key: "infrastructure",
+      title: "Infrastructure & Deployment",
+      required: false,
+      guidance: `Where it runs, how it is deployed and configured, and environment differences. ${NO_INVENTION}`,
+      interviewHints: ["Where does this run, and how is it deployed?"],
+    },
+    {
+      key: "observability",
+      title: "Observability",
+      required: false,
+      guidance: `Logs, metrics, traces, dashboards and alerts, with what each is for. ${NO_INVENTION}`,
+      interviewHints: ["How will you know it works in production, and when it breaks?"],
+    },
+    {
+      key: "rollout",
+      title: "Migration/Rollout Plan",
+      required: false,
+      guidance: `Steps to migrate data and roll out (flags, phases, rollback). ${NO_INVENTION}`,
+      interviewHints: ["How will this be rolled out, and how would you roll back?"],
+    },
+    {
+      key: "testing",
+      title: "Testing Strategy",
+      required: true,
+      guidance: `Test levels (unit, integration, end-to-end, load) and what each covers. ${NO_INVENTION}`,
+      interviewHints: ["How will this be tested before release?"],
+    },
+    {
+      key: "risks",
+      title: "Risks & Open Questions",
+      required: false,
+      guidance: `Technical risks with mitigations, then open questions with owners where known. ${NO_INVENTION}`,
+      interviewHints: ["What technical risks or unknowns remain?"],
+    },
+  ],
+};

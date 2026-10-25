@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { diagramRenders, documentExports } from "@jangka/db";
+import { diagramRenders, documentExports, requirements } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { diagramHash } from "@jangka/export/render";
 import { eq } from "drizzle-orm";
@@ -93,6 +93,46 @@ describe("export.run", () => {
     expect(xml.match(/<w:tr>/g)).toHaveLength(31);
     expect(xml).toContain("FR-030");
     expect(xml.match(/Not yet specified\./g)?.length).toBeGreaterThan(0);
+  });
+
+  it("appends the requirements appendix only when asked and when there are requirements", async () => {
+    const seeded = await seedDocument(db);
+    const exportXml = async (includeAppendix: boolean) => {
+      const id = await createExport(db, { ...seeded, format: "docx", includeAppendix });
+      await runExport(db, renderer, id);
+      const [row] = await db.select().from(documentExports).where(eq(documentExports.id, id));
+      const zip = await JSZip.loadAsync(row?.file ?? Buffer.alloc(0));
+      return (await zip.file("word/document.xml")?.async("string")) ?? "";
+    };
+    // Nothing indexed yet: no appendix.
+    expect(await exportXml(true)).not.toContain("<w:pageBreakBefore/>");
+
+    await db.insert(requirements).values([
+      {
+        documentId: seeded.documentId,
+        sectionKey: "non_functional_requirements",
+        code: "NFR-001",
+        kind: "non_functional",
+        text: "p95 under 300 ms",
+        priority: "should",
+        position: 0,
+      },
+      {
+        documentId: seeded.documentId,
+        sectionKey: "functional_requirements",
+        code: "FR-001",
+        kind: "functional",
+        text: "Request a refund",
+        priority: "must",
+        upstreamCodes: ["BR-001"],
+        position: 0,
+      },
+    ]);
+    const xml = await exportXml(true);
+    expect(xml).toContain("<w:pageBreakBefore/>");
+    expect(xml.indexOf(">FR-001<")).toBeLessThan(xml.indexOf(">NFR-001<"));
+    expect(xml.lastIndexOf(">BR-001<")).toBeGreaterThan(0);
+    expect(await exportXml(false)).not.toContain("<w:pageBreakBefore/>");
   });
 
   it("marks a failed export with a generic message", async () => {

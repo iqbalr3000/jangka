@@ -121,13 +121,11 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `section_id fk`, `revision int`, `content jsonb`, `source text` (`llm` | `human`), `created_by fk`
 - No `updated_at`. Never updated/deleted.
 
-**requirements** (feature `traceability`)
-- `document_id fk`, `section_id fk`, `code text` (`BR-001`, `FR-001`, `NFR-001`)
-- `kind text` (`business` | `functional` | `non_functional`), `title`, `description`, `priority text` (`must` | `should` | `could`)
+**requirements** (feature `traceability`; index derived from section content, ADR 0003)
+- `document_id fk`, `section_key text`, `code text` (`BR-001`, `FR-001`, `NFR-001`, `TR-001`)
+- `kind text` (`business` | `functional` | `non_functional` | `technical`), `text`, `priority text null` (`must` | `should` | `could`)
+- `upstream_codes text[]` (codes in the source document; relation `derives_from` PRD→BRD, `implements` TSD→PRD)
 - unique(document_id, code)
-
-**requirement_links** (feature `traceability`)
-- `from_requirement_id`, `to_requirement_id`, `relation text` (`derives_from` | `implements`), unique(from, to, relation)
 
 **diagram_renders** (cache)
 - `source_hash text pk` (sha256 of mermaid source + theme), `svg text null`, `png bytea null`, `error text null`
@@ -283,7 +281,7 @@ All SDK errors are mapped to `LLMError`. Adapters never log request bodies conta
 **Draft** (per section, sequential, cancellable)
 1. `streamText` → markdown for that section (template `guidance` + interview transcript + previously drafted sections as context).
 2. Convert markdown → TipTap JSON, save as new `section_versions` row (`source = 'llm'`).
-3. `generateObject` → `{ completeness, requirements[], diagrams[] }` for the section (requirements: feature `traceability`).
+3. `generateObject` → `{ completeness }` for the section; requirements are indexed from the saved content's requirement table (ADR 0003).
 4. Each Mermaid diagram → render job; on render error, ask LLM to fix with the error (max 2 retries); if still failing, keep source + show error badge.
 
 **Revise** (single section)
@@ -305,7 +303,7 @@ type TemplateDefinition = {
     required: boolean;
     guidance: string; // instructions to the LLM for this section
     interviewHints: string[]; // what to ask the user
-    requirementKind?: "business" | "functional" | "non_functional";
+    requirementKind?: "business" | "functional" | "non_functional" | "technical";
     expectsDiagram?: "flowchart" | "sequence" | "erd" | "state";
   }[];
 };
@@ -319,7 +317,7 @@ Built-in BRD (feature `traceability`): Executive Summary, Business Problem, Busi
 Proposed Solution (TO-BE, diagram: flowchart), Business Requirements, Scope / Out of Scope, Constraints,
 Assumptions, Risks, Success Criteria, Cost/Benefit (optional).
 
-Built-in TSD (feature `traceability`): Overview, Architecture (diagram: flowchart), Components, Data Model (diagram: erd),
+Built-in TSD (feature `traceability`): Overview, Architecture (diagram: flowchart), Components, Technical Requirements (TR-), Data Model (diagram: erd),
 API Design, Key Sequences (diagram: sequence), Non-Functional Design (performance, security, scalability),
 Infrastructure & Deployment, Observability, Migration/Rollout Plan, Testing Strategy, Risks & Open Questions.
 

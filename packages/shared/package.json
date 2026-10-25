@@ -11,7 +11,8 @@
     "./llm": "./src/llm.ts",
     "./document": "./src/document.ts",
     "./assistant": "./src/assistant.ts",
-    "./export": "./src/export.ts"
+    "./export": "./src/export.ts",
+    "./trace": "./src/trace.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

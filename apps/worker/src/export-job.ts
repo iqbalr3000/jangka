@@ -4,11 +4,13 @@ import {
   documentSections,
   documents,
   instanceSettings,
+  requirements,
   templates,
   users,
 } from "@jangka/db";
 import { mermaidBlocks } from "@jangka/export";
 import {
+  type AppendixRow,
   type DiagramResult,
   diagramHash,
   type ExportInput,
@@ -19,6 +21,9 @@ import {
 import { docContent, isBlankDoc } from "@jangka/shared/document";
 import { templateDefinition } from "@jangka/templates";
 import { asc, eq } from "drizzle-orm";
+
+const KIND_ORDER = ["business", "functional", "non_functional", "technical"] as const;
+
 import { renderDiagram } from "./diagrams";
 import { fontCss } from "./fonts";
 import type { Renderer } from "./renderer";
@@ -37,11 +42,28 @@ export function exportFileName(title: string, format: "pdf" | "docx"): string {
 }
 
 /** The document as it is now (the snapshot is taken when the job runs). */
+/** Requirements grouped by kind (BR, FR, NFR, TR), each group in code order. */
+async function loadAppendix(db: Database, documentId: string): Promise<AppendixRow[]> {
+  const rows = await db
+    .select()
+    .from(requirements)
+    .where(eq(requirements.documentId, documentId))
+    .orderBy(asc(requirements.code));
+  return rows
+    .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind))
+    .map((r) => ({
+      code: r.code,
+      text: r.text,
+      priority: r.priority,
+      upstreamCodes: r.upstreamCodes,
+    }));
+}
+
 async function loadInput(
   db: Database,
   renderer: Renderer,
   documentId: string,
-  includeCover: boolean,
+  options: { includeCover: boolean; includeAppendix: boolean },
 ): Promise<ExportInput> {
   const [row] = await db
     .select({ document: documents, author: users.name, definition: templates.definition })
@@ -87,7 +109,8 @@ async function loadInput(
     },
     sections,
     diagrams,
-    includeCover,
+    includeCover: options.includeCover,
+    appendix: options.includeAppendix ? await loadAppendix(db, documentId) : null,
   };
 }
 
@@ -98,7 +121,10 @@ export async function runExport(db: Database, renderer: Renderer, exportId: stri
   if (!job || job.status === "done") return;
   await db.update(documentExports).set({ status: "running" }).where(eq(documentExports.id, job.id));
 
-  const input = await loadInput(db, renderer, job.documentId, job.includeCover);
+  const input = await loadInput(db, renderer, job.documentId, {
+    includeCover: job.includeCover,
+    includeAppendix: job.includeAppendix,
+  });
   const file =
     job.format === "pdf"
       ? await renderer.pdf(toHtml(input, { fontCss: fontCss() }), pdfChrome(input.document))

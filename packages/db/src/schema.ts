@@ -225,6 +225,7 @@ export const documents = pgTable(
   },
   (t) => [
     index("documents_collection_id_idx").on(t.collectionId),
+    index("documents_source_document_id_idx").on(t.sourceDocumentId),
     check("documents_doc_type", sql`${t.docType} in ('brd', 'prd', 'tsd')`),
     check("documents_status", sql`${t.status} in ('draft', 'in_review', 'approved')`),
   ],
@@ -327,6 +328,39 @@ export const interviewStates = pgTable("interview_states", {
   updatedAt: updatedAt(),
 });
 
+/**
+ * Index of the requirement tables in section content, rewritten on every section save (ADR 0003).
+ * Upstream codes resolve against the source document's requirements when read.
+ */
+export const requirements = pgTable(
+  "requirements",
+  {
+    id: id(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sectionKey: text("section_key").notNull(),
+    code: text("code").notNull(),
+    kind: text("kind", {
+      enum: ["business", "functional", "non_functional", "technical"],
+    }).notNull(),
+    text: text("text").notNull(),
+    priority: text("priority", { enum: ["must", "should", "could"] }),
+    upstreamCodes: text("upstream_codes").array().notNull().default(sql`'{}'::text[]`),
+    position: integer("position").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique("requirements_document_code").on(t.documentId, t.code),
+    check(
+      "requirements_kind",
+      sql`${t.kind} in ('business', 'functional', 'non_functional', 'technical')`,
+    ),
+    check("requirements_priority", sql`${t.priority} in ('must', 'should', 'could')`),
+  ],
+);
+
 /** Cache of authoritative Mermaid renders, keyed by `diagramHash` (packages/export). */
 export const diagramRenders = pgTable(
   "diagram_renders",
@@ -358,6 +392,7 @@ export const documentExports = pgTable(
       .notNull()
       .default("queued"),
     includeCover: boolean("include_cover").notNull().default(true),
+    includeAppendix: boolean("include_appendix").notNull().default(true),
     file: bytea("file"),
     fileName: text("file_name"),
     error: text("error"),

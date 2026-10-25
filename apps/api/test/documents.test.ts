@@ -8,6 +8,7 @@ import {
   revisionConflictDetails,
   section,
   sectionVersionList,
+  templateList,
 } from "@jangka/shared/document";
 import { errorResponseSchema } from "@jangka/shared/errors";
 import { eq, sql } from "drizzle-orm";
@@ -138,9 +139,14 @@ describe("creating documents", () => {
 
   it("lists templates", async () => {
     const res = await call(app, "GET", "/templates", { cookie: rinaCookie });
-    expect(await res.json()).toMatchObject({
-      items: [{ docType: "prd", version: 1, sectionCount: 12 }],
-    });
+    const { items } = templateList.parse(await res.json());
+    // Ordered by type, newest version first.
+    expect(items.map((t) => `${t.docType}@${t.version}`)).toEqual([
+      "brd@1",
+      "prd@2",
+      "prd@1",
+      "tsd@1",
+    ]);
   });
 });
 

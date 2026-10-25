@@ -28,6 +28,7 @@ function view(row: ExportRow): ExportJob {
     format: row.format,
     status: row.status,
     includeCover: row.includeCover,
+    includeAppendix: row.includeAppendix,
     fileName: row.fileName,
     error: row.error,
     createdAt: row.createdAt.toISOString(),
@@ -79,13 +80,14 @@ export function exportRoutes({ db, queue }: RouteDeps) {
         const doc = await viewableDocument(db, await access(c), c.req.valid("param").id);
         if (doc.archivedAt)
           throw new AppError("conflict", 409, "Restore the document to export it");
-        const { format, includeCover } = c.req.valid("json");
+        const { format, includeCover, includeAppendix } = c.req.valid("json");
         const [row] = await db
           .insert(documentExports)
           .values({
             documentId: doc.id,
             format,
             includeCover,
+            includeAppendix,
             requestedBy: auth.user.id,
             expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
           })

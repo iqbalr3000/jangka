@@ -78,6 +78,28 @@ describe("toHtml", () => {
     expect(without).toContain("<main><h1>Refunds &lt;self-service&gt;</h1>");
   });
 
+  it("appends the requirements table when given", () => {
+    expect(html()).not.toContain('class="appendix"');
+    const out = html({
+      appendix: [
+        {
+          code: "FR-001",
+          text: "Refund <now>",
+          priority: "must",
+          upstreamCodes: ["BR-001", "BR-002"],
+        },
+        { code: "FR-002", text: "Track", priority: null, upstreamCodes: [] },
+      ],
+    });
+    expect(out).toContain('<section class="appendix"><h2>Requirements</h2>');
+    expect(out).toContain(
+      '<tr><td class="mono">FR-001</td><td>Refund &lt;now&gt;</td><td>Must</td><td class="mono">BR-001, BR-002</td></tr>',
+    );
+    expect(out.indexOf('<section class="appendix">')).toBeGreaterThan(
+      out.indexOf("<h2>Risks</h2>"),
+    );
+  });
+
   it("builds page chrome with escaped title and page counters", () => {
     const { headerTemplate, footerTemplate } = pdfChrome(input().document);
     expect(headerTemplate).toContain("Refunds &lt;self-service&gt;");
@@ -117,5 +139,22 @@ describe("toDocx", () => {
     expect(xml).toContain("Not yet specified.");
     expect(xml).toContain("Figure 1 — Overview");
     expect(xml).toContain("Diagram could not be rendered: Parse error on line 2");
+  });
+
+  it("adds the appendix on its own page", async () => {
+    const xml = await documentXml(
+      await toDocx(
+        input({
+          appendix: [
+            { code: "FR-001", text: "Refund", priority: "must", upstreamCodes: ["BR-001"] },
+          ],
+        }),
+      ),
+    );
+    expect(xml).toContain("<w:pageBreakBefore/>");
+    expect(xml).toMatch(/Requirements<\/w:t>/);
+    expect(xml).toContain(">FR-001<");
+    expect(xml).toContain(">BR-001<");
+    expect(await documentXml(await toDocx(input()))).not.toContain("<w:pageBreakBefore/>");
   });
 });

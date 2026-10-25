@@ -110,7 +110,13 @@ export async function seedDocument(
 
 export async function createExport(
   db: Database,
-  input: { documentId: string; userId: string; format: "pdf" | "docx"; expiresAt?: Date },
+  input: {
+    documentId: string;
+    userId: string;
+    format: "pdf" | "docx";
+    expiresAt?: Date;
+    includeAppendix?: boolean;
+  },
 ): Promise<string> {
   const [row] = await db
     .insert(documentExports)
@@ -118,6 +124,7 @@ export async function createExport(
       documentId: input.documentId,
       requestedBy: input.userId,
       format: input.format,
+      includeAppendix: input.includeAppendix ?? true,
       expiresAt: input.expiresAt ?? new Date(Date.now() + 60_000),
     })
     .returning();

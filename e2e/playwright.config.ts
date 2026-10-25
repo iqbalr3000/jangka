@@ -34,6 +34,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // Needs the fake provider (llm) and the Platform collection members can view (access).
+      name: "traceability",
+      testMatch: "traceability.spec.ts",
+      dependencies: ["llm", "access"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       // Runs the built app with the default APP_ROLE=all, so the worker renders in-process.
       name: "export",
       testMatch: "export.spec.ts",

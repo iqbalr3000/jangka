@@ -29,6 +29,27 @@ function reply(lastUser: string): string {
 }
 
 /**
+ * When the prompt drafts a requirement section, a two-row table in the indexed format that cites
+ * the first code the source offers, so traceability works end to end without a real model.
+ */
+export function fakeRequirementTable(system: string): string | null {
+  const guidance = /Write the "[^"]+" section\. Guidance: ([^\n]*)/.exec(system)?.[1] ?? "";
+  const prefix = /IDs are ([A-Z]+)-001/.exec(guidance)?.[1];
+  if (!prefix) return null;
+  const upstream = guidance.includes("| Upstream");
+  const cited =
+    /only codes you may cite in an Upstream column:\n- ([A-Z]+-\d+)/.exec(system)?.[1] ?? "";
+  const row = (n: number, text: string, priority: string) =>
+    `| ${prefix}-00${n} | ${text} | ${priority} |${upstream ? ` ${cited} |` : ""}`;
+  return [
+    `| ID | Requirement | Priority |${upstream ? " Upstream |" : ""}`,
+    `| --- | --- | --- |${upstream ? " --- |" : ""}`,
+    row(1, "Fake requirement one", "Must"),
+    row(2, "Fake requirement two", "Should"),
+  ].join("\n");
+}
+
+/**
  * Deterministic value valid for a JSON schema: enums take their last option (so coverage reads
  * "covered", completeness "complete"), strings "Fake", arrays one item.
  */
@@ -71,7 +92,9 @@ export function fakeProvider(config: ProviderConfig): LLMProvider {
       }
       const lastUser = req.messages.findLast((m) => m.role === "user")?.content ?? "";
       const slow = lastUser.includes(FAKE_SLOW_MARKER);
-      const text = slow ? `${reply(lastUser)} ${"and more ".repeat(40)}` : reply(lastUser);
+      const text =
+        fakeRequirementTable(req.system ?? "") ??
+        (slow ? `${reply(lastUser)} ${"and more ".repeat(40)}` : reply(lastUser));
       const words = text.split(/(?<= )/);
       for (const word of words) {
         if (signal?.aborted) {

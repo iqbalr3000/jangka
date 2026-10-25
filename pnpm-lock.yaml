@@ -288,6 +288,9 @@ importers:
       '@jangka/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jangka/templates':
+        specifier: workspace:*
+        version: link:../templates
       docx:
         specifier: ^9.14.0
         version: 9.14.0

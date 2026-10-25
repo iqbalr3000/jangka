@@ -3,6 +3,7 @@ import type { Section } from "@jangka/shared/document";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { TracePanel } from "@/components/documents/trace-panel";
 import { Button } from "@/components/ui/button";
 import { chatQuery } from "@/lib/assistant";
 import type { Assistant } from "@/lib/use-assistant";
@@ -10,8 +11,14 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { CoverageChecklist } from "./coverage-checklist";
 
+export const panelTabs = ["chat", "trace"] as const;
+export type PanelTab = (typeof panelTabs)[number];
+
 type AssistantPanelProps = {
   documentId: string;
+  documentTitle: string;
+  tab: PanelTab;
+  onTabChange: (tab: PanelTab) => void;
   sections: Section[];
   assistant: Assistant;
   editable: boolean;
@@ -62,6 +69,9 @@ function Message({
 
 export function AssistantPanel({
   documentId,
+  documentTitle,
+  tab,
+  onTabChange,
   sections,
   assistant,
   editable,
@@ -92,96 +102,120 @@ export function AssistantPanel({
       aria-label="Assistant"
       className="hidden w-[360px] shrink-0 flex-col border-l border-border bg-card xl:flex"
     >
-      <div className="border-b border-border px-4 py-2.5 text-[13px] font-medium">Chat</div>
-      {chat.data && (
-        <CoverageChecklist
-          key={hasDrafted ? "drafted" : "interview"}
-          state={chat.data.state}
-          sections={sections}
-          defaultOpen={!hasDrafted}
-        />
-      )}
-      <ol className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3">
-        {chat.isPending && <li className="text-[13px] text-muted-foreground">Loading…</li>}
-        {chat.data && messages.length === 0 && !assistant.pendingUser && (
-          <li className="text-[13px] text-muted-foreground">
-            Start by describing the problem this document should solve. The assistant asks follow-up
-            questions before drafting anything.
-          </li>
-        )}
-        {messages.map((m) => (
-          <Message key={m.id} message={m} />
-        ))}
-        {assistant.stopped && !messages.some((m) => m.id === assistant.stopped?.id) && (
-          <Message
-            message={{
-              role: "assistant",
-              content: assistant.stopped.content,
-              author: null,
-              interrupted: true,
-            }}
-          />
-        )}
-        {assistant.pendingUser && (
-          <Message
-            message={{
-              role: "user",
-              content: assistant.pendingUser,
-              author: null,
-              interrupted: false,
-            }}
-          />
-        )}
-        {assistant.reply !== null && (
-          <Message
-            message={{
-              role: "assistant",
-              content: assistant.reply,
-              author: null,
-              interrupted: false,
-            }}
-          />
-        )}
-        {assistant.notice && (
-          <li
-            role="alert"
-            className="flex flex-col gap-2 rounded-sm bg-diff-del px-3 py-2 text-[13px] text-destructive"
+      <div role="tablist" className="flex gap-4 border-b border-border px-4 text-[13px]">
+        {panelTabs.map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={tab === name}
+            onClick={() => onTabChange(name)}
+            className={cn(
+              "-mb-px border-b-2 py-2.5 font-medium capitalize",
+              tab === name
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
           >
-            {assistant.notice.message}
-            <span className="flex gap-2">
-              {assistant.notice.retry && (
-                <Button size="xs" variant="outline" onClick={assistant.notice.retry}>
-                  Retry
-                </Button>
-              )}
-              <Button size="xs" variant="ghost" onClick={assistant.dismissNotice}>
-                Dismiss
-              </Button>
-            </span>
-          </li>
-        )}
-        <li ref={end} aria-hidden />
-      </ol>
-      {!llmConfigured && editable && (
-        <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
-          No LLM provider is configured.{" "}
-          {isAdmin && (
-            <Link to="/admin/llm" className="text-primary hover:underline">
-              Set one up
-            </Link>
+            {name}
+          </button>
+        ))}
+      </div>
+      {tab === "trace" ? (
+        <TracePanel documentId={documentId} title={documentTitle} />
+      ) : (
+        <>
+          {chat.data && (
+            <CoverageChecklist
+              key={hasDrafted ? "drafted" : "interview"}
+              state={chat.data.state}
+              sections={sections}
+              defaultOpen={!hasDrafted}
+            />
           )}
-        </p>
-      )}
-      {editable && (
-        <ChatComposer
-          sections={sections}
-          value={composer}
-          onChange={onComposerChange}
-          running={assistant.running !== null}
-          disabled={!llmConfigured}
-          onSend={send}
-          onStop={assistant.stop}
-        />
+          <ol className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3">
+            {chat.isPending && <li className="text-[13px] text-muted-foreground">Loading…</li>}
+            {chat.data && messages.length === 0 && !assistant.pendingUser && (
+              <li className="text-[13px] text-muted-foreground">
+                Start by describing the problem this document should solve. The assistant asks
+                follow-up questions before drafting anything.
+              </li>
+            )}
+            {messages.map((m) => (
+              <Message key={m.id} message={m} />
+            ))}
+            {assistant.stopped && !messages.some((m) => m.id === assistant.stopped?.id) && (
+              <Message
+                message={{
+                  role: "assistant",
+                  content: assistant.stopped.content,
+                  author: null,
+                  interrupted: true,
+                }}
+              />
+            )}
+            {assistant.pendingUser && (
+              <Message
+                message={{
+                  role: "user",
+                  content: assistant.pendingUser,
+                  author: null,
+                  interrupted: false,
+                }}
+              />
+            )}
+            {assistant.reply !== null && (
+              <Message
+                message={{
+                  role: "assistant",
+                  content: assistant.reply,
+                  author: null,
+                  interrupted: false,
+                }}
+              />
+            )}
+            {assistant.notice && (
+              <li
+                role="alert"
+                className="flex flex-col gap-2 rounded-sm bg-diff-del px-3 py-2 text-[13px] text-destructive"
+              >
+                {assistant.notice.message}
+                <span className="flex gap-2">
+                  {assistant.notice.retry && (
+                    <Button size="xs" variant="outline" onClick={assistant.notice.retry}>
+                      Retry
+                    </Button>
+                  )}
+                  <Button size="xs" variant="ghost" onClick={assistant.dismissNotice}>
+                    Dismiss
+                  </Button>
+                </span>
+              </li>
+            )}
+            <li ref={end} aria-hidden />
+          </ol>
+          {!llmConfigured && editable && (
+            <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+              No LLM provider is configured.{" "}
+              {isAdmin && (
+                <Link to="/admin/llm" className="text-primary hover:underline">
+                  Set one up
+                </Link>
+              )}
+            </p>
+          )}
+          {editable && (
+            <ChatComposer
+              sections={sections}
+              value={composer}
+              onChange={onComposerChange}
+              running={assistant.running !== null}
+              disabled={!llmConfigured}
+              onSend={send}
+              onStop={assistant.stop}
+            />
+          )}
+        </>
       )}
     </aside>
   );

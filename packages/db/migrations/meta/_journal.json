@@ -43,6 +43,13 @@
       "when": 1792897742290,
       "tag": "0005_export",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792900080686,
+      "tag": "0006_traceability",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,8 @@ type ExportDialogProps = {
   onOpenChange: (open: boolean) => void;
   documentId: string;
   emptyCount: number;
+  /** The appendix option only shows when there is something to list. */
+  hasRequirements: boolean;
   onQueued: (job: ExportJob) => void;
 };
 
@@ -29,13 +31,20 @@ export function ExportDialog({
   onOpenChange,
   documentId,
   emptyCount,
+  hasRequirements,
   onQueued,
 }: ExportDialogProps) {
   const [format, setFormat] = useState<ExportFormat>("pdf");
   const [includeCover, setIncludeCover] = useState(true);
+  const [includeAppendix, setIncludeAppendix] = useState(true);
 
   const start = useMutation({
-    mutationFn: () => createExport(documentId, { format, includeCover }),
+    mutationFn: () =>
+      createExport(documentId, {
+        format,
+        includeCover,
+        includeAppendix: hasRequirements && includeAppendix,
+      }),
     onSuccess: (job) => {
       onOpenChange(false);
       onQueued(job);
@@ -88,6 +97,17 @@ export function ExportDialog({
               />
               Cover page
             </label>
+            {hasRequirements && (
+              <label className="col-start-2 flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={includeAppendix}
+                  onChange={(event) => setIncludeAppendix(event.target.checked)}
+                  className="accent-primary"
+                />
+                Requirements appendix
+              </label>
+            )}
           </fieldset>
           {emptyCount > 0 && (
             <p className="flex items-start gap-2 rounded-sm bg-secondary px-3 py-2 text-muted-foreground">

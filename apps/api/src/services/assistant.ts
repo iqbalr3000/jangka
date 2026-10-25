@@ -5,18 +5,20 @@ import {
   documentSections,
   interviewStates,
   llmProviders,
+  requirements,
   type Transaction,
   templates,
   users,
 } from "@jangka/db";
 import type { LLMProvider, ProviderFactory, ProviderKind } from "@jangka/llm";
-import type { DocumentContext, Turn } from "@jangka/llm/pipelines";
+import type { DocumentContext, SourceContext, Turn } from "@jangka/llm/pipelines";
 import { type ChatMessage, type InterviewState, interviewState } from "@jangka/shared/assistant";
 import { AppError } from "@jangka/shared/errors";
 import type { TemplateDefinition } from "@jangka/templates";
 import { asc, eq } from "drizzle-orm";
 import type { AppConfig } from "../types";
-import type { DocumentRow } from "./documents";
+import { type AccessData, resolveDocLevel } from "./access";
+import { type DocumentRow, findDocument } from "./documents";
 import { defaultProvider, storedConfig } from "./llm-providers";
 import { definitionOf } from "./templates";
 
@@ -113,10 +115,7 @@ export async function saveState(db: Db, documentId: string, state: InterviewStat
     });
 }
 
-export async function documentContext(
-  db: Db,
-  row: DocumentRow,
-): Promise<{ template: TemplateDefinition; context: DocumentContext }> {
+async function sectionsWithTitles(db: Db, row: DocumentRow) {
   const [templateRow] = await db.select().from(templates).where(eq(templates.id, row.templateId));
   if (!templateRow) throw new Error("document template missing");
   const template = definitionOf(templateRow);
@@ -131,10 +130,45 @@ export async function documentContext(
   const titles = new Map(template.sections.map((s) => [s.key, s.title]));
   return {
     template,
-    context: {
-      template,
-      title: row.title,
-      sections: sections.map((s) => ({ ...s, title: titles.get(s.key) ?? s.key })),
-    },
+    sections: sections.map((s) => ({ ...s, title: titles.get(s.key) ?? s.key })),
+  };
+}
+
+/** The source document as LLM context, or null when there is none or `viewer` can't view it. */
+export async function sourceContext(
+  db: Db,
+  row: DocumentRow,
+  viewer: AccessData,
+): Promise<SourceContext | null> {
+  const source = row.sourceDocumentId ? await findDocument(db, row.sourceDocumentId) : undefined;
+  if (!source || resolveDocLevel(viewer, source) === "none") return null;
+  const { sections } = await sectionsWithTitles(db, source);
+  const rows = await db
+    .select({ code: requirements.code, text: requirements.text })
+    .from(requirements)
+    .where(eq(requirements.documentId, source.id))
+    .orderBy(asc(requirements.code));
+  return {
+    docType: source.docType,
+    title: source.title,
+    markdown: sections
+      .filter((s) => s.markdown.trim())
+      .map((s) => `## ${s.title}\n${s.markdown}`)
+      .join("\n\n"),
+    requirements: rows,
+  };
+}
+
+/** LLM context for `row`; the source is included only when `viewer` can view it (SPEC §4). */
+export async function documentContext(
+  db: Db,
+  row: DocumentRow,
+  viewer: AccessData,
+): Promise<{ template: TemplateDefinition; context: DocumentContext }> {
+  const { template, sections } = await sectionsWithTitles(db, row);
+  const source = await sourceContext(db, row, viewer);
+  return {
+    template,
+    context: { template, title: row.title, sections, ...(source ? { source } : {}) },
   };
 }

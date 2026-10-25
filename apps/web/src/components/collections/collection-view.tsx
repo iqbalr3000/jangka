@@ -182,7 +182,7 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
           </div>
           {canEdit && !archivedAt && (
             <Button size="sm" onClick={() => setCreatingDoc(true)}>
-              + New PRD
+              + New document
             </Button>
           )}
         </section>

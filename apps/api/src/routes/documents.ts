@@ -9,7 +9,7 @@ import {
   updateDocumentRequest,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, lt } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { audit } from "../lib/audit";
@@ -20,11 +20,13 @@ import {
   assertUsableCollection,
   createDocumentSections,
   type DocumentRow,
+  linkedSource,
   requireDocEdit,
   saveSection,
   sectionByKey,
   sectionsOf,
   summaries,
+  validSource,
   viewableDocument,
 } from "../services/documents";
 import { definitionOf, latestBuiltin } from "../services/templates";
@@ -32,6 +34,11 @@ import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
 const sectionParam = z.object({ id: z.uuid(), key: z.string().regex(/^[a-z][a-z0-9_]*$/) });
+const listQuery = z.object({
+  docType: z.enum(["brd", "prd", "tsd"]).optional(),
+  q: z.string().trim().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
 const versionsQuery = z.object({
   cursor: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -73,12 +80,39 @@ export function documentRoutes({ db }: RouteDeps) {
   }
 
   return new Hono<AppEnv>()
+    .get("/", zValidate("query", listQuery), async (c) => {
+      // Picker list (e.g. source documents): viewable, not archived, newest first.
+      const { docType, q, limit } = c.req.valid("query");
+      const data = await access(c);
+      const rows = await db
+        .select()
+        .from(documents)
+        .where(
+          and(
+            isNull(documents.archivedAt),
+            docType ? eq(documents.docType, docType) : undefined,
+            q ? ilike(documents.title, `%${q.replace(/[\\%_]/g, "\\$&")}%`) : undefined,
+          ),
+        )
+        .orderBy(desc(documents.updatedAt));
+      const visible = rows
+        .filter(
+          (row) =>
+            resolveDocLevel(data, row) !== "none" &&
+            (row.collectionId === null || !isHidden(data, row.collectionId)),
+        )
+        .slice(0, limit);
+      return c.json({ items: await summaries(db, visible) });
+    })
     .post("/", zValidate("json", createDocumentRequest), async (c) => {
-      const { title, collectionId, docType } = c.req.valid("json");
+      const { title, collectionId, docType, sourceDocumentId } = c.req.valid("json");
       const auth = requireAuth(c);
       const data = await access(c);
       assertUsableCollection(data, collectionId);
       requireEdit(data, collectionId);
+      const source = sourceDocumentId
+        ? await validSource(db, data, docType, sourceDocumentId)
+        : null;
 
       const template = await latestBuiltin(db, docType);
       const keys = definitionOf(template).sections.map((s) => s.key);
@@ -91,13 +125,19 @@ export function documentRoutes({ db }: RouteDeps) {
             docType,
             templateId: template.id,
             createdBy: auth.user.id,
+            sourceDocumentId: source?.id ?? null,
           })
           .returning();
         if (!created) throw new Error("document not created");
         await createDocumentSections(tx, created.id, keys);
         return created;
       });
-      await audit(c, { action: "document.create", targetType: "document", targetId: row.id });
+      await audit(c, {
+        action: "document.create",
+        targetType: "document",
+        targetId: row.id,
+        metadata: source ? { sourceDocumentId: source.id } : undefined,
+      });
       return c.json(await summaryOf(row), 201);
     })
     .get("/:id", zValidate("param", idParam), async (c) => {
@@ -106,6 +146,7 @@ export function documentRoutes({ db }: RouteDeps) {
       const collection = row.collectionId ? data.rows.get(row.collectionId) : undefined;
       const detail: DocumentDetail = {
         document: await summaryOf(row),
+        source: await linkedSource(db, data, row),
         level: resolveDocLevel(data, row) === "edit" ? "edit" : "view",
         collection: collection
           ? {

@@ -16,7 +16,29 @@ export type ExportInput = {
   /** By `diagramHash(source)`; a missing entry prints like a failed render. */
   diagrams: Map<string, DiagramResult>;
   includeCover: boolean;
+  /** Requirements appendix (FR-041); null or empty = none. */
+  appendix: AppendixRow[] | null;
 };
+
+export type AppendixRow = {
+  code: string;
+  text: string;
+  priority: "must" | "should" | "could" | null;
+  upstreamCodes: string[];
+};
+
+export const APPENDIX_TITLE = "Requirements";
+export const APPENDIX_COLUMNS = ["ID", "Requirement", "Priority", "Upstream"] as const;
+export const PRIORITY_LABEL = { must: "Must", should: "Should", could: "Could" } as const;
+
+export function appendixCells(row: AppendixRow): [string, string, string, string] {
+  return [
+    row.code,
+    row.text,
+    row.priority ? PRIORITY_LABEL[row.priority] : "",
+    row.upstreamCodes.join(", "),
+  ];
+}
 
 export const DOC_TYPE_LABEL = { brd: "BRD", prd: "PRD", tsd: "TSD" } as const;
 export const STATUS_LABEL = {

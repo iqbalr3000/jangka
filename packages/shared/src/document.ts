@@ -182,6 +182,7 @@ export const documentSummary = z.object({
   archivedAt: z.string().nullable(),
 });
 export type DocumentSummary = z.infer<typeof documentSummary>;
+export const documentList = z.object({ items: z.array(documentSummary) });
 
 const userRef = z.object({ id: z.string(), name: z.string() });
 
@@ -199,8 +200,16 @@ export const section = z.object({
 });
 export type Section = z.infer<typeof section>;
 
+/** A linked document; `restricted` when the viewer can't see it (no id, title or type). */
+export const documentRef = z.object({ id: z.string(), title: z.string(), docType: docTypeSchema });
+export type DocumentRef = z.infer<typeof documentRef>;
+export const linkedDocument = z.union([documentRef, z.object({ restricted: z.literal(true) })]);
+export type LinkedDocument = z.infer<typeof linkedDocument>;
+
 export const documentDetail = z.object({
   document: documentSummary,
+  /** The document this one was generated from (PRD ← BRD, TSD ← PRD). */
+  source: linkedDocument.nullable(),
   level: z.enum(["view", "edit"]),
   collection: z
     .object({ id: z.string(), name: z.string(), personalOwnerId: z.string().nullable() })
@@ -216,7 +225,9 @@ const title = z.string().trim().min(1, { error: "Required" }).max(200);
 export const createDocumentRequest = z.object({
   title,
   collectionId: z.uuid().nullable(),
-  docType: z.literal("prd"),
+  docType: docTypeSchema,
+  /** PRD from a BRD, TSD from a PRD. */
+  sourceDocumentId: z.uuid().optional(),
 });
 export const updateDocumentRequest = z.object({ title });
 export const moveDocumentRequest = z.object({ collectionId: z.uuid().nullable() });

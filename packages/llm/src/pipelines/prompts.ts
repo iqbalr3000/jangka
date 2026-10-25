@@ -9,10 +9,19 @@ export type SectionContext = {
 
 export type Turn = { role: "user" | "assistant"; content: string };
 
+/** The document this one is generated from; only present when the requester can view it. */
+export type SourceContext = {
+  docType: "brd" | "prd" | "tsd";
+  title: string;
+  markdown: string;
+  requirements: { code: string; text: string }[];
+};
+
 export type DocumentContext = {
   template: TemplateDefinition;
   title: string;
   sections: SectionContext[];
+  source?: SourceContext;
 };
 
 const NEVER_INVENT =
@@ -33,13 +42,26 @@ function currentDocument(sections: SectionContext[]): string {
     .join("\n\n");
 }
 
+function sourceDocument(source: SourceContext): string {
+  const requirements = source.requirements.length
+    ? source.requirements.map((r) => `- ${r.code}: ${r.text}`).join("\n")
+    : "(none)";
+  return [
+    `Source ${source.docType.toUpperCase()} "${source.title}" (this document is derived from it; treat it as information the user gave you):\n${source.markdown.trim() || "(empty)"}`,
+    `Requirements in the source. These are the only codes you may cite in an Upstream column:\n${requirements}`,
+  ].join("\n\n");
+}
+
 function base(doc: DocumentContext): string {
   return [
     `You help a product team write a ${doc.template.docType.toUpperCase()} (${doc.template.name}) titled "${doc.title}".`,
     `Template sections:\n${sectionList(doc.template)}`,
+    doc.source ? sourceDocument(doc.source) : "",
     `Current document:\n${currentDocument(doc.sections)}`,
     NEVER_INVENT,
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function interviewSystem(doc: DocumentContext): string {

@@ -8,7 +8,7 @@ export const formatLabels: Record<ExportFormat, string> = { pdf: "PDF", docx: "D
 
 export function createExport(
   documentId: string,
-  body: { format: ExportFormat; includeCover: boolean },
+  body: { format: ExportFormat; includeCover: boolean; includeAppendix: boolean },
 ): Promise<ExportJob> {
   return apiFetch(`/documents/${documentId}/exports`, { method: "POST", body, schema: exportJob });
 }

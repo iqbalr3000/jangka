@@ -11,7 +11,7 @@ test("a member sees a collection and its documents only after a grant", async ({
   await expect(admin.getByRole("heading", { name: "Platform" })).toBeVisible();
   const platformUrl = admin.url();
 
-  await admin.getByRole("button", { name: "+ New PRD" }).click();
+  await admin.getByRole("button", { name: "+ New document" }).click();
   await admin.getByLabel("Title").fill("Refund self-service");
   await admin.getByRole("button", { name: "Create" }).click();
   await expect(admin.getByLabel("Document title")).toHaveValue("Refund self-service");

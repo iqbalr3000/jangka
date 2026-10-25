@@ -11,8 +11,8 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 4   | llm-providers    | 1     | [spec](spec-llm-providers.md) | done   |
 | 5   | document         | 1     | [spec](spec-document.md)   | done   |
 | 6   | assistant        | 1     | [spec](spec-assistant.md)  | done   |
-| 7   | export           | 1     | [spec](spec-export.md)     | building |
-| 8   | traceability     | 2     | —                          | todo   |
+| 7   | export           | 1     | [spec](spec-export.md)     | done   |
+| 8   | traceability     | 2     | [spec](spec-traceability.md) | building |
 | 9   | sso              | 2     | —                          | todo   |
 | 10  | history-audit    | 2     | —                          | todo   |
 | 11  | custom-templates | 3     | —                          | todo   |
@@ -30,3 +30,4 @@ Cutoff: 2026-10-25
 - **llm-providers** — `packages/llm` adapters (Anthropic, OpenAI-compatible, Gemini, fake) with streaming, structured output and normalized errors; encrypted provider keys, test + model listing, default model, admin page, setup wizard LLM step, key-leak check.
 - **document** — PRD template, TipTap content whitelist + markdown serializer, documents/sections/append-only versions (DB trigger), session versioning, optimistic locking with conflict UI, per-section editors with autosave, Mermaid blocks, document lists and counts.
 - **assistant** — interview chat with coverage checklist, per-section drafting with live streaming, revise with inline diff + undo, SSE with abort, context budget, usage tracking.
+- **export** — worker app + pg-boss + `APP_ROLE`, sandboxed Chromium diagram render cache, LLM diagram fix loop in draft/revise, PDF + DOCX with cover page and page numbers, export API with 24h expiry, export dialog + toast, Docker image with Playwright.
