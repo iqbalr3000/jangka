@@ -18,7 +18,22 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 11  | custom-templates | 3     | [spec](spec-custom-templates.md) | done   |
 | 12  | review           | 3     | [spec](spec-review.md)     | done   |
 | 13  | impact-retrieval | 3     | [spec](spec-impact-retrieval.md) | done   |
-| 14  | search           | 3     | [spec](spec-search.md)     | building |
+| 14  | search           | 3     | [spec](spec-search.md)     | done   |
+
+## Phase 4 backlog
+
+Not specced or ordered yet; each becomes a feature with its own spec when picked.
+
+| Item | Kind | Notes |
+| ---- | ---- | ----- |
+| Status change errors use `window.alert` | UI polish | e.g. "Resolve the open comments before approving" |
+| Empty sections in read-only view | UI polish | No "Not yet specified" placeholder for viewers and approved documents |
+| Smaller Docker image (1.49 GB) | Optimization | Copy only `mermaid.min.js` and font files instead of mermaid's `node_modules` (~150 MB) |
+| Assistant proposes document updates from chat | Feature | When chat adds new information, offer updates to affected sections as diff + Accept |
+| Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
+| Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
+| Search stemming / fuzzy matching | Feature | Deferred in `search` |
+| Upgrade documents to a newer template version | Feature | Deferred in `custom-templates` |
 
 ## Completed work
 
@@ -37,3 +52,6 @@ Cutoff: 2026-10-25
 - **custom-templates** — template drafts and immutable published versions, custom validation (requirement kinds per type, stable keys), prompt-level requirement table rule, admin lifecycle API + Templates page and editor, per-type default template, Template picker in New document.
 - **review** — section comment threads (view-level commenting, one level of replies, soft delete, resolve), status workflow draft → in review → approved with open-thread gate and approval lock on all section writes, status menu, approved banner, Comments panel and section badges.
 - **impact-retrieval** — needs-review flags from upstream content changes with Mark reviewed, permission-filtered full-text retrieval for chat with stored references, table-cell save fix, Turbo transit invalidation.
+- **search** — permission-filtered title + full-text search with snippets, shared visibility scope, ⌘K command palette (documents, collections, admin pages, actions), /search page with type filter.
+- **Phase 4: sidebar icons + pointer cursor** — lucide icons for navigation, collections (folder / open folder) and admin pages; global pointer cursor for interactive elements (Tailwind v4 preflight reset).
+- **Phase 4: editor toolbar placement** — the formatting toolbar renders in the section heading row beside the section actions instead of covering them.

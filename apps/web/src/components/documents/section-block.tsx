@@ -50,6 +50,7 @@ type SectionBlockProps = {
 export function SectionBlock(props: SectionBlockProps) {
   const { section, streaming, proposal } = props;
   const [revising, setRevising] = useState(false);
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
   const [instruction, setInstruction] = useState("");
   const anchor = sectionAnchor(section.key);
   const empty = section.completeness === "empty";
@@ -68,7 +69,8 @@ export function SectionBlock(props: SectionBlockProps) {
       aria-labelledby={`${anchor}-title`}
       className="group flex scroll-mt-6 flex-col gap-3"
     >
-      <div className="flex items-center gap-3">
+      {/* min-h-8 fits the editing toolbar, so it appears without shifting the section. */}
+      <div className="flex min-h-8 items-center gap-3">
         <h2 id={`${anchor}-title`} className="text-xl font-semibold tracking-[-0.01em]">
           {section.title}
         </h2>
@@ -80,6 +82,7 @@ export function SectionBlock(props: SectionBlockProps) {
           <SectionStatusIcon completeness={section.completeness} withLabel />
         )}
         <span className="flex-1" />
+        <div ref={setToolbarSlot} className="flex items-center" />
         <button
           type="button"
           onClick={props.onComments}
@@ -180,6 +183,7 @@ export function SectionBlock(props: SectionBlockProps) {
               onSaved={props.onSaved}
               onSaveState={props.onSaveState}
               seed={props.seed}
+              toolbarSlot={toolbarSlot}
             />
             {empty && props.canGenerate && (
               <button

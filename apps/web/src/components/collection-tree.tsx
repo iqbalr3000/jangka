@@ -1,6 +1,6 @@
 import type { CollectionSummary } from "@jangka/shared/access";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
 import { useCallback, useState } from "react";
 import { childrenByParent } from "@/lib/collections";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ function useExpanded(): [Set<string>, (id: string) => void] {
 }
 
 const rowClass =
-  "flex min-w-0 flex-1 items-center rounded-sm py-[5px] pr-2 hover:bg-surface-hover data-[status=active]:bg-card data-[status=active]:font-medium data-[status=active]:text-primary data-[status=active]:shadow-[inset_2px_0_0_var(--primary),0_0_0_1px_var(--border)]";
+  "group flex min-w-0 flex-1 items-center gap-1.5 rounded-sm py-[5px] pr-2 hover:bg-surface-hover data-[status=active]:bg-card data-[status=active]:font-medium data-[status=active]:text-primary data-[status=active]:shadow-[inset_2px_0_0_var(--primary),0_0_0_1px_var(--border)]";
 
 type TreeProps = { items: CollectionSummary[] };
 
@@ -73,7 +73,20 @@ export function CollectionTree({ items }: TreeProps) {
                   <span className="size-5 shrink-0" aria-hidden />
                 )}
                 <Link to="/c/$collectionId" params={{ collectionId: node.id }} className={rowClass}>
-                  <span className="min-w-0 flex-1 truncate pl-1">{node.name}</span>
+                  {open && children.length > 0 ? (
+                    <FolderOpen
+                      className="ml-1 size-4 shrink-0 text-muted-foreground group-data-[status=active]:text-primary"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  ) : (
+                    <Folder
+                      className="ml-1 size-4 shrink-0 text-muted-foreground group-data-[status=active]:text-primary"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{node.name}</span>
                   {node.documentCount > 0 && (
                     <span className="font-mono text-[11px] text-status-empty">
                       {node.documentCount}

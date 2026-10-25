@@ -17,13 +17,13 @@ test("restore an older section version and find it in the audit log", async ({ b
   await page.keyboard.type("Customers wait a week for refunds.");
   await expect(saveStatus(page)).toHaveText(/Saved/);
 
-  // r2: an accepted AI revision.
-  await panel(page).getByRole("tab", { name: "chat" }).click();
-  const composer = page.getByRole("textbox", { name: "Message the assistant" });
-  await composer.fill("@Over");
-  await page.getByRole("option", { name: "Overview" }).click();
-  await composer.pressSequentially("Make it shorter");
-  await composer.press("ControlOrMeta+Enter");
+  // r2: an accepted AI revision, from the section menu while still editing it (the formatting
+  // toolbar used to cover this menu).
+  await expect(page.getByRole("toolbar", { name: "Formatting" })).toBeVisible();
+  await page.getByRole("button", { name: "Assistant actions for Overview" }).click();
+  await page.getByRole("menuitem", { name: "⟳ Revise…" }).click();
+  await page.getByLabel("Revise Overview").fill("Make it shorter");
+  await page.getByLabel("Revise Overview").press("Enter");
   const proposal = page.getByRole("region", { name: "Proposed revision" });
   await proposal.getByRole("button", { name: "Accept", exact: true }).click();
   await expect(overview).toContainText("This is a fake reply");

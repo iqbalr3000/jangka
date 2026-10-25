@@ -1,10 +1,21 @@
+import {
+  KeyRound,
+  LayoutTemplate,
+  type LucideIcon,
+  ScrollText,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  UsersRound,
+} from "lucide-react";
+
 /** Admin pages, for the admin sidebar and the command palette. */
-export const adminLinks = [
-  { to: "/admin/users", label: "Users & invites" },
-  { to: "/admin/groups", label: "Groups" },
-  { to: "/admin/permissions", label: "Permissions" },
-  { to: "/admin/templates", label: "Templates" },
-  { to: "/admin/llm", label: "LLM providers" },
-  { to: "/admin/auth", label: "Authentication" },
-  { to: "/admin/audit", label: "Audit log" },
-] as const;
+export const adminLinks: readonly { to: string; label: string; icon: LucideIcon }[] = [
+  { to: "/admin/users", label: "Users & invites", icon: Users },
+  { to: "/admin/groups", label: "Groups", icon: UsersRound },
+  { to: "/admin/permissions", label: "Permissions", icon: ShieldCheck },
+  { to: "/admin/templates", label: "Templates", icon: LayoutTemplate },
+  { to: "/admin/llm", label: "LLM providers", icon: Sparkles },
+  { to: "/admin/auth", label: "Authentication", icon: KeyRound },
+  { to: "/admin/audit", label: "Audit log", icon: ScrollText },
+];

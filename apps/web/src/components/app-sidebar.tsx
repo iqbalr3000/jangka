@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronsLeft, ChevronsRight, Plus } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  House,
+  type LucideIcon,
+  Plus,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { adminLinks } from "@/lib/admin-links";
 import { collectionTreeQuery, ROOT_NAME } from "@/lib/collections";
@@ -23,15 +32,17 @@ type AppSidebarProps = {
 };
 
 const navItemClass =
-  "flex items-center gap-2.5 rounded-sm px-2.5 py-[7px] hover:bg-surface-hover data-[status=active]:bg-card data-[status=active]:font-medium data-[status=active]:text-primary data-[status=active]:shadow-[inset_2px_0_0_var(--primary),0_0_0_1px_var(--border)]";
+  "group flex items-center gap-2.5 rounded-sm px-2.5 py-[7px] hover:bg-surface-hover data-[status=active]:bg-card data-[status=active]:font-medium data-[status=active]:text-primary data-[status=active]:shadow-[inset_2px_0_0_var(--primary),0_0_0_1px_var(--border)]";
 
 const sectionLabelClass =
   "font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground";
 
-function NavIcon() {
+/** Muted at rest; takes the link's colour (primary) when active or hovered. */
+function NavIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span
-      className="size-[11px] shrink-0 rounded-[2px] border-[1.5px] border-current opacity-70"
+    <Icon
+      className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground group-data-[status=active]:text-primary"
+      strokeWidth={1.75}
       aria-hidden
     />
   );
@@ -50,11 +61,11 @@ function DocumentsNav({ collapsed }: { collapsed: boolean }) {
           className={navItemClass}
           title={collapsed ? "Home" : undefined}
         >
-          <NavIcon />
+          <NavIcon icon={House} />
           {!collapsed && "Home"}
         </Link>
         <Link to="/personal" className={navItemClass} title={collapsed ? "Personal" : undefined}>
-          <NavIcon />
+          <NavIcon icon={UserRound} />
           {!collapsed && "Personal"}
         </Link>
       </div>
@@ -78,6 +89,7 @@ function DocumentsNav({ collapsed }: { collapsed: boolean }) {
           {tree.data && <CollectionTree items={tree.data.items} />}
           <div className="px-2 pt-3">
             <Link to="/archived" className={cn(navItemClass, "text-xs text-muted-foreground")}>
+              <NavIcon icon={Archive} />
               Archived
             </Link>
           </div>
@@ -94,13 +106,15 @@ function AdminNav({ collapsed }: { collapsed: boolean }) {
     <>
       <div className="px-2 pt-2">
         <Link to="/" className={cn(navItemClass, "text-muted-foreground")}>
-          ← Back to documents
+          <NavIcon icon={ArrowLeft} />
+          Back to documents
         </Link>
       </div>
       <div className={cn(sectionLabelClass, "px-[18px] pt-5 pb-2")}>ADMIN</div>
       <div className="flex flex-col gap-px px-2">
         {adminLinks.map((link) => (
           <Link key={link.to} to={link.to} className={navItemClass}>
+            <NavIcon icon={link.icon} />
             {link.label}
           </Link>
         ))}

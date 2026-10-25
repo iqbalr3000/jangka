@@ -19,6 +19,7 @@ import {
   Table2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
 import { NEW_DIAGRAM, sectionExtensions } from "@/lib/editor-extensions";
@@ -39,6 +40,8 @@ type SectionEditorProps = {
   onSaveState: (key: string, state: SaveState) => void;
   /** Unsaved starting content (e.g. "Edit before accepting"); saved like a human edit. */
   seed?: DocNode;
+  /** Where the formatting toolbar goes while editing: the section's heading row. */
+  toolbarSlot: HTMLElement | null;
 };
 
 type ToolbarButton = { label: string; icon: LucideIcon; active?: boolean; run: () => void };
@@ -141,6 +144,7 @@ export function SectionEditor({
   onSaved,
   onSaveState,
   seed,
+  toolbarSlot,
 }: SectionEditorProps) {
   const revision = useRef(section.revision);
   const pending = useRef<DocNode | null>(null);
@@ -280,12 +284,12 @@ export function SectionEditor({
 
   return (
     <div className="relative flex flex-col gap-2">
-      {/* Overlays the section heading row: showing/hiding it must not shift the layout. */}
-      {editable && editor && focused && (
-        <div className="absolute -top-11 right-0 z-10">
-          <Toolbar editor={editor} />
-        </div>
-      )}
+      {/* In the heading row, beside the section actions rather than over them. */}
+      {editable &&
+        editor &&
+        focused &&
+        toolbarSlot &&
+        createPortal(<Toolbar editor={editor} />, toolbarSlot)}
       {conflict && (
         <div
           role="alert"
