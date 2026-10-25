@@ -12,7 +12,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type pg from "pg";
 import { auditMiddleware } from "./lib/audit";
 import { csrfOriginCheck } from "./lib/csrf";
-import type { RateLimiter } from "./lib/rate-limit";
+import { RateLimiter } from "./lib/rate-limit";
 import { sessionMiddleware } from "./lib/session";
 import { setupGate } from "./lib/setup-gate";
 import type { Logger } from "./logger";
@@ -47,6 +47,8 @@ export type AppDeps = {
   config: AppConfig;
   setupState: SetupState;
   loginLimiter: RateLimiter;
+  /** Per-user cap on LLM requests (chat, draft, revise, diagram fixes). */
+  llmLimiter?: RateLimiter;
   /** Defaults to the real adapters. */
   llm?: ProviderFactory;
   queue: JobQueue;
@@ -55,6 +57,10 @@ export type AppDeps = {
   /** Built SPA directory; set in production only (dev uses the Vite server). */
   webDistDir?: string;
 };
+
+// Generous for interactive use; stops a script or a stuck client from burning the org's API key.
+const LLM_REQUESTS_PER_WINDOW = 60;
+const LLM_WINDOW_MS = 10 * 60_000;
 
 const codeByStatus: Record<number, ErrorCode> = {
   400: "validation_failed",
@@ -72,6 +78,7 @@ export function createApp(deps: AppDeps) {
   const { db, pool, logger, config, setupState, loginLimiter, webDistDir } = deps;
   const llm = deps.llm ?? createProvider;
   const { queue } = deps;
+  const llmLimiter = deps.llmLimiter ?? new RateLimiter(LLM_REQUESTS_PER_WINDOW, LLM_WINDOW_MS);
   const diagrams = deps.diagrams ?? queuedDiagramChecker(db, queue);
   const app = new Hono<AppEnv>();
 
@@ -115,7 +122,7 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", setupGate(setupState));
   app.use("/api/*", sessionMiddleware(db, config));
 
-  const routeDeps = { db, config, logger, llm, queue, diagrams };
+  const routeDeps = { db, config, logger, llm, queue, diagrams, llmLimiter };
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth/oidc", oidcRoutes(routeDeps));

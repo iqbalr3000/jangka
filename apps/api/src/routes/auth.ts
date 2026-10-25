@@ -42,7 +42,7 @@ export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter)
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
       const valid = await verifyPassword(password, user?.passwordHash ?? (await getDummyHash()));
       if (!user?.passwordHash || !user.isActive || !valid) {
-        loginLimiter.recordFailure(limitKey);
+        loginLimiter.record(limitKey);
         await audit(c, {
           action: "auth.login_failed",
           targetType: "user",

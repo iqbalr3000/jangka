@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
@@ -187,7 +188,7 @@ function AuditLogPage() {
           <span>Target</span>
           <span>IP</span>
         </div>
-        {logs.isPending && <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>}
+        {logs.isPending && <LoadingRows className="px-4 py-3" />}
         {logs.data && entries.length === 0 && (
           <p className="px-4 py-3 text-sm text-muted-foreground">No entries match.</p>
         )}

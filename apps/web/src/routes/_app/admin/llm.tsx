@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/error-banner";
 import { AddProviderFlow } from "@/components/llm/add-provider-flow";
 import { DefaultModelCard } from "@/components/llm/default-model-card";
 import { EditProviderDialog } from "@/components/llm/edit-provider-dialog";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -103,7 +104,7 @@ function LlmProvidersPage() {
         <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground">
           PROVIDERS {items.length}
         </span>
-        {providers.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {providers.isPending && <LoadingRows />}
         {providers.data && items.length === 0 && (
           <p className="text-sm text-muted-foreground">No providers yet.</p>
         )}

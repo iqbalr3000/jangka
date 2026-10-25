@@ -4,6 +4,7 @@ import type { SessionUser } from "@jangka/shared/auth";
 import type { JobQueue } from "@jangka/worker/jobs";
 import type { RequestIdVariables } from "hono/request-id";
 import type { AuditState } from "./lib/audit";
+import type { RateLimiter } from "./lib/rate-limit";
 import type { Logger } from "./logger";
 import type { DiagramChecker } from "./services/diagrams";
 
@@ -35,4 +36,5 @@ export type RouteDeps = {
   llm: ProviderFactory;
   queue: JobQueue;
   diagrams: DiagramChecker;
+  llmLimiter: RateLimiter;
 };

@@ -87,6 +87,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // Fix with assistant uses the fake provider (llm) and the in-process worker.
+      name: "layout",
+      testMatch: "layout.spec.ts",
+      dependencies: ["llm"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       // Uses the fake provider the llm project sets as the default.
       name: "assistant",
       testMatch: "assistant.spec.ts",

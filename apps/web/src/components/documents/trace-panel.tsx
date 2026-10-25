@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
 import { z } from "zod";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
@@ -166,7 +167,7 @@ export function TracePanel({
   });
 
   if (trace.isPending) {
-    return <p className="px-4 py-3 text-[13px] text-muted-foreground">Loading…</p>;
+    return <LoadingRows className="px-4 py-3" />;
   }
   if (trace.error) {
     return (

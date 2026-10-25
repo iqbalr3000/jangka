@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { AddMemberDialog } from "@/components/admin/add-member-dialog";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
@@ -63,7 +64,7 @@ function GroupMembersPage() {
       {error && <ErrorBanner>{errorMessage(error)}</ErrorBanner>}
 
       <section className="rounded-md border border-border bg-card" aria-label="Members">
-        {members.isPending && <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>}
+        {members.isPending && <LoadingRows className="px-4 py-3" />}
         {data?.items.length === 0 && (
           <p className="px-4 py-3 text-sm text-muted-foreground">No members yet.</p>
         )}

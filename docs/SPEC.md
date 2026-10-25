@@ -366,11 +366,13 @@ GET  /api/v1/documents/:id/sections/:key/versions
 POST /api/v1/documents/:id/chat            (SSE)   GET /documents/:id/chat
 POST /api/v1/documents/:id/draft           (SSE, all or selected sections)
 POST /api/v1/documents/:id/sections/:key/revise (SSE)
+POST /api/v1/documents/:id/sections/:key/fix-diagram ({source, error} → {source}; 422 diagram_unfixed)
 POST /api/v1/documents/:id/exports         GET /exports/:id   GET /exports/:id/download
 GET  /api/v1/templates
 ```
 
 Section `PUT` with stale `revision` → `409 revision_conflict` (client shows reload/merge prompt).
+Chat, draft, revise and fix-diagram share a per-user limit of 60 requests per 10 minutes → `429 rate_limited`.
 
 ## 10. Frontend
 

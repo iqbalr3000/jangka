@@ -1,6 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { modKeyLabel } from "@/lib/keyboard";
+import { isPlainKey, modKeyLabel } from "@/lib/keyboard";
 import { CommandPalette } from "./command-palette";
 import { NewDocumentDialog } from "./documents/new-document-dialog";
 import type { ShellUser } from "./shell-types";
@@ -11,13 +11,16 @@ export function TopBar({ user }: { user?: ShellUser }) {
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // ⌘K / Ctrl K opens the command palette anywhere in the app (DESIGN §9).
+  // ⌘K / Ctrl K opens the command palette anywhere in the app; N starts a new document (DESIGN §9).
   useEffect(() => {
     if (!user) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setSearching(true);
+      } else if (isPlainKey(event, "n")) {
+        event.preventDefault();
+        setCreating(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -47,6 +50,7 @@ export function TopBar({ user }: { user?: ShellUser }) {
       <button
         type="button"
         disabled={!user}
+        title="New document (N)"
         onClick={() => setCreating(true)}
         className="h-8 rounded-sm bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
       >

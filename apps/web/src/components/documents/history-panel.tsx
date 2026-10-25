@@ -7,6 +7,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -109,7 +110,11 @@ export function HistoryPanel({
             {current.updatedBy?.name ?? ""} · {timeAgo(current.updatedAt)}
           </span>
         </li>
-        {versions.isPending && <li className="px-4 py-2 text-muted-foreground">Loading…</li>}
+        {versions.isPending && (
+          <li className="px-4 py-2">
+            <LoadingRows />
+          </li>
+        )}
         {versions.data?.items.length === 0 && (
           <li className="px-4 py-2 text-muted-foreground">No earlier versions yet.</li>
         )}

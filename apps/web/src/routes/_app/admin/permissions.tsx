@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { AccessCheckDialog } from "@/components/admin/access-check-dialog";
 import { PermissionMatrix } from "@/components/admin/permission-matrix";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { collectionsKey } from "@/lib/collections";
@@ -76,7 +77,7 @@ function PermissionsPage() {
       {(graph.error ?? save.error) && (
         <ErrorBanner>{errorMessage(graph.error ?? save.error)}</ErrorBanner>
       )}
-      {graph.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {graph.isPending && <LoadingRows />}
       {graph.data && <PermissionMatrix graph={graph.data} staged={staged} onChange={stage} />}
 
       {graph.data && staged.size > 0 && (

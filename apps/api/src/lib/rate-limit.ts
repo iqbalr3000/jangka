@@ -1,6 +1,8 @@
+import { AppError } from "@jangka/shared/errors";
+
 type Window = { count: number; resetAt: number };
 
-/** In-memory fixed-window failure counter. Per process; fine for a single-instance app. */
+/** In-memory fixed-window counter (failed logins, LLM requests). Per process; fine for a single-instance app. */
 export class RateLimiter {
   private readonly hits = new Map<string, Window>();
 
@@ -15,7 +17,7 @@ export class RateLimiter {
     return window !== undefined && window.resetAt > now && window.count >= this.limit;
   }
 
-  recordFailure(key: string, now = Date.now()): void {
+  record(key: string, now = Date.now()): void {
     let window = this.hits.get(key);
     if (!window || window.resetAt <= now) {
       this.hits.delete(key);
@@ -32,4 +34,16 @@ export class RateLimiter {
   reset(key: string): void {
     this.hits.delete(key);
   }
+}
+
+/** Counts one LLM request for the user, or refuses with `429 rate_limited` once over the cap. */
+export function requireLlmQuota(limiter: RateLimiter, userId: string): void {
+  if (limiter.isLimited(userId)) {
+    throw new AppError(
+      "rate_limited",
+      429,
+      "You've reached the assistant limit for now. Try again in a few minutes.",
+    );
+  }
+  limiter.record(userId);
 }

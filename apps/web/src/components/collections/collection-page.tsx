@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ErrorBanner } from "@/components/error-banner";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { ApiError } from "@/lib/api";
 import type { collectionItemsQuery } from "@/lib/collections";
 import { errorMessage } from "@/lib/form-errors";
@@ -16,7 +17,7 @@ export function CollectionPage({ query, userId }: CollectionPageProps) {
   const detail = useQuery(query);
 
   if (detail.isPending) {
-    return <p className="px-10 pt-7 text-sm text-muted-foreground">Loading…</p>;
+    return <PageSkeleton />;
   }
   if (detail.error) {
     if (detail.error instanceof ApiError && detail.error.status === 404) {

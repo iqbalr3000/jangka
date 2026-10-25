@@ -12,6 +12,7 @@ import { z } from "zod";
 import { InviteDialog } from "@/components/admin/invite-dialog";
 import { ResetLinkDialog } from "@/components/admin/reset-link-dialog";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -97,7 +98,7 @@ function UsersPage() {
           <span>LAST SIGN-IN</span>
           <span className="sr-only">Actions</span>
         </div>
-        {users.isPending && <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>}
+        {users.isPending && <LoadingRows className="px-4 py-3" />}
         {users.error && (
           <div className="p-4">
             <ErrorBanner>{errorMessage(users.error)}</ErrorBanner>

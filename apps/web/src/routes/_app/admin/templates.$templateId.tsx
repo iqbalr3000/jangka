@@ -8,6 +8,7 @@ import { TemplateSectionCard } from "@/components/admin/template-section-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
@@ -41,7 +42,7 @@ function sectionErrors(error: unknown): Record<number, Record<string, string>> {
 function TemplateEditorRoute() {
   const { templateId } = Route.useParams();
   const detail = useQuery(templateDetailQuery(templateId));
-  if (detail.isPending) return <p className="px-10 pt-7 text-sm text-muted-foreground">Loading…</p>;
+  if (detail.isPending) return <PageSkeleton />;
   if (detail.error) {
     return (
       <div className="p-10">

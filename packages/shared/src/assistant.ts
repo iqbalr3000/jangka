@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { section } from "./document";
+import { MAX_MERMAID_CHARS, section } from "./document";
 
 export const coverageLevel = z.enum(["missing", "partial", "covered"]);
 export type CoverageLevel = z.infer<typeof coverageLevel>;
@@ -52,6 +52,12 @@ export const draftRequest = z.object({
   fromSource: z.boolean().optional(),
 });
 export const reviseRequest = z.object({ instruction: z.string().trim().min(1).max(2000) });
+/** A diagram the editor couldn't render, with the renderer's error. */
+export const fixDiagramRequest = z.object({
+  source: z.string().trim().min(1).max(MAX_MERMAID_CHARS),
+  error: z.string().trim().min(1).max(2000),
+});
+export const fixDiagramResponse = z.object({ source: z.string() });
 
 /** Server-sent events of every assistant stream; mirrors `StreamEvent` from packages/llm. */
 export const assistantEvent = z.discriminatedUnion("type", [

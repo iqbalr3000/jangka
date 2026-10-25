@@ -14,6 +14,7 @@ import {
   type ChatReference,
   chatRequest,
   draftRequest,
+  fixDiagramRequest,
   reviseRequest,
 } from "@jangka/shared/assistant";
 import type { DocNode } from "@jangka/shared/document";
@@ -24,6 +25,7 @@ import { type SSEStreamingApi, streamSSE } from "hono/streaming";
 import { uuidv7 } from "uuidv7";
 import { z } from "zod";
 import { audit } from "../lib/audit";
+import { requireLlmQuota } from "../lib/rate-limit";
 import { requireAuth } from "../lib/session";
 import { zValidate } from "../lib/validate";
 import type { Logger } from "../logger";
@@ -40,7 +42,7 @@ import {
   threadMessages,
   transcriptOf,
 } from "../services/assistant";
-import { ensureDiagrams } from "../services/diagrams";
+import { ensureDiagrams, MAX_DIAGRAM_FIXES } from "../services/diagrams";
 import {
   type DocumentRow,
   requireDocEdit,
@@ -50,6 +52,7 @@ import {
   sectionsOf,
   viewableDocument,
 } from "../services/documents";
+import { callProvider } from "../services/llm-providers";
 import { retrieveSections } from "../services/retrieval";
 import type { AppEnv, RouteDeps } from "../types";
 
@@ -77,7 +80,7 @@ async function relay(
   return { text, usage: { inputTokens: 0, outputTokens: 0 }, error: null };
 }
 
-export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps) {
+export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter }: RouteDeps) {
   const locks = new GenerationLocks();
 
   /** LLM-written diagrams are rendered and, when rejected, fixed before anyone sees them. */
@@ -112,6 +115,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
     const doc = await viewableDocument(db, data, documentId);
     requireDocEdit(data, doc);
     const resolved = await resolveLlm(db, config, llm);
+    requireLlmQuota(llmLimiter, auth.user.id);
     return { auth, doc, resolved, data };
   }
 
@@ -462,6 +466,47 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
           }
           await send({ type: "done", usage: result.usage });
         });
+      },
+    )
+    .post(
+      "/:id/sections/:key/fix-diagram",
+      zValidate("param", sectionParam),
+      zValidate("json", fixDiagramRequest),
+      async (c) => {
+        const { id, key } = c.req.valid("param");
+        const { doc, resolved, data } = await prepare(c, id);
+        requireNotApproved(doc);
+        const { template } = await documentContext(db, doc, data);
+        const section = template.sections.find((s) => s.key === key);
+        if (!section) throw new AppError("not_found", 404, "Section not found");
+        await audit(c, {
+          action: "assistant.fix_diagram",
+          targetType: "document",
+          targetId: doc.id,
+          metadata: { section: key },
+        });
+
+        // The editor saves the returned source like any edit, so nothing is written here.
+        const signal = c.req.raw.signal;
+        let { source, error } = c.req.valid("json");
+        for (let attempt = 0; attempt < MAX_DIAGRAM_FIXES; attempt++) {
+          source = await callProvider(logger, resolved.kind, () =>
+            fixDiagram(
+              { provider: resolved.provider, model: resolved.model },
+              { source, error, expectsDiagram: section.expectsDiagram },
+              signal,
+            ),
+          );
+          const check = await diagrams.check(source, signal);
+          // No verdict (worker down): the editor renders it and shows any error itself.
+          if (check === null || "ok" in check) return c.json({ source });
+          error = check.error;
+        }
+        throw new AppError(
+          "diagram_unfixed",
+          422,
+          "The assistant couldn't fix this diagram. Edit the source by hand.",
+        );
       },
     );
 }

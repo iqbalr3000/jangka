@@ -18,10 +18,12 @@ import {
   SquareCode,
   Table2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
+import { useConnection } from "@/lib/connection";
+import { DiagramFixContext, type FixDiagram, fixDiagram } from "@/lib/diagram-fix";
 import { NEW_DIAGRAM, sectionExtensions } from "@/lib/editor-extensions";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
@@ -192,7 +194,11 @@ export function SectionEditor({
         }
         report("conflict");
       } else {
-        setError(errorMessage(err));
+        setError(
+          err instanceof ApiError
+            ? errorMessage(err)
+            : "Not saved yet: this section saves when the connection is back.",
+        );
         report("error");
       }
     } finally {
@@ -253,6 +259,12 @@ export function SectionEditor({
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }, []);
 
+  // Edits that failed while offline are retried once the server answers again.
+  const connection = useConnection();
+  useEffect(() => {
+    if (connection === "online" && pending.current && !conflictRef.current) void flush();
+  }, [connection, flush]);
+
   // Don't lose the last keystrokes when leaving the page.
   useEffect(() => () => void flush(), [flush]);
   useEffect(() => {
@@ -262,6 +274,11 @@ export function SectionEditor({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
+
+  const fix = useMemo<FixDiagram | null>(
+    () => (editable ? (source, err) => fixDiagram(documentId, key, source, err) : null),
+    [editable, documentId, key],
+  );
 
   function viewTheirs() {
     if (!conflict || !editor) return;
@@ -308,7 +325,9 @@ export function SectionEditor({
         </div>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <EditorContent editor={editor} />
+      <DiagramFixContext value={fix}>
+        <EditorContent editor={editor} />
+      </DiagramFixContext>
     </div>
   );
 }

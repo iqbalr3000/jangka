@@ -2,6 +2,7 @@ import { type DocumentSummary, documentSummary } from "@jangka/shared/document";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -74,7 +75,7 @@ export function MoveDocumentDialog({ document, userId, onClose }: MoveDocumentDi
           aria-label="Destination"
           className="max-h-72 overflow-auto rounded-sm border border-border bg-card py-1 text-sm"
         >
-          {tree.isPending && <p className="px-3 py-2 text-muted-foreground">Loading…</p>}
+          {tree.isPending && <LoadingRows className="px-3 py-2" />}
           {options.map((option) => {
             const current = option.id === document?.collectionId;
             return (

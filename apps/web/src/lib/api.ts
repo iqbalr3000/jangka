@@ -1,5 +1,6 @@
 import { errorResponseSchema } from "@jangka/shared/errors";
 import type { z } from "zod";
+import { reportRequest } from "./connection";
 
 export class ApiError extends Error {
   readonly code: string;
@@ -26,17 +27,28 @@ export async function apiFetch<Schema extends z.ZodType>(
   path: string,
   { schema, body, headers, ...init }: ApiFetchInit<Schema>,
 ): Promise<z.output<Schema>> {
-  const res = await fetch(`/api/v1${path}`, {
-    ...init,
-    credentials: "include",
-    headers: body === undefined ? headers : { "content-type": "application/json", ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, {
+      ...init,
+      credentials: "include",
+      headers: body === undefined ? headers : { "content-type": "application/json", ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    if (!init.signal?.aborted) reportRequest(false);
+    throw error;
+  }
 
   const payload: unknown = res.status === 204 ? undefined : await res.json().catch(() => undefined);
+  const parsed = res.ok ? null : errorResponseSchema.safeParse(payload);
+  // The API always answers in its error shape, so a 5xx without it came from a proxy: the app is down.
+  const serverDown =
+    parsed !== null &&
+    (parsed.success ? parsed.data.error.code === "db_unavailable" : res.status >= 500);
+  reportRequest(!serverDown);
 
-  if (!res.ok) {
-    const parsed = errorResponseSchema.safeParse(payload);
+  if (parsed) {
     if (parsed.success) {
       const { code, message, details } = parsed.data.error;
       throw new ApiError(code, res.status, message, details);

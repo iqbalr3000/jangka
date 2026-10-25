@@ -169,7 +169,7 @@ export function DocumentHeader({
         Export
       </Button>
       <span
-        className="w-36 text-right text-xs text-muted-foreground"
+        className="shrink-0 text-right text-xs text-muted-foreground lg:w-36"
         role="status"
         aria-live="polite"
       >

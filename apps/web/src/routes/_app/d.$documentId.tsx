@@ -9,9 +9,10 @@ import type { ExportJob } from "@jangka/shared/export";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AssistantPanel, panelTabs } from "@/components/assistant/assistant-panel";
+import { AssistantPanel, type PanelTab, panelTabs } from "@/components/assistant/assistant-panel";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
+import { DocumentSkeleton } from "@/components/documents/document-skeleton";
 import { ExportDialog } from "@/components/documents/export-dialog";
 import { ExportToast } from "@/components/documents/export-toast";
 import { SectionBlock } from "@/components/documents/section-block";
@@ -33,11 +34,13 @@ import { documentQuery, sectionAnchor } from "@/lib/documents";
 import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
 import { versionsKey } from "@/lib/history";
+import { isPlainKey } from "@/lib/keyboard";
 import { llmStatusQuery, timeAgo } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
 import { commentsQuery } from "@/lib/review";
 import { traceKey, traceQuery } from "@/lib/trace";
 import { useAssistant } from "@/lib/use-assistant";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/d/$documentId")({
   component: DocumentRoute,
@@ -49,7 +52,7 @@ function DocumentRoute() {
   const detail = useQuery(documentQuery(documentId));
 
   if (detail.isPending) {
-    return <p className="px-10 pt-7 text-sm text-muted-foreground">Loading…</p>;
+    return <DocumentSkeleton />;
   }
   if (detail.error) {
     if (detail.error instanceof ApiError && detail.error.status === 404) {
@@ -75,6 +78,10 @@ function DocumentRoute() {
   return <DocumentWorkspace key={documentId} detail={detail.data} userId={me.user.id} />;
 }
 
+/** Below 1024 px one pane shows at a time (DESIGN §10). */
+const panes = ["document", "assistant", "outline"] as const;
+type Pane = (typeof panes)[number];
+
 type DraftConfirm = { targets: string[]; sections?: string[]; message: string };
 
 function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId: string }) {
@@ -98,6 +105,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
   const [panelTab, setPanelTab] = usePersistentState("jangka.panel-tab", panelTabs, "chat");
+  const [outline, setOutline] = usePersistentState("jangka.outline", ["open", "closed"], "open");
+  const [pane, setPane] = useState<Pane>("document");
+  const mainRef = useRef<HTMLElement>(null);
   const [historyKey, setHistoryKey] = useState(detail.sections[0]?.key ?? "");
   const [commentsSection, setCommentsSection] = useState("");
   const openComments = useQuery(commentsQuery(doc.id, "open")).data?.openCountBySection ?? {};
@@ -163,13 +173,49 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     [...pendingDraft].map((key) => [key, key === assistant.draft?.current ? "Drafting" : "Queued"]),
   );
 
-  // Esc stops, ⌘. toggles the assistant panel, ⌘⇧E exports.
+  const showSection = useCallback((key: string) => {
+    setPane("document");
+    requestAnimationFrame(() =>
+      document
+        .getElementById(sectionAnchor(key))
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }, []);
+
+  /** `[` / `]`: the section above / below the one at the top of the view. */
+  const stepSection = useCallback(
+    (step: 1 | -1) => {
+      const top = mainRef.current?.getBoundingClientRect().top ?? 0;
+      const offsets = detail.sections.map(
+        (s) =>
+          (document.getElementById(sectionAnchor(s.key))?.getBoundingClientRect().top ?? 0) - top,
+      );
+      // A few px of slack: a section scrolled to the top sits at about 0.
+      const current = offsets.findLastIndex((offset) => offset <= 8);
+      // Back from the middle of a section goes to its start first.
+      const midway = current >= 0 && (offsets[current] ?? 0) < -8;
+      const target = step === -1 && midway ? current : current + step;
+      const section = detail.sections[Math.min(Math.max(target, 0), detail.sections.length - 1)];
+      if (section) showSection(section.key);
+    },
+    [detail.sections, showSection],
+  );
+
+  // Esc stops, ⌘. / ⌘\ toggle the assistant panel / outline, ⌘⇧E exports, [ ] move between sections.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && running) assistant.stop();
       if (event.key === "." && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setPanel(panel === "open" ? "closed" : "open");
+      }
+      if (event.key === "\\" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOutline(outline === "open" ? "closed" : "open");
+      }
+      if (isPlainKey(event, "[") || isPlainKey(event, "]")) {
+        event.preventDefault();
+        stepSection(event.key === "]" ? 1 : -1);
       }
       if (event.key.toLowerCase() === "e" && event.shiftKey && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
@@ -178,7 +224,13 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [running, assistant.stop, panel, setPanel]);
+  }, [running, assistant.stop, panel, setPanel, outline, setOutline, stepSection]);
+
+  function showPanel(tab?: PanelTab) {
+    if (tab) setPanelTab(tab);
+    setPanel("open");
+    setPane("assistant");
+  }
 
   function coverageOf(key: string) {
     return chat.data?.state?.sections.find((s) => s.key === key)?.coverage ?? "missing";
@@ -257,13 +309,11 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   function revise(key: string, instruction: string) {
     setAccepted(({ [key]: _replaced, ...rest }) => rest);
     assistant.revise(key, instruction);
-    document
-      .getElementById(sectionAnchor(key))
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    showSection(key);
   }
 
   function askAbout(section: Section) {
-    setPanel("open");
+    showPanel("chat");
     setComposer(`About ${section.title}: `);
     requestAnimationFrame(() => {
       const input = document.querySelector<HTMLTextAreaElement>(
@@ -351,8 +401,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         onExport={() => setExporting(true)}
         onShowComments={(key) => {
           setCommentsSection(key);
-          setPanelTab("comments");
-          setPanel("open");
+          showPanel("comments");
         }}
       />
       {approved ? (
@@ -369,9 +418,39 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           </div>
         )
       )}
+      <div role="tablist" className="flex gap-4 border-b border-border px-4 text-[13px] lg:hidden">
+        {panes.map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={pane === name}
+            onClick={() => setPane(name)}
+            className={cn(
+              "-mb-px border-b-2 py-2 font-medium capitalize",
+              pane === name
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
       <div className="flex min-h-0 flex-1">
-        <SectionOutline sections={detail.sections} labels={outlineLabels} />
-        <main className="min-w-0 flex-1 overflow-auto">
+        <SectionOutline
+          sections={detail.sections}
+          labels={outlineLabels}
+          onSelect={showSection}
+          className={cn(
+            pane === "outline" ? "flex w-full" : "hidden",
+            outline === "open" ? "lg:flex" : "lg:hidden",
+          )}
+        />
+        <main
+          ref={mainRef}
+          className={cn("min-w-0 flex-1 overflow-auto", pane !== "document" && "hidden lg:block")}
+        >
           <article className="mx-auto flex max-w-[72ch] flex-col gap-10 px-6 py-10">
             <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
               {doc.title}
@@ -404,40 +483,40 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
                   openComments={openComments[section.key] ?? 0}
                   onComments={() => {
                     setCommentsSection(section.key);
-                    setPanelTab("comments");
-                    setPanel("open");
+                    showPanel("comments");
                   }}
                   onHistory={() => {
                     setHistoryKey(section.key);
-                    setPanelTab("history");
-                    setPanel("open");
+                    showPanel("history");
                   }}
                 />
               );
             })}
           </article>
         </main>
-        {panel === "open" && (
-          <AssistantPanel
-            documentId={doc.id}
-            documentTitle={doc.title}
-            tab={panelTab}
-            onTabChange={setPanelTab}
-            historyKey={historyKey}
-            onHistoryKeyChange={setHistoryKey}
-            onRestored={replaceSection}
-            commentsKey={commentsSection}
-            onCommentsKeyChange={setCommentsSection}
-            sections={detail.sections}
-            assistant={assistant}
-            editable={editable}
-            llmConfigured={llmConfigured}
-            isAdmin={me.user.isAdmin}
-            composer={composer}
-            onComposerChange={setComposer}
-            onRevise={revise}
-          />
-        )}
+        <AssistantPanel
+          documentId={doc.id}
+          documentTitle={doc.title}
+          tab={panelTab}
+          onTabChange={setPanelTab}
+          historyKey={historyKey}
+          onHistoryKeyChange={setHistoryKey}
+          onRestored={replaceSection}
+          commentsKey={commentsSection}
+          onCommentsKeyChange={setCommentsSection}
+          sections={detail.sections}
+          assistant={assistant}
+          editable={editable}
+          llmConfigured={llmConfigured}
+          isAdmin={me.user.isAdmin}
+          composer={composer}
+          onComposerChange={setComposer}
+          onRevise={revise}
+          className={cn(
+            pane === "assistant" ? "flex w-full" : "hidden",
+            panel === "open" ? "lg:flex" : "lg:hidden",
+          )}
+        />
       </div>
 
       <ExportDialog

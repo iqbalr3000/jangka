@@ -1,6 +1,9 @@
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { AlertTriangle } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { AlertTriangle, Sparkles } from "lucide-react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { DiagramFixContext } from "@/lib/diagram-fix";
+import { errorMessage } from "@/lib/form-errors";
 import { cn } from "@/lib/utils";
 
 type Mode = "preview" | "source";
@@ -69,6 +72,23 @@ export function MermaidBlockView({ node, updateAttributes, editor, selected }: R
   }, [render]);
 
   const error = render && "error" in render ? render.error : null;
+  const fix = useContext(DiagramFixContext);
+  const [fixing, setFixing] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
+
+  async function fixWithAssistant() {
+    if (!fix || !error) return;
+    setFixing(true);
+    setFixError(null);
+    try {
+      updateAttributes({ source: await fix(source, error) });
+      setMode("preview");
+    } catch (err) {
+      setFixError(errorMessage(err));
+    } finally {
+      setFixing(false);
+    }
+  }
 
   return (
     <NodeViewWrapper
@@ -86,12 +106,21 @@ export function MermaidBlockView({ node, updateAttributes, editor, selected }: R
           MERMAID
         </span>
         {error && (
-          <span className="flex items-center gap-1 text-xs text-destructive" title={error}>
+          <span
+            className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-destructive"
+            title={error}
+          >
             <AlertTriangle className="size-3" aria-hidden />
             Render error
           </span>
         )}
         <span className="flex-1" />
+        {error && fix && editable && (
+          <Button size="xs" variant="outline" disabled={fixing} onClick={fixWithAssistant}>
+            <Sparkles aria-hidden />
+            {fixing ? "Fixing…" : "Fix with assistant"}
+          </Button>
+        )}
         <fieldset className="flex rounded-sm border border-border text-xs">
           <legend className="sr-only">View</legend>
           {(["source", "preview"] as const).map((option) => (
@@ -110,6 +139,15 @@ export function MermaidBlockView({ node, updateAttributes, editor, selected }: R
           ))}
         </fieldset>
       </div>
+      {fixError && (
+        <p
+          role="alert"
+          className="border-b border-border px-3 py-1.5 text-xs text-destructive"
+          contentEditable={false}
+        >
+          {fixError}
+        </p>
+      )}
       {mode === "source" ? (
         <textarea
           aria-label="Mermaid source"

@@ -1,6 +1,10 @@
 import type { Section } from "@jangka/shared/document";
 import { completenessSummary, sectionAnchor } from "@/lib/documents";
+import { cn } from "@/lib/utils";
 import { SectionStatusIcon } from "./section-status-icon";
+
+// 1024–1279 px: status icons only, titles as tooltips (DESIGN §10).
+const wide = "lg:hidden xl:inline";
 
 /**
  * Left rail: status + title per section; ◇ marks sections that expect a diagram.
@@ -9,16 +13,29 @@ import { SectionStatusIcon } from "./section-status-icon";
 export function SectionOutline({
   sections,
   labels = {},
+  className,
+  onSelect,
 }: {
   sections: Section[];
   labels?: Record<string, string>;
+  className?: string;
+  /** Shows and scrolls to the section (on small screens the document pane may be hidden). */
+  onSelect: (key: string) => void;
 }) {
   return (
     <nav
       aria-label="Outline"
-      className="hidden w-[220px] shrink-0 flex-col gap-3 overflow-auto border-r border-border px-3 py-5 lg:flex"
+      className={cn(
+        "shrink-0 flex-col gap-3 overflow-auto border-border px-3 py-5 lg:w-14 lg:border-r lg:px-2 xl:w-[220px] xl:px-3",
+        className,
+      )}
     >
-      <span className="px-2 font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground">
+      <span
+        className={cn(
+          wide,
+          "px-2 font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground",
+        )}
+      >
         OUTLINE
       </span>
       <ol className="flex flex-col gap-px text-[13px]">
@@ -26,21 +43,24 @@ export function SectionOutline({
           <li key={section.key}>
             <a
               href={`#${sectionAnchor(section.key)}`}
+              title={section.title}
               onClick={(event) => {
                 event.preventDefault();
-                document
-                  .getElementById(sectionAnchor(section.key))
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                onSelect(section.key);
               }}
-              className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-secondary"
+              className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-secondary lg:justify-center xl:justify-start"
             >
               <SectionStatusIcon completeness={section.completeness} />
-              <span className="min-w-0 flex-1 truncate">{section.title}</span>
+              <span className={cn(wide, "min-w-0 flex-1 truncate")}>{section.title}</span>
               {labels[section.key] && (
-                <span className="text-[11px] text-primary">{labels[section.key]}</span>
+                <span className={cn(wide, "text-[11px] text-primary")}>{labels[section.key]}</span>
               )}
               {section.expectsDiagram && (
-                <span className="text-muted-foreground" title="Expects a diagram" aria-hidden>
+                <span
+                  className={cn(wide, "text-muted-foreground")}
+                  title="Expects a diagram"
+                  aria-hidden
+                >
                   ◇
                 </span>
               )}
@@ -48,7 +68,9 @@ export function SectionOutline({
           </li>
         ))}
       </ol>
-      <span className="px-2 text-xs text-muted-foreground">{completenessSummary(sections)}</span>
+      <span className={cn(wide, "px-2 text-xs text-muted-foreground")}>
+        {completenessSummary(sections)}
+      </span>
     </nav>
   );
 }

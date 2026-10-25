@@ -6,6 +6,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { GroupNameDialog, type GroupNameTarget } from "@/components/admin/group-name-dialog";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,7 +78,7 @@ function GroupsPage() {
           <span>TYPE</span>
           <span className="sr-only">Actions</span>
         </div>
-        {groups.isPending && <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>}
+        {groups.isPending && <LoadingRows className="px-4 py-3" />}
         {groups.data?.items.map((group) => (
           <div
             key={group.id}

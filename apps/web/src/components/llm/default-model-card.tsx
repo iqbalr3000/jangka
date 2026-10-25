@@ -2,6 +2,7 @@ import { type LLMProviderView, llmSettings, modelList } from "@jangka/shared/llm
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api";
@@ -81,7 +82,7 @@ export function DefaultModelCard({ providers }: DefaultModelCardProps) {
               <Label htmlFor="default-model" className="text-[13px] font-medium">
                 Model
               </Label>
-              {models.isPending && <p className="text-[13px] text-muted-foreground">Loading…</p>}
+              {models.isPending && <LoadingRows rows={2} />}
               {models.error && <ErrorBanner>{errorMessage(models.error)}</ErrorBanner>}
               {models.data && (
                 <ModelPicker

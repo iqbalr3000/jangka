@@ -243,4 +243,32 @@ describe("assistant writes rendered diagrams", () => {
     });
     expect(events.at(-1)?.type).toBe("done");
   });
+
+  describe("fix-diagram", () => {
+    const path = () => `/documents/${docId}/sections/user_flow/fix-diagram`;
+
+    it("returns a fix the renderer accepts", async () => {
+      fakeResponses({ source: FIXED });
+      const res = await call(app, "POST", path(), {
+        cookie,
+        body: { source: BROKEN, error: "Parse error on line 2" },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ source: FIXED });
+    });
+
+    it("gives up after the fix attempts still don't render", async () => {
+      app = buildApp(db, pool, {
+        llm,
+        diagrams: checker({ [STILL_BROKEN]: { error: "Parse error" } }),
+      }).app;
+      fakeResponses({ source: STILL_BROKEN }, { source: STILL_BROKEN });
+      const res = await call(app, "POST", path(), {
+        cookie,
+        body: { source: BROKEN, error: "Parse error on line 2" },
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({ error: { code: "diagram_unfixed" } });
+    });
+  });
 });

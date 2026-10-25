@@ -55,6 +55,7 @@ export function buildApp(
     forcePasswordLogin?: boolean;
     queue?: JobQueue;
     diagrams?: DiagramChecker;
+    llmLimiter?: RateLimiter;
   } = {},
 ) {
   const setupState = new SetupState(db);
@@ -66,6 +67,7 @@ export function buildApp(
     llm: options.llm,
     queue,
     diagrams: options.diagrams ?? noDiagramVerdict,
+    llmLimiter: options.llmLimiter,
     config: {
       publicUrl: PUBLIC_URL,
       sessionTtlDays: 30,

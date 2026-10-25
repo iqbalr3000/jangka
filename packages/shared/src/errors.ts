@@ -19,6 +19,7 @@ export const errorCodes = [
   "llm_not_configured",
   "generation_in_progress",
   "coverage_incomplete",
+  "diagram_unfixed",
   "export_not_ready",
   "export_expired",
   "invalid_source",

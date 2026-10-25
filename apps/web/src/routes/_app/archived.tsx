@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { DocTypeBadge } from "@/components/documents/doc-type-badge";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { archivedCollectionsQuery, collectionLabel, collectionsKey } from "@/lib/collections";
@@ -43,7 +44,7 @@ function Archived() {
       </header>
 
       {error && <ErrorBanner>{errorMessage(error)}</ErrorBanner>}
-      {archived.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {archived.isPending && <LoadingRows />}
       {nothing && <p className="text-sm text-muted-foreground">Nothing is archived.</p>}
       {archived.data && archived.data.items.length > 0 && (
         <section

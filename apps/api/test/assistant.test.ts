@@ -8,6 +8,7 @@ import { type DocNode, documentDetail, documentSummary, section } from "@jangka/
 import { builtinTemplates } from "@jangka/templates";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { RateLimiter } from "../src/lib/rate-limit";
 import {
   buildApp,
   call,
@@ -393,5 +394,32 @@ describe("revise", () => {
     expect(section.parse(await res.json()).revision).toBe(1);
     const [version] = await db.select().from(sectionVersions);
     expect(version?.source).toBe("llm");
+  });
+});
+
+describe("request limit", () => {
+  it("caps LLM requests per user", async () => {
+    app = buildApp(db, pool, { llmLimiter: new RateLimiter(2, 60_000) }).app;
+    await useFake();
+    for (let i = 0; i < 2; i++) {
+      const ok = await post(`/documents/${docId}/chat`, { message: `Hi ${i}` });
+      expect(ok.status).toBe(200);
+      await ok.text();
+    }
+    const limited = await post(`/documents/${docId}/chat`, { message: "Again" });
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toMatchObject({ error: { code: "rate_limited" } });
+
+    // Another user has their own allowance.
+    await createUser(db, {
+      name: "Rina",
+      email: "rina@acme.co",
+      password: "rina-password-123",
+      admin: true,
+    });
+    const rina = await login(app, "rina@acme.co", "rina-password-123");
+    const theirs = await post(`/documents/${docId}/chat`, { message: "Hello" }, undefined, rina);
+    expect(theirs.status).toBe(200);
+    await theirs.text();
   });
 });

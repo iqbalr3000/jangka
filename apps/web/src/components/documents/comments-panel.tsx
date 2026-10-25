@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
@@ -248,7 +249,11 @@ export function CommentsPanel({
         aria-label="Comment threads"
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3"
       >
-        {list.isPending && <li className="text-muted-foreground">Loading…</li>}
+        {list.isPending && (
+          <li>
+            <LoadingRows />
+          </li>
+        )}
         {list.data && threads.length === 0 && (
           <li className="text-muted-foreground">
             {showResolved ? "No comments yet." : "No open comments."}

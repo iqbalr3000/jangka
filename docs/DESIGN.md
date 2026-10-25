@@ -329,14 +329,14 @@ Custom components (in `apps/web/src/components/`):
 | Revision conflict       | Banner on section: "Updated by Rina 1m ago. [View their version] [Overwrite] [Merge manually]" |
 | Restricted              | Lock icon + "Restricted document"; never show titles or counts of restricted items             |
 | Read-only (View access) | Editor read-only, chat and Draft hidden, banner "You have view access"                         |
-| Offline / server down   | Top bar banner; edits buffered locally per section until reconnect                             |
+| Offline / server down   | Banner under the top bar; unsaved section edits kept in the tab and saved on reconnect         |
 
 ## 9. Keyboard
 
 | Shortcut    | Action                          |
 | ----------- | ------------------------------- |
 | `⌘K`        | Command palette                 |
-| `⌘N`        | New document                    |
+| `N`         | New document (browsers reserve `⌘N`) |
 | `⌘\` / `⌘.` | Toggle outline / right panel    |
 | `⌘Enter`    | Send chat message / accept diff |
 | `Esc`       | Stop generation / discard diff  |
@@ -348,7 +348,7 @@ Custom components (in `apps/web/src/components/`):
 - WCAG 2.1 AA contrast for all text tokens in both themes; visible 2 px `--primary` focus ring.
 - Streaming text uses `aria-live="polite"` per section, throttled to avoid screen-reader spam.
 - All icons with meaning have text labels or `aria-label`.
-- ≥ 1280 px: three panes. 1024–1279 px: outline collapses to icons. < 1024 px: single pane with tabs (Document / Chat / Outline).
+- ≥ 1280 px: three panes. 1024–1279 px: outline collapses to icons. < 1024 px: single pane with tabs (Document / Assistant / Outline).
 - < 768 px: read, comment, and export only; editing and admin show "Best on a larger screen".
 
 ## 11. Export styling (PDF / DOCX)

@@ -6,6 +6,7 @@ import { type FormEvent, useState } from "react";
 import { z } from "zod";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -114,7 +115,7 @@ function TemplatesPage() {
       </header>
 
       {error && <ErrorBanner>{errorMessage(error)}</ErrorBanner>}
-      {families.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {families.isPending && <LoadingRows />}
 
       {TYPES.map((type) => {
         const ofType = items.filter((f) => f.docType === type);

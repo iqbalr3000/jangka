@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { CommentsPanel } from "@/components/documents/comments-panel";
 import { HistoryPanel } from "@/components/documents/history-panel";
 import { TracePanel } from "@/components/documents/trace-panel";
+import { LoadingRows } from "@/components/loading-rows";
 import { Button } from "@/components/ui/button";
 import { chatQuery } from "@/lib/assistant";
 import { docTypeLabels } from "@/lib/trace";
@@ -36,6 +37,8 @@ type AssistantPanelProps = {
   onComposerChange: (value: string) => void;
   /** `@Section instruction` messages revise that section instead of chatting. */
   onRevise: (key: string, instruction: string) => void;
+  /** Visibility per breakpoint, set by the document layout. */
+  className?: string;
 };
 
 /** "@Non-Functional Requirements make it measurable" → section + instruction. */
@@ -109,6 +112,7 @@ export function AssistantPanel({
   composer,
   onComposerChange,
   onRevise,
+  className,
 }: AssistantPanelProps) {
   const chat = useQuery(chatQuery(documentId));
   const end = useRef<HTMLLIElement>(null);
@@ -129,7 +133,10 @@ export function AssistantPanel({
   return (
     <aside
       aria-label="Assistant"
-      className="hidden w-[360px] shrink-0 flex-col border-l border-border bg-card xl:flex"
+      className={cn(
+        "shrink-0 flex-col border-border bg-card lg:w-[320px] lg:border-l xl:w-[360px]",
+        className,
+      )}
     >
       <div role="tablist" className="flex gap-4 border-b border-border px-4 text-[13px]">
         {panelTabs.map((name) => (
@@ -179,7 +186,11 @@ export function AssistantPanel({
             />
           )}
           <ol className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3">
-            {chat.isPending && <li className="text-[13px] text-muted-foreground">Loading…</li>}
+            {chat.isPending && (
+              <li>
+                <LoadingRows />
+              </li>
+            )}
             {chat.data && messages.length === 0 && !assistant.pendingUser && (
               <li className="text-[13px] text-muted-foreground">
                 Start by describing the problem this document should solve. The assistant asks
