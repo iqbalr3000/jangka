@@ -167,6 +167,11 @@ export function adminAuthRoutes({ db, config }: RouteDeps) {
         clientId: row.clientId,
         clientSecret: decryptSecret(row.clientSecretEnc, config.masterKey),
       });
+      await audit(c, {
+        action: "auth_provider.test",
+        targetType: "auth_provider",
+        targetId: row.id,
+      });
       return c.json({ ok: true });
     })
     .get("/settings", async (c) => c.json(await settingsView(db, config)))

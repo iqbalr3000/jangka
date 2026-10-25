@@ -41,6 +41,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // Uses the fake provider (llm) for an accepted AI revision.
+      name: "history",
+      testMatch: "history.spec.ts",
+      dependencies: ["llm"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "sso",
       testMatch: "sso.spec.ts",
       dependencies: ["onboarding"],

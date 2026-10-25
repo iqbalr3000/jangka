@@ -31,6 +31,7 @@ import { chatQuery } from "@/lib/assistant";
 import { documentQuery, sectionAnchor } from "@/lib/documents";
 import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
+import { versionsKey } from "@/lib/history";
 import { llmStatusQuery } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
 import { traceKey, traceQuery } from "@/lib/trace";
@@ -92,6 +93,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [panel, setPanel] = usePersistentState("jangka.assistant", ["open", "closed"], "open");
   const [panelTab, setPanelTab] = usePersistentState("jangka.panel-tab", panelTabs, "chat");
+  const [historyKey, setHistoryKey] = useState(detail.sections[0]?.key ?? "");
   const trace = useQuery(traceQuery(doc.id));
   const hasRequirements = (trace.data?.requirements.length ?? 0) > 0;
   const canDraftFromSource = detail.source !== null && !("restricted" in detail.source);
@@ -118,8 +120,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   // Keep outline/completeness live without re-seeding the editors (they own their content).
   const onSaved = useCallback(
     (saved: Section) => {
-      // Requirement tables are indexed on save.
+      // Requirement tables are indexed on save, and a save may add a version.
       void queryClient.invalidateQueries({ queryKey: traceKey(doc.id) });
+      void queryClient.invalidateQueries({ queryKey: versionsKey(doc.id, saved.key) });
       queryClient.setQueryData(documentQuery(doc.id).queryKey, (current) =>
         current
           ? {
@@ -377,6 +380,11 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
                   onEdit={() => editBeforeAccepting(section)}
                   onUndo={() => void undo(section)}
                   onAsk={() => askAbout(section)}
+                  onHistory={() => {
+                    setHistoryKey(section.key);
+                    setPanelTab("history");
+                    setPanel("open");
+                  }}
                 />
               );
             })}
@@ -388,6 +396,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
             documentTitle={doc.title}
             tab={panelTab}
             onTabChange={setPanelTab}
+            historyKey={historyKey}
+            onHistoryKeyChange={setHistoryKey}
+            onRestored={replaceSection}
             sections={detail.sections}
             assistant={assistant}
             editable={editable}

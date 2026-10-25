@@ -1,6 +1,7 @@
 import { AppError, errorResponseSchema } from "@jangka/shared/errors";
 import { afterAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { auditExempt } from "../src/lib/audit";
 import { zValidate } from "../src/lib/validate";
 import { buildApp, testDatabase, unreachablePool } from "./helpers";
 
@@ -22,7 +23,10 @@ app.get("/api/v1/health/__test/crash", () => {
 app.post(
   "/api/v1/health/__test/validate",
   zValidate("json", z.object({ name: z.string().min(1) })),
-  (c) => c.json({ name: c.req.valid("json").name }),
+  (c) => {
+    auditExempt(c, "test fixture");
+    return c.json({ name: c.req.valid("json").name });
+  },
 );
 
 const origin = { origin: "http://jangka.test" };

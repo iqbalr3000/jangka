@@ -35,7 +35,12 @@ export function inviteRoutes({ db, config }: RouteDeps) {
         if (!user) throw new Error("accepted invite user missing");
 
         await startSession(c, db, userId, config, requestMeta(c));
-        await audit(c, { action: "invite.accept", targetType: "user", targetId: userId });
+        await audit(c, {
+          action: "invite.accept",
+          targetType: "user",
+          targetId: userId,
+          actorId: userId,
+        });
         const sessionUser = {
           id: user.id,
           name: user.name,

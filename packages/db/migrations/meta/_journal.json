@@ -57,6 +57,13 @@
       "when": 1792901634626,
       "tag": "0007_sso",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792902774647,
+      "tag": "0008_history_audit",
+      "breakpoints": true
     }
   ]
 }

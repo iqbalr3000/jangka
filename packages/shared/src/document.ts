@@ -239,6 +239,12 @@ export const saveSectionRequest = z.object({
   source: z.enum(["human", "llm"]).optional(),
 });
 
+export const restoreSectionRequest = z.object({
+  versionId: z.uuid(),
+  /** The section revision the restore is based on (optimistic lock, like PUT). */
+  revision: z.number().int().min(0),
+});
+
 /** `details` of `409 revision_conflict`. */
 export const revisionConflictDetails = z.object({ current: section });
 
@@ -249,7 +255,9 @@ export const sectionVersion = z.object({
   createdBy: userRef.nullable(),
   createdAt: z.string(),
   content: docContent,
+  restoredFromRevision: z.number().nullable(),
 });
+export type SectionVersion = z.infer<typeof sectionVersion>;
 export const sectionVersionList = z.object({
   items: z.array(sectionVersion),
   nextCursor: z.string().nullable(),

@@ -72,6 +72,8 @@ export function buildApp(
       masterKey: TEST_MASTER_KEY,
       enableFakeLlm: options.enableFakeLlm ?? true,
       forcePasswordLogin: options.forcePasswordLogin ?? false,
+      // Every successful mutation in the suite must write an audit row (spec-history-audit).
+      strictAudit: true,
     },
     setupState,
     loginLimiter: new RateLimiter(10, 15 * 60_000),

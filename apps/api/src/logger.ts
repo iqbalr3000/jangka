@@ -1,6 +1,6 @@
 import pino, { type DestinationStream, type Logger } from "pino";
 
-const SECRET_KEYS = [
+export const SECRET_KEYS = [
   "password",
   "passwordHash",
   "token",

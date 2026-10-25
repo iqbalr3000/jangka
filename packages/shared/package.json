@@ -12,7 +12,8 @@
     "./document": "./src/document.ts",
     "./assistant": "./src/assistant.ts",
     "./export": "./src/export.ts",
-    "./trace": "./src/trace.ts"
+    "./trace": "./src/trace.ts",
+    "./audit": "./src/audit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

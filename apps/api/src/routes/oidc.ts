@@ -88,6 +88,12 @@ export function oidcRoutes({ db, config, logger }: RouteDeps) {
       const result = await resolveSsoLogin(db, provider, claims);
       if (result.kind === "denied") {
         logger.info({ providerId: provider.id, reason: result.reason }, "sso login denied");
+        await audit(c, {
+          action: "auth.sso_denied",
+          targetType: "auth_provider",
+          targetId: provider.id,
+          metadata: { reason: result.reason, email: result.email },
+        });
         return fail(c, result.reason, result.reason === "domain_not_allowed" ? result.email : null);
       }
       deleteCookie(c, FLOW_COOKIE, cookieOptions);
@@ -96,6 +102,7 @@ export function oidcRoutes({ db, config, logger }: RouteDeps) {
         action: result.via === "subject" ? "auth.sso_login" : `auth.sso_${result.via}`,
         targetType: "user",
         targetId: result.userId,
+        actorId: result.userId,
         metadata: { providerId: provider.id },
       });
       return c.redirect(flow.redirect, 302);

@@ -5,6 +5,7 @@ import {
   type DocumentDetail,
   docContent,
   moveDocumentRequest,
+  restoreSectionRequest,
   saveSectionRequest,
   updateDocumentRequest,
 } from "@jangka/shared/document";
@@ -265,6 +266,52 @@ export function documentRoutes({ db }: RouteDeps) {
         return c.json(current);
       },
     )
+    .post(
+      "/:id/sections/:key/restore",
+      zValidate("param", sectionParam),
+      zValidate("json", restoreSectionRequest),
+      async (c) => {
+        const auth = requireAuth(c);
+        const { id, key } = c.req.valid("param");
+        const { versionId, revision } = c.req.valid("json");
+        const data = await access(c);
+        const row = await viewableDocument(db, data, id);
+        requireDocEdit(data, row);
+
+        const [found] = await db
+          .select({ version: sectionVersions })
+          .from(sectionVersions)
+          .innerJoin(documentSections, eq(documentSections.id, sectionVersions.sectionId))
+          .where(
+            and(
+              eq(sectionVersions.id, versionId),
+              eq(documentSections.documentId, row.id),
+              eq(documentSections.sectionKey, key),
+            ),
+          );
+        if (!found) throw new AppError("not_found", 404, "Version not found");
+
+        const result = await saveSection(db, row.id, key, {
+          content: docContent.parse(found.version.content),
+          revision,
+          userId: auth.user.id,
+          restoredFromRevision: found.version.revision,
+        });
+        const current = await sectionByKey(db, row, key);
+        if (result === "conflict") {
+          throw new AppError("revision_conflict", 409, "This section was changed by someone else", {
+            current,
+          });
+        }
+        await audit(c, {
+          action: "document.restore_section",
+          targetType: "document",
+          targetId: row.id,
+          metadata: { section: key, versionId, fromRevision: found.version.revision },
+        });
+        return c.json(current);
+      },
+    )
     .get(
       "/:id/sections/:key/versions",
       zValidate("param", sectionParam),
@@ -304,6 +351,7 @@ export function documentRoutes({ db }: RouteDeps) {
               version.createdBy && authorName ? { id: version.createdBy, name: authorName } : null,
             createdAt: version.createdAt.toISOString(),
             content: docContent.parse(version.content),
+            restoredFromRevision: version.restoredFromRevision,
           })),
           nextCursor: rows.length > limit ? (page.at(-1)?.version.id ?? null) : null,
         });

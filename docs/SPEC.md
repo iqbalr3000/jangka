@@ -119,7 +119,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `updated_by fk users null`; unique(document_id, section_key)
 
 **section_versions** (append-only)
-- `section_id fk`, `revision int`, `content jsonb`, `source text` (`llm` | `human`), `created_by fk`
+- `section_id fk`, `revision int`, `content jsonb`, `source text` (`llm` | `human`), `created_by fk`, `restored_from_revision int null`
 - No `updated_at`. Never updated/deleted.
 
 **requirements** (feature `traceability`; index derived from section content, ADR 0003)
@@ -148,8 +148,8 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **comments** (feature `review`) — `section_id fk`, `parent_id null`, `author_id`, `body text`, `resolved_at null`
 
-**audit_logs** (feature `history-audit`; no `updated_at`)
-- `actor_id null`, `action text` (e.g. `document.update_section`), `target_type`, `target_id`, `metadata jsonb`, `ip`
+**audit_logs** (feature `history-audit`; append-only, a trigger rejects UPDATE/DELETE; no `updated_at`)
+- `actor_id null`, `action text` (e.g. `document.update_section`), `target_type`, `target_id`, `metadata jsonb`, `ip`, `user_agent`
 
 ## 4. Permissions
 

@@ -278,6 +278,8 @@ export const sectionVersions = pgTable(
     content: jsonb("content").notNull(),
     source: text("source", { enum: ["llm", "human"] }).notNull(),
     createdBy: uuid("created_by").references(() => users.id),
+    // Set when this version restores an older one.
+    restoredFromRevision: integer("restored_from_revision"),
     createdAt: createdAt(),
   },
   (t) => [
@@ -455,5 +457,27 @@ export const documentExports = pgTable(
     index("exports_expires_at_idx").on(t.expiresAt),
     check("exports_format", sql`${t.format} in ('pdf', 'docx')`),
     check("exports_status", sql`${t.status} in ('queued', 'running', 'done', 'failed')`),
+  ],
+);
+
+/** Append-only (hard rule #8); a trigger rejects UPDATE and DELETE. */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: id(),
+    // No ON DELETE action: SET NULL would be an UPDATE, which the trigger rejects. Users are
+    // deactivated, never deleted.
+    actorId: uuid("actor_id").references(() => users.id),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    metadata: jsonb("metadata").notNull().default({}),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("audit_logs_target_idx").on(t.targetType, t.targetId),
+    index("audit_logs_actor_id_idx").on(t.actorId),
   ],
 );

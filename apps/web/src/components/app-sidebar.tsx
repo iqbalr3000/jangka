@@ -34,6 +34,7 @@ const adminLinks = [
   { to: "/admin/permissions", label: "Permissions" },
   { to: "/admin/llm", label: "LLM providers" },
   { to: "/admin/auth", label: "Authentication" },
+  { to: "/admin/audit", label: "Audit log" },
 ] as const;
 
 function NavIcon() {

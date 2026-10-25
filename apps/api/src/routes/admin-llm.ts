@@ -57,7 +57,14 @@ export function adminLlmRoutes({ db, config, llm, logger }: RouteDeps) {
     .post("/llm-providers/test", zValidate("json", testProviderRequest), async (c) => {
       const input = c.req.valid("json");
       assertProviderInput(input, config.enableFakeLlm);
-      return c.json(await testProvider(llm, logger, input));
+      const result = await testProvider(llm, logger, input);
+      await audit(c, {
+        action: "llm_provider.test",
+        targetType: "llm_provider",
+        targetId: null,
+        metadata: { kind: input.kind },
+      });
+      return c.json(result);
     })
     .post("/llm-providers", zValidate("json", createProviderRequest), async (c) => {
       const input = c.req.valid("json");
@@ -168,6 +175,7 @@ export function adminLlmRoutes({ db, config, llm, logger }: RouteDeps) {
           .update(llmProviders)
           .set({ lastTestedAt: new Date(), lastTestError: null })
           .where(eq(llmProviders.id, id));
+        await audit(c, { action: "llm_provider.test", targetType: "llm_provider", targetId: id });
         return c.json(result);
       } catch (error) {
         if (error instanceof AppError && error.code === "llm_error") {

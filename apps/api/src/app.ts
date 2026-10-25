@@ -10,11 +10,13 @@ import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type pg from "pg";
+import { auditMiddleware } from "./lib/audit";
 import { csrfOriginCheck } from "./lib/csrf";
 import type { RateLimiter } from "./lib/rate-limit";
 import { sessionMiddleware } from "./lib/session";
 import { setupGate } from "./lib/setup-gate";
 import type { Logger } from "./logger";
+import { adminAuditRoutes } from "./routes/admin-audit";
 import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminGroupRoutes } from "./routes/admin-groups";
 import { adminLlmRoutes } from "./routes/admin-llm";
@@ -105,6 +107,7 @@ export function createApp(deps: AppDeps) {
 
   app.notFound((c) => c.json(errorBody("not_found", "Not found"), 404));
 
+  app.use("/api/*", auditMiddleware(db, logger, config.strictAudit ?? false));
   app.use("/api/*", csrfOriginCheck(config.publicUrl));
   app.use("/api/*", setupGate(setupState));
   app.use("/api/*", sessionMiddleware(db, config));
@@ -120,6 +123,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/admin/permissions", adminPermissionRoutes(routeDeps));
   app.route("/api/v1/admin", adminLlmRoutes(routeDeps));
   app.route("/api/v1/admin", adminAuthRoutes(routeDeps));
+  app.route("/api/v1/admin", adminAuditRoutes(routeDeps));
   app.route("/api/v1/llm", llmRoutes(routeDeps));
   app.route("/api/v1/collections", collectionRoutes(routeDeps));
   app.route("/api/v1/documents", documentRoutes(routeDeps));

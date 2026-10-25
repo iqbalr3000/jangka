@@ -225,6 +225,8 @@ type SaveInput = {
   source?: "human" | "llm";
   /** From the assistant's completeness check; human saves derive it from the content. */
   completeness?: Completeness;
+  /** Restoring an older version: always a new version, marked with the revision it came from. */
+  restoredFromRevision?: number;
 };
 
 /**
@@ -257,6 +259,7 @@ export async function saveSection(
     const source = input.source ?? "human";
     const newSession =
       source === "llm" ||
+      input.restoredFromRevision !== undefined ||
       latest?.source !== "human" ||
       latest.createdBy !== input.userId ||
       now - latest.createdAt.getTime() > VERSION_SESSION_MS;
@@ -278,6 +281,7 @@ export async function saveSection(
         content: input.content,
         source,
         createdBy: input.userId,
+        restoredFromRevision: input.restoredFromRevision ?? null,
       });
     }
 

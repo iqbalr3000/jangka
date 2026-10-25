@@ -3,6 +3,7 @@ import type { ProviderFactory } from "@jangka/llm";
 import type { SessionUser } from "@jangka/shared/auth";
 import type { JobQueue } from "@jangka/worker/jobs";
 import type { RequestIdVariables } from "hono/request-id";
+import type { AuditState } from "./lib/audit";
 import type { Logger } from "./logger";
 import type { DiagramChecker } from "./services/diagrams";
 
@@ -18,10 +19,12 @@ export type AppConfig = {
   enableFakeLlm: boolean;
   /** FORCE_PASSWORD_LOGIN: password login works even when disabled in settings. */
   forcePasswordLogin: boolean;
+  /** Un-audited successful mutations throw (tests) instead of logging a warning. */
+  strictAudit?: boolean;
 };
 
 export type AppEnv = {
-  Variables: RequestIdVariables & { auth: Auth | null };
+  Variables: RequestIdVariables & { auth: Auth | null; audit: AuditState };
 };
 
 export type RouteDeps = {

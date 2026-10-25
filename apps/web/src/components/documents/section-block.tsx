@@ -39,6 +39,8 @@ type SectionBlockProps = {
   onEdit: () => void;
   onUndo: () => void;
   onAsk: () => void;
+  /** Opens the History tab on this section. */
+  onHistory: () => void;
 };
 
 export function SectionBlock(props: SectionBlockProps) {
@@ -74,6 +76,14 @@ export function SectionBlock(props: SectionBlockProps) {
           <SectionStatusIcon completeness={section.completeness} withLabel />
         )}
         <span className="flex-1" />
+        <button
+          type="button"
+          onClick={props.onHistory}
+          className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-secondary focus-visible:opacity-100"
+          aria-label={`History of ${section.title}`}
+        >
+          History
+        </button>
         {props.canGenerate && !proposal && streaming === undefined && (
           <DropdownMenu>
             <DropdownMenuTrigger

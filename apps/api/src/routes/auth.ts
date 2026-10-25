@@ -43,13 +43,24 @@ export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter)
       const valid = await verifyPassword(password, user?.passwordHash ?? (await getDummyHash()));
       if (!user?.passwordHash || !user.isActive || !valid) {
         loginLimiter.recordFailure(limitKey);
+        await audit(c, {
+          action: "auth.login_failed",
+          targetType: "user",
+          targetId: user?.id ?? null,
+          metadata: { email },
+        });
         throw invalidCredentials();
       }
 
       loginLimiter.reset(limitKey);
       await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
       await startSession(c, db, user.id, config, requestMeta(c));
-      await audit(c, { action: "auth.login", targetType: "user", targetId: user.id });
+      await audit(c, {
+        action: "auth.login",
+        targetType: "user",
+        targetId: user.id,
+        actorId: user.id,
+      });
       const sessionUser = {
         id: user.id,
         name: user.name,
