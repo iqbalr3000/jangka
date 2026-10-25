@@ -17,7 +17,13 @@ import {
   transcriptMessage,
 } from "./prompts";
 
-export type { DocumentContext, SectionContext, SourceContext, Turn } from "./prompts";
+export type {
+  DocumentContext,
+  RelatedSection,
+  SectionContext,
+  SourceContext,
+  Turn,
+} from "./prompts";
 
 export const DEFAULT_CONTEXT_TOKENS = 128_000;
 const BUDGET_SHARE = 0.7;
@@ -39,17 +45,23 @@ export function fitBudget(
   const size = (doc: DocumentContext, transcript: Turn[]) =>
     estimateTokens(guidance) +
     estimateTokens(doc.source?.markdown ?? "") +
+    (doc.related ?? []).reduce((n, r) => n + estimateTokens(r.markdown), 0) +
     doc.sections.reduce((n, s) => n + estimateTokens(s.markdown), 0) +
     transcript.reduce((n, t) => n + estimateTokens(t.content), 0);
 
+  // Related documents are a nice-to-have: they go first when over budget.
+  const start =
+    input.doc.related && size(input.doc, input.transcript) > budget
+      ? { ...input.doc, related: undefined }
+      : input.doc;
   const transcript = [...input.transcript];
-  while (size(input.doc, transcript) > budget && transcript.length > 1) transcript.splice(1, 1);
+  while (size(start, transcript) > budget && transcript.length > 1) transcript.splice(1, 1);
 
   const clip = (markdown: string) =>
     markdown.length <= CLIPPED_SECTION_CHARS
       ? markdown
       : `${markdown.slice(0, CLIPPED_SECTION_CHARS)}… (truncated)`;
-  let doc = input.doc;
+  let doc = start;
   if (size(doc, transcript) > budget) {
     doc = {
       ...doc,

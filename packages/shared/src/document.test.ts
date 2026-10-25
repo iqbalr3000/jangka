@@ -94,6 +94,38 @@ describe("docContent", () => {
     );
   });
 
+  it("accepts table cells as TipTap's table extension emits them after an edit", () => {
+    const cellAttrs = { colspan: 1, rowspan: 1, colwidth: null, align: null };
+    const edited = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  attrs: cellAttrs,
+                  content: [{ type: "paragraph", content: [{ type: "text", text: "ID" }] }],
+                },
+                {
+                  type: "tableCell",
+                  attrs: { ...cellAttrs, align: "center" },
+                  content: [{ type: "paragraph" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(docContent.safeParse(edited).success).toBe(true);
+    const badAlign = JSON.parse(JSON.stringify(edited).replace('"center"', '"justify"'));
+    expect(docContent.safeParse(badAlign).success).toBe(false);
+  });
+
   it("rejects unknown nodes, marks and attrs", () => {
     const bad: unknown[] = [
       { type: "doc", content: [{ type: "image", attrs: { src: "x" } }] },

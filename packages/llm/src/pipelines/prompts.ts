@@ -21,11 +21,20 @@ export type SourceContext = {
   requirements: { code: string; text: string }[];
 };
 
+/** A section of another document the requesting user can view (chat retrieval). */
+export type RelatedSection = {
+  title: string;
+  docType: "brd" | "prd" | "tsd";
+  sectionTitle: string;
+  markdown: string;
+};
+
 export type DocumentContext = {
   template: TemplateDefinition;
   title: string;
   sections: SectionContext[];
   source?: SourceContext;
+  related?: RelatedSection[];
 };
 
 const NEVER_INVENT =
@@ -56,11 +65,20 @@ function sourceDocument(source: SourceContext): string {
   ].join("\n\n");
 }
 
+function relatedDocuments(related: RelatedSection[]): string {
+  const parts = related.map(
+    (r) =>
+      `### ${r.docType.toUpperCase()} "${r.title}" › ${r.sectionTitle}\n${r.markdown.trim() || "(empty)"}`,
+  );
+  return `Related documents the user can view (use them only if relevant, and name the document when you do):\n${parts.join("\n\n")}`;
+}
+
 function base(doc: DocumentContext): string {
   return [
     `You help a product team write a ${doc.template.docType.toUpperCase()} (${doc.template.name}) titled "${doc.title}".`,
     `Template sections:\n${sectionList(doc.template)}`,
     doc.source ? sourceDocument(doc.source) : "",
+    doc.related?.length ? relatedDocuments(doc.related) : "",
     `Current document:\n${currentDocument(doc.sections)}`,
     NEVER_INVENT,
   ]

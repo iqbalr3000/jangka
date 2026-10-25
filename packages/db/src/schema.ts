@@ -18,6 +18,7 @@ import {
 import { uuidv7 } from "uuidv7";
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 const id = () => uuid("id").primaryKey().$defaultFn(uuidv7);
 const tz = (name: string) => timestamp(name, { withTimezone: true });
@@ -259,6 +260,8 @@ export const documentSections = pgTable(
     // TipTap JSON (source of truth); content_md is derived from it.
     content: jsonb("content").notNull(),
     contentMd: text("content_md").notNull().default(""),
+    // Full-text index for retrieval (impact-retrieval) and search; `simple`: no language stemming.
+    search: tsvector("search").generatedAlwaysAs(sql`to_tsvector('simple', content_md)`),
     completeness: text("completeness", { enum: ["empty", "partial", "complete"] })
       .notNull()
       .default("empty"),
@@ -270,6 +273,7 @@ export const documentSections = pgTable(
   },
   (t) => [
     unique("document_sections_document_key").on(t.documentId, t.sectionKey),
+    index("document_sections_search_idx").using("gin", t.search),
     check(
       "document_sections_completeness",
       sql`${t.completeness} in ('empty', 'partial', 'complete')`,
@@ -328,6 +332,8 @@ export const chatMessages = pgTable(
     model: text("model"),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
+    // Other documents the reply drew on (impact-retrieval).
+    references: jsonb("references").notNull().default([]),
     createdAt: createdAt(),
   },
   (t) => [
@@ -409,6 +415,9 @@ export const requirements = pgTable(
     priority: text("priority", { enum: ["must", "should", "could"] }),
     upstreamCodes: text("upstream_codes").array().notNull().default(sql`'{}'::text[]`),
     position: integer("position").notNull(),
+    // Text or priority changed: downstream requirements citing this one need review.
+    contentChangedAt: tz("content_changed_at").notNull().defaultNow(),
+    upstreamReviewedAt: tz("upstream_reviewed_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

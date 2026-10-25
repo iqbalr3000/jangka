@@ -319,6 +319,8 @@ describe("trace", () => {
           { code: "BR-001", status: "linked", text: "Refunds within 24 hours", documentId: brdId },
           { code: "BR-009", status: "missing" },
         ],
+        // Written after BR-001, so nothing to review.
+        needsReview: false,
         downstream: [{ documentId: tsd, code: "TR-001", text: "Refund queue" }],
       },
     ]);

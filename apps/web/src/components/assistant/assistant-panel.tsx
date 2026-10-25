@@ -8,6 +8,7 @@ import { HistoryPanel } from "@/components/documents/history-panel";
 import { TracePanel } from "@/components/documents/trace-panel";
 import { Button } from "@/components/ui/button";
 import { chatQuery } from "@/lib/assistant";
+import { docTypeLabels } from "@/lib/trace";
 import type { Assistant } from "@/lib/use-assistant";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
@@ -51,7 +52,8 @@ function parseMention(message: string, sections: Section[]) {
 function Message({
   message,
 }: {
-  message: Pick<ChatMessage, "role" | "content" | "author" | "interrupted">;
+  message: Pick<ChatMessage, "role" | "content" | "author" | "interrupted"> &
+    Partial<Pick<ChatMessage, "references">>;
 }) {
   const assistant = message.role === "assistant";
   return (
@@ -70,6 +72,21 @@ function Message({
           <span className="ml-1 text-xs text-muted-foreground">(interrupted)</span>
         )}
       </p>
+      {message.references && message.references.length > 0 && (
+        <span className="flex max-w-[95%] flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+          Referenced:
+          {message.references.map((ref) => (
+            <Link
+              key={`${ref.documentId}:${ref.sectionKey}`}
+              to="/d/$documentId"
+              params={{ documentId: ref.documentId }}
+              className="text-primary hover:underline"
+            >
+              {docTypeLabels[ref.docType]} {ref.title} › {ref.sectionTitle}
+            </Link>
+          ))}
+        </span>
+      )}
     </li>
   );
 }
@@ -134,7 +151,7 @@ export function AssistantPanel({
         ))}
       </div>
       {tab === "trace" ? (
-        <TracePanel documentId={documentId} title={documentTitle} />
+        <TracePanel documentId={documentId} title={documentTitle} editable={editable} />
       ) : tab === "comments" ? (
         <CommentsPanel
           documentId={documentId}

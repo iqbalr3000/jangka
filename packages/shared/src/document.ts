@@ -52,7 +52,12 @@ export type OrderedListNode = {
   content: ListItemNode[];
 };
 export type HorizontalRuleNode = { type: "horizontalRule" };
-export type CellAttrs = { colspan?: number; rowspan?: number; colwidth?: number[] | null };
+export type CellAttrs = {
+  colspan?: number;
+  rowspan?: number;
+  colwidth?: number[] | null;
+  align?: "left" | "center" | "right" | null;
+};
 export type TableCellNode = {
   type: "tableCell" | "tableHeader";
   attrs?: CellAttrs;
@@ -82,6 +87,8 @@ const cellAttrs = z.strictObject({
   colspan: z.number().int().min(1).optional(),
   rowspan: z.number().int().min(1).optional(),
   colwidth: z.array(z.number()).nullish(),
+  // TipTap's table extension (v3) adds it to every cell it touches.
+  align: z.enum(["left", "center", "right"]).nullish(),
 });
 const cell: z.ZodType<TableCellNode> = z.lazy(() =>
   z.strictObject({

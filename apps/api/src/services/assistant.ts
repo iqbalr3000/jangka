@@ -12,10 +12,16 @@ import {
 } from "@jangka/db";
 import type { LLMProvider, ProviderFactory, ProviderKind } from "@jangka/llm";
 import type { DocumentContext, SourceContext, Turn } from "@jangka/llm/pipelines";
-import { type ChatMessage, type InterviewState, interviewState } from "@jangka/shared/assistant";
+import {
+  type ChatMessage,
+  chatReference,
+  type InterviewState,
+  interviewState,
+} from "@jangka/shared/assistant";
 import { AppError } from "@jangka/shared/errors";
 import type { TemplateDefinition } from "@jangka/templates";
 import { asc, eq } from "drizzle-orm";
+import { z } from "zod";
 import type { AppConfig } from "../types";
 import { type AccessData, resolveDocLevel } from "./access";
 import { type DocumentRow, findDocument } from "./documents";
@@ -85,6 +91,8 @@ export async function threadMessages(db: Db, documentId: string): Promise<ChatMe
     author: message.createdBy && authorName ? { id: message.createdBy, name: authorName } : null,
     interrupted: message.interrupted,
     createdAt: message.createdAt.toISOString(),
+    // Stored by this app; invalid entries (none expected) are dropped rather than failing the thread.
+    references: z.array(chatReference).catch([]).parse(message.references),
   }));
 }
 

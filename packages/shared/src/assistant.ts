@@ -12,6 +12,16 @@ export const interviewState = z.object({
 });
 export type InterviewState = z.infer<typeof interviewState>;
 
+/** A section of another (viewable) document the assistant drew on. */
+export const chatReference = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  docType: z.enum(["brd", "prd", "tsd"]),
+  sectionKey: z.string(),
+  sectionTitle: z.string(),
+});
+export type ChatReference = z.infer<typeof chatReference>;
+
 export const chatMessage = z.object({
   id: z.string(),
   role: z.enum(["user", "assistant"]),
@@ -20,6 +30,7 @@ export const chatMessage = z.object({
   author: z.object({ id: z.string(), name: z.string() }).nullable(),
   interrupted: z.boolean(),
   createdAt: z.string(),
+  references: z.array(chatReference),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 
@@ -45,6 +56,7 @@ export const reviseRequest = z.object({ instruction: z.string().trim().min(1).ma
 /** Server-sent events of every assistant stream; mirrors `StreamEvent` from packages/llm. */
 export const assistantEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("message_start"), messageId: z.string() }),
+  z.object({ type: z.literal("references"), items: z.array(chatReference) }),
   z.object({ type: z.literal("text"), delta: z.string(), sectionKey: z.string().optional() }),
   z.object({ type: z.literal("section_start"), key: z.string() }),
   z.object({ type: z.literal("section_done"), section }),

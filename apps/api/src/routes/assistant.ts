@@ -11,6 +11,7 @@ import {
 } from "@jangka/llm/pipelines";
 import {
   type AssistantEvent,
+  type ChatReference,
   chatRequest,
   draftRequest,
   reviseRequest,
@@ -49,6 +50,7 @@ import {
   sectionsOf,
   viewableDocument,
 } from "../services/documents";
+import { retrieveSections } from "../services/retrieval";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
@@ -157,6 +159,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       interrupted: boolean;
       usage: Usage;
       resolved: ResolvedLlm;
+      references?: ChatReference[];
     },
   ) {
     await db.insert(chatMessages).values({
@@ -170,6 +173,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
       model: input.resolved.model,
       inputTokens: input.usage.inputTokens,
       outputTokens: input.usage.outputTokens,
+      references: input.references ?? [],
     });
   }
 
@@ -207,8 +211,16 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
         const transcript = transcriptOf(await threadMessages(db, doc.id));
         const common = { provider: resolved.provider, model: resolved.model };
 
+        // Other documents only from what this user can view (FR-075); the source is already in context.
+        const related = await retrieveSections(db, data, {
+          query: message,
+          excludeDocumentIds: [doc.id, ...(doc.sourceDocumentId ? [doc.sourceDocumentId] : [])],
+        });
+        const references = related.map(({ markdown: _markdown, ...reference }) => reference);
+        if (references.length > 0) await send({ type: "references", items: references });
+
         const result = await relay(
-          interview(common, { doc: context, transcript }, signal),
+          interview(common, { doc: { ...context, related }, transcript }, signal),
           (delta) => send({ type: "text", delta }),
         );
         const interrupted = result.error !== null;
@@ -219,6 +231,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams }: RouteDeps
           interrupted,
           usage: result.usage,
           resolved,
+          references,
         });
         if (result.error) {
           await send(providerError(resolved, result.error, logger));

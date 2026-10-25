@@ -117,7 +117,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 
 **document_sections**
 - `document_id fk`, `section_key text` (from template), `position int`
-- `content jsonb` (TipTap JSON, source of truth), `content_md text` (derived; used as LLM context)
+- `content jsonb` (TipTap JSON, source of truth), `content_md text` (derived; used as LLM context), `search tsvector` (generated from `content_md`, GIN; feature `impact-retrieval`)
 - `completeness text` (`empty` | `partial` | `complete`), `revision int` (optimistic lock)
 - `updated_by fk users null`; unique(document_id, section_key)
 
@@ -129,6 +129,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 - `document_id fk`, `section_key text`, `code text` (`BR-001`, `FR-001`, `NFR-001`, `TR-001`)
 - `kind text` (`business` | `functional` | `non_functional` | `technical`), `text`, `priority text null` (`must` | `should` | `could`)
 - `upstream_codes text[]` (codes in the source document; relation `derives_from` PRD→BRD, `implements` TSD→PRD)
+- `content_changed_at` (text/priority changes), `upstream_reviewed_at null` (feature `impact-retrieval`: needs review when a cited upstream requirement changed later)
 - unique(document_id, code)
 
 **diagram_renders** (cache)
@@ -137,7 +138,7 @@ All tables: `id uuid (v7) pk`, `created_at timestamptz`, `updated_at timestamptz
 **chat_threads** — `document_id fk`, `created_by fk`
 **chat_messages**
 - `thread_id fk`, `role text` (`user` | `assistant`), `content text`
-- `provider_kind text null`, `model text null`, `input_tokens int null`, `output_tokens int null`
+- `provider_kind text null`, `model text null`, `input_tokens int null`, `output_tokens int null`, `references jsonb` (documents the reply drew on)
 
 **interview_states** — `document_id pk fk`, `state jsonb` (see §6.2), `updated_at`
 

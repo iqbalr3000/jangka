@@ -39,6 +39,10 @@ export async function indexRequirements(
           upstreamCodes: sql`excluded.upstream_codes`,
           position: sql`excluded.position`,
           updatedAt: sql`now()`,
+          // Only a content change flags downstream requirements (impact-retrieval).
+          contentChangedAt: sql`case when (${requirements.text}, ${requirements.priority})
+            is distinct from (excluded.text, excluded.priority)
+            then now() else ${requirements.contentChangedAt} end`,
         },
         setWhere: sql`(${requirements.sectionKey}, ${requirements.text}, ${requirements.priority}, ${requirements.upstreamCodes}, ${requirements.position})
           is distinct from (excluded.section_key, excluded.text, excluded.priority, excluded.upstream_codes, excluded.position)`,
@@ -56,4 +60,21 @@ export async function indexRequirements(
         : undefined,
     ),
   );
+}
+
+/**
+ * When a downstream requirement was last brought in line with its upstream: its own last content
+ * change or its last "Mark reviewed", whichever is later.
+ */
+export function reviewBaseline(row: {
+  contentChangedAt: Date;
+  upstreamReviewedAt: Date | null;
+}): Date {
+  const reviewed = row.upstreamReviewedAt;
+  return reviewed && reviewed > row.contentChangedAt ? reviewed : row.contentChangedAt;
+}
+
+/** The upstream change that needs review, if it happened after the baseline (FR-054). */
+export function changedSince(upstream: { contentChangedAt: Date }, baseline: Date): Date | null {
+  return upstream.contentChangedAt > baseline ? upstream.contentChangedAt : null;
 }
