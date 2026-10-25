@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppArchivedRouteImport } from './routes/_app/archived'
 import { Route as AppPersonalRouteImport } from './routes/_app/personal'
+import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAdminAuditRouteImport } from './routes/_app/admin/audit'
@@ -62,6 +63,11 @@ const AppArchivedRoute = AppArchivedRouteImport.update({
 const AppPersonalRoute = AppPersonalRouteImport.update({
   id: '/personal',
   path: '/personal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSearchRoute = AppSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => AppRoute,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AppAdminRouteWithChildren
   '/archived': typeof AppArchivedRoute
   '/personal': typeof AppPersonalRoute
+  '/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/audit': typeof AppAdminAuditRoute
   '/admin/auth': typeof AppAdminAuthRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/archived': typeof AppArchivedRoute
   '/personal': typeof AppPersonalRoute
+  '/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
   '/admin/audit': typeof AppAdminAuditRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/archived': typeof AppArchivedRoute
   '/_app/personal': typeof AppPersonalRoute
+  '/_app/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/admin/audit': typeof AppAdminAuditRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/archived'
     | '/personal'
+    | '/search'
     | '/invite/$token'
     | '/admin/audit'
     | '/admin/auth'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/archived'
     | '/personal'
+    | '/search'
     | '/invite/$token'
     | '/'
     | '/admin/audit'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/_app/admin'
     | '/_app/archived'
     | '/_app/personal'
+    | '/_app/search'
     | '/invite/$token'
     | '/_app/'
     | '/_app/admin/audit'
@@ -317,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/personal'
       fullPath: '/personal'
       preLoaderRoute: typeof AppPersonalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/search': {
+      id: '/_app/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AppSearchRouteImport
       parentRoute: typeof AppRoute
     }
     '/invite/$token': {
@@ -447,6 +466,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRouteWithChildren
   AppArchivedRoute: typeof AppArchivedRoute
   AppPersonalRoute: typeof AppPersonalRoute
+  AppSearchRoute: typeof AppSearchRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCCollectionIdRoute: typeof AppCCollectionIdRoute
   AppDDocumentIdRoute: typeof AppDDocumentIdRoute
@@ -456,6 +476,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRouteWithChildren,
   AppArchivedRoute: AppArchivedRoute,
   AppPersonalRoute: AppPersonalRoute,
+  AppSearchRoute: AppSearchRoute,
   AppIndexRoute: AppIndexRoute,
   AppCCollectionIdRoute: AppCCollectionIdRoute,
   AppDDocumentIdRoute: AppDDocumentIdRoute,

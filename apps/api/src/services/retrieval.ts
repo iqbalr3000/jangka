@@ -1,8 +1,9 @@
 import { type Database, documentSections, documents, templates } from "@jangka/db";
 import type { ChatReference } from "@jangka/shared/assistant";
-import { and, eq, inArray, isNull, notInArray, or, type SQL, sql } from "drizzle-orm";
-import { type AccessData, isHidden, resolveDocLevel } from "./access";
+import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import type { AccessData } from "./access";
 import { definitionOf } from "./templates";
+import { viewableScope } from "./visibility";
 
 const MAX_TERMS = 12;
 const MIN_TERM_LENGTH = 3;
@@ -17,21 +18,6 @@ export type RetrievedSection = ChatReference & { markdown: string };
 export function searchTerms(message: string): string[] {
   const words = message.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
   return [...new Set(words.filter((w) => w.length >= MIN_TERM_LENGTH))].slice(0, MAX_TERMS);
-}
-
-/**
- * Collections whose documents the viewer may read, resolved with `packages/permissions`. Used as
- * an SQL filter, so documents the viewer can't see are never ranked or read (FR-075).
- */
-function viewableScope(data: AccessData): SQL | undefined {
-  const ids = [...data.rows.keys()].filter(
-    (id) => resolveDocLevel(data, { collectionId: id }) !== "none" && !isHidden(data, id),
-  );
-  const rootViewable = resolveDocLevel(data, { collectionId: null }) !== "none";
-  return or(
-    ids.length > 0 ? inArray(documents.collectionId, ids) : undefined,
-    rootViewable ? isNull(documents.collectionId) : undefined,
-  );
 }
 
 /** Up to `limit` sections of other viewable, non-archived documents matching the message. */

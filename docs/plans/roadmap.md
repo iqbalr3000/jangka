@@ -17,8 +17,8 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 10  | history-audit    | 2     | [spec](spec-history-audit.md) | done   |
 | 11  | custom-templates | 3     | [spec](spec-custom-templates.md) | done   |
 | 12  | review           | 3     | [spec](spec-review.md)     | done   |
-| 13  | impact-retrieval | 3     | [spec](spec-impact-retrieval.md) | building |
-| 14  | search           | 3     | —                          | todo   |
+| 13  | impact-retrieval | 3     | [spec](spec-impact-retrieval.md) | done   |
+| 14  | search           | 3     | [spec](spec-search.md)     | building |
 
 ## Completed work
 
@@ -36,3 +36,4 @@ Cutoff: 2026-10-25
 - **history-audit** — append-only audit_logs with real audit() writes and a guard that fails un-audited mutations in tests, failed sign-in auditing, section restore as a new marked version, History panel with diff, admin audit log viewer.
 - **custom-templates** — template drafts and immutable published versions, custom validation (requirement kinds per type, stable keys), prompt-level requirement table rule, admin lifecycle API + Templates page and editor, per-type default template, Template picker in New document.
 - **review** — section comment threads (view-level commenting, one level of replies, soft delete, resolve), status workflow draft → in review → approved with open-thread gate and approval lock on all section writes, status menu, approved banner, Comments panel and section badges.
+- **impact-retrieval** — needs-review flags from upstream content changes with Mark reviewed, permission-filtered full-text retrieval for chat with stored references, table-cell save fix, Turbo transit invalidation.

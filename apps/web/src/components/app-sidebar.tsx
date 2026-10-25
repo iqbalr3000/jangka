@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronsLeft, ChevronsRight, Plus } from "lucide-react";
 import { useState } from "react";
+import { adminLinks } from "@/lib/admin-links";
 import { collectionTreeQuery, ROOT_NAME } from "@/lib/collections";
 import { modKeyLabel } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
@@ -26,17 +27,6 @@ const navItemClass =
 
 const sectionLabelClass =
   "font-mono text-[11px] font-medium tracking-[0.06em] text-muted-foreground";
-
-// Further admin pages (auth, settings) are added by their features.
-const adminLinks = [
-  { to: "/admin/users", label: "Users & invites" },
-  { to: "/admin/groups", label: "Groups" },
-  { to: "/admin/permissions", label: "Permissions" },
-  { to: "/admin/templates", label: "Templates" },
-  { to: "/admin/llm", label: "LLM providers" },
-  { to: "/admin/auth", label: "Authentication" },
-  { to: "/admin/audit", label: "Audit log" },
-] as const;
 
 function NavIcon() {
   return (

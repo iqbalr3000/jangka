@@ -15,7 +15,8 @@
     "./trace": "./src/trace.ts",
     "./audit": "./src/audit.ts",
     "./templates": "./src/templates.ts",
-    "./review": "./src/review.ts"
+    "./review": "./src/review.ts",
+    "./search": "./src/search.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

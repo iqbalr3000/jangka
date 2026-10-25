@@ -33,6 +33,7 @@ import { healthRoutes } from "./routes/health";
 import { inviteRoutes } from "./routes/invites";
 import { llmRoutes } from "./routes/llm";
 import { oidcRoutes } from "./routes/oidc";
+import { searchRoutes } from "./routes/search";
 import { setupRoutes } from "./routes/setup";
 import { traceRoutes } from "./routes/trace";
 import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
@@ -133,6 +134,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/documents", assistantRoutes(routeDeps));
   app.route("/api/v1/documents", traceRoutes(routeDeps));
   app.route("/api/v1/templates", templateRoutes(routeDeps));
+  app.route("/api/v1/search", searchRoutes(routeDeps));
   app.route("/api/v1", exportRoutes(routeDeps));
   app.route("/api/v1", commentRoutes(routeDeps));
 
