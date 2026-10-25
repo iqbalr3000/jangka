@@ -28,7 +28,8 @@ import { timeAgo } from "@/lib/llm";
 import { cn } from "@/lib/utils";
 
 const AUTOSAVE_MS = 1500;
-const PLACEHOLDER = "Not enough information yet.";
+// Read-only wording matches the PDF/DOCX export.
+const PLACEHOLDER = { editable: "Not enough information yet.", readOnly: "Not yet specified." };
 
 export type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 

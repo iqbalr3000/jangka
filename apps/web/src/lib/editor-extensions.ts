@@ -31,7 +31,10 @@ export const MermaidBlock = Node.create({
 /**
  * Exactly the nodes and marks `packages/shared/document` accepts; anything else would fail to save.
  */
-export function sectionExtensions(placeholder: string) {
+/** Text for an empty section: an invitation while editing, a plain statement when read-only. */
+export type EmptyPlaceholder = { editable: string; readOnly: string };
+
+export function sectionExtensions(placeholder: EmptyPlaceholder | null) {
   return [
     StarterKit.configure({
       heading: { levels: [3, 4] },
@@ -49,6 +52,15 @@ export function sectionExtensions(placeholder: string) {
     TableHeader,
     TableCell,
     MermaidBlock,
-    Placeholder.configure({ placeholder }),
+    ...(placeholder
+      ? [
+          Placeholder.configure({
+            // Read-only sections (viewers, approved documents) show it too (DESIGN §6.3).
+            showOnlyWhenEditable: false,
+            placeholder: ({ editor }) =>
+              editor.isEditable ? placeholder.editable : placeholder.readOnly,
+          }),
+        ]
+      : []),
   ];
 }

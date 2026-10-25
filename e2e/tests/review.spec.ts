@@ -2,6 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 import { ADMIN, MEMBER, signIn } from "../session";
 
 const panel = (page: Page) => page.getByRole("complementary", { name: "Assistant" });
+/** The empty-section placeholder of a section (rendered from data-placeholder by CSS). */
+const emptyPlaceholder = (page: Page, section: string) =>
+  page.getByRole("textbox", { name: section, exact: true }).locator("p.is-editor-empty");
 const saveStatus = (page: Page) => page.getByRole("status").filter({ hasText: /Sav|Conflict/ });
 
 test("a reader comments, the editor resolves, approves, and reopens", async ({ browser }) => {
@@ -22,6 +25,10 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   const member = await signIn(browser, MEMBER);
   await member.goto(documentUrl);
   await expect(member.getByText("You have view access.")).toBeVisible();
+  await expect(emptyPlaceholder(member, "Problem Statement")).toHaveAttribute(
+    "data-placeholder",
+    "Not yet specified.",
+  );
   await member.getByRole("button", { name: "Comment on Overview" }).click();
   await panel(member).getByLabel("Comment on Overview").fill("Which markets are in scope?");
   await panel(member).getByRole("button", { name: "Comment", exact: true }).click();
@@ -56,10 +63,18 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   await admin.getByRole("menuitem", { name: "Approve" }).click();
   await expect(admin.getByText(/Approved by Ada Admin/)).toBeVisible();
   await expect(overview).toHaveAttribute("contenteditable", "false");
+  await expect(emptyPlaceholder(admin, "Problem Statement")).toHaveAttribute(
+    "data-placeholder",
+    "Not yet specified.",
+  );
 
   // Reopen to edit again.
   await admin.getByRole("button", { name: "Status: Approved" }).click();
   await admin.getByRole("menuitem", { name: "Reopen" }).click();
   await expect(admin.getByRole("button", { name: "Status: Draft" })).toBeVisible();
   await expect(overview).toHaveAttribute("contenteditable", "true");
+  await expect(emptyPlaceholder(admin, "Problem Statement")).toHaveAttribute(
+    "data-placeholder",
+    "Not enough information yet.",
+  );
 });

@@ -26,7 +26,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Empty sections in read-only view | UI polish | No "Not yet specified" placeholder for viewers and approved documents |
 | Smaller Docker image (1.49 GB) | Optimization | Copy only `mermaid.min.js` and font files instead of mermaid's `node_modules` (~150 MB) |
 | Assistant proposes document updates from chat | Feature | When chat adds new information, offer updates to affected sections as diff + Accept |
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
@@ -56,3 +55,4 @@ Cutoff: 2026-10-25
 - **Phase 4: editor toolbar placement** — the formatting toolbar renders in the section heading row beside the section actions instead of covering them.
 - **Phase 4: status change errors** — a dialog instead of `window.alert`; a blocked approval lists the sections with open threads and opens them in the Comments tab.
 - **Phase 4: no native alert/confirm** — shared `ConfirmDialog` for deleting comments, discarding and leaving template drafts (router blocker with resolver), and section save / export retry errors.
+- **Phase 4: read-only empty sections** — the dashed placeholder also shows read-only (viewers, approved documents) as "Not yet specified.", matching the export; the streaming preview has none.
