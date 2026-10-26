@@ -1,6 +1,7 @@
 {
   "name": "jangka",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.1.3",
   "engines": {

@@ -107,7 +107,6 @@ export const permissionGraph = z.object({
       documentCount: z.number().int(),
     }),
   ),
-  /** Documents directly in the root. */
   rootDocumentCount: z.number().int(),
   grants: z.array(grant),
 });

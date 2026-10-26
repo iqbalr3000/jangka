@@ -3,7 +3,7 @@ import { lt } from "drizzle-orm";
 
 const RENDER_CACHE_DAYS = 30;
 
-/** Expired exports (FR-042) and stale cache entries; re-rendering a diagram is cheap. */
+/** Expired exports and stale cache entries; re-rendering a diagram is cheap. */
 export async function cleanup(
   db: Database,
   now = new Date(),

@@ -9,7 +9,6 @@ const saveStatus = (page: Page) => page.getByRole("status").filter({ hasText: /S
 test("an upstream change flags the PRD; chat references other documents", async ({ browser }) => {
   const page = await signIn(browser, ADMIN);
 
-  // Change BR-001 in the BRD.
   await sidebar(page).getByRole("link", { name: "Personal" }).click();
   await page.getByRole("link", { name: /Refund BRD/ }).click();
   const requirements = page.getByRole("textbox", { name: "Business Requirements", exact: true });

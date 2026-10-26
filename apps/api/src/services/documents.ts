@@ -254,7 +254,7 @@ export async function saveSection(
   input: SaveInput,
 ): Promise<"saved" | "conflict"> {
   return db.transaction(async (tx) => {
-    // Locked against a concurrent status change: approval freezes the content (feature `review`).
+    // Locked against a concurrent status change: approval freezes the content.
     const [document] = await tx
       .select({ status: documents.status })
       .from(documents)

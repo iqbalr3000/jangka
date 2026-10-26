@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/** List placeholder while a query loads (DESIGN §8: skeletons, not spinners). */
+/** List placeholder while a query loads: skeletons, not spinners. */
 export function LoadingRows({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
     <div role="status" aria-label="Loading" className={cn("flex flex-col gap-2.5", className)}>

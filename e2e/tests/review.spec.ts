@@ -21,7 +21,6 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   await expect(saveStatus(admin)).toHaveText(/Saved/);
   const documentUrl = admin.url();
 
-  // The member (view access) comments on Overview.
   const member = await signIn(browser, MEMBER);
   await member.goto(documentUrl);
   await expect(member.getByText("You have view access.")).toBeVisible();
@@ -47,7 +46,6 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   await blocked.getByRole("button", { name: "Show comments" }).click();
   await expect(blocked).toHaveCount(0);
 
-  // The editor replies and resolves.
   const thread = panel(admin).getByRole("listitem", { name: "Thread on Overview" });
   await expect(thread).toContainText("Which markets are in scope?");
   await thread.getByRole("button", { name: "Reply" }).click();
@@ -58,7 +56,6 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
   await expect(panel(admin)).toContainText("No open comments.");
   await expect(admin.getByRole("button", { name: "Comment on Overview" })).toBeAttached();
 
-  // Approve: the content freezes.
   await admin.getByRole("button", { name: "Status: In review" }).click();
   await admin.getByRole("menuitem", { name: "Approve" }).click();
   await expect(admin.getByText(/Approved by Ada Admin/)).toBeVisible();
@@ -68,7 +65,6 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
     "Not yet specified.",
   );
 
-  // Reopen to edit again.
   await admin.getByRole("button", { name: "Status: Approved" }).click();
   await admin.getByRole("menuitem", { name: "Reopen" }).click();
   await expect(admin.getByRole("button", { name: "Status: Draft" })).toBeVisible();

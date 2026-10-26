@@ -42,7 +42,6 @@ test("search finds viewable documents only, from ⌘K and the search page", asyn
   await member.getByRole("button", { name: "BRD", exact: true }).click();
   await expect(member.getByText("No documents match “zebra”.")).toBeVisible();
 
-  // The admin sees both.
   await admin.goto("/search?q=zebra");
   await expect(admin.getByRole("list", { name: "Search results" })).toContainText("Zebra secrets");
 });

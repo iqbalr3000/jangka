@@ -41,7 +41,7 @@ export const instanceSettings = pgTable(
     }),
     defaultModel: text("default_model"),
     passwordLoginEnabled: boolean("password_login_enabled").notNull().default(true),
-    // Doc type → template family name preselected for new documents (custom-templates).
+    // Doc type → template family name preselected for new documents.
     defaultTemplates: jsonb("default_templates").notNull().default({}),
     // Group that auto-provisioned SSO users join (besides the implicit All Users).
     defaultGroupId: uuid("default_group_id").references((): AnyPgColumn => groups.id, {
@@ -176,7 +176,7 @@ export const llmProviders = pgTable(
     id: id(),
     kind: text("kind", { enum: ["anthropic", "openai", "gemini", "openrouter", "fake"] }).notNull(),
     label: text("label").notNull(),
-    // Null only for the fake provider. Encrypted with MASTER_KEY (packages/shared/crypto).
+    // Null only for the fake provider. Encrypted with MASTER_KEY.
     apiKeyEnc: text("api_key_enc"),
     keyLast4: text("key_last4"),
     baseUrl: text("base_url"),
@@ -201,10 +201,10 @@ export const templates = pgTable(
     docType: text("doc_type", { enum: ["brd", "prd", "tsd"] }).notNull(),
     name: text("name").notNull(),
     version: integer("version").notNull(),
-    // TemplateDefinition (packages/templates); immutable once published.
+    // A TemplateDefinition.
     definition: jsonb("definition").notNull(),
     isBuiltin: boolean("is_builtin").notNull().default(false),
-    // Null = draft (custom-templates); published versions never change.
+    // Null = draft; published versions never change.
     publishedAt: tz("published_at"),
     // Family-wide: set on every version of a (doc_type, name).
     archivedAt: tz("archived_at"),
@@ -260,7 +260,7 @@ export const documentSections = pgTable(
     // TipTap JSON (source of truth); content_md is derived from it.
     content: jsonb("content").notNull(),
     contentMd: text("content_md").notNull().default(""),
-    // Full-text index for retrieval (impact-retrieval) and search; `simple`: no language stemming.
+    // Full-text index for retrieval and search; `simple`: no language stemming.
     search: tsvector("search").generatedAlwaysAs(sql`to_tsvector('simple', content_md)`),
     completeness: text("completeness", { enum: ["empty", "partial", "complete"] })
       .notNull()
@@ -281,7 +281,7 @@ export const documentSections = pgTable(
   ],
 );
 
-/** Append-only (hard rule #7); a trigger rejects UPDATE and DELETE. */
+/** Append-only: a trigger rejects UPDATE and DELETE. */
 export const sectionVersions = pgTable(
   "section_versions",
   {
@@ -332,7 +332,7 @@ export const chatMessages = pgTable(
     model: text("model"),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
-    // Other documents the reply drew on (impact-retrieval).
+    // Other documents the reply drew on.
     references: jsonb("references").notNull().default([]),
     createdAt: createdAt(),
   },
@@ -347,12 +347,12 @@ export const interviewStates = pgTable("interview_states", {
   documentId: uuid("document_id")
     .primaryKey()
     .references(() => documents.id, { onDelete: "cascade" }),
-  // InterviewState (packages/shared/assistant), normalized to every template section.
+  // InterviewState, normalized to every template section.
   state: jsonb("state").notNull(),
   updatedAt: updatedAt(),
 });
 
-/** OIDC providers (feature `sso`); configured at runtime by admins. */
+/** Configured at runtime by admins. */
 export const authProviders = pgTable(
   "auth_providers",
   {
@@ -396,7 +396,7 @@ export const userIdentities = pgTable(
 );
 
 /**
- * Index of the requirement tables in section content, rewritten on every section save (ADR 0003).
+ * Index of the requirement tables in section content, rewritten on every section save.
  * Upstream codes resolve against the source document's requirements when read.
  */
 export const requirements = pgTable(
@@ -431,7 +431,7 @@ export const requirements = pgTable(
   ],
 );
 
-/** Cache of authoritative Mermaid renders, keyed by `diagramHash` (packages/export). */
+/** Cache of authoritative Mermaid renders, keyed by `diagramHash`. */
 export const diagramRenders = pgTable(
   "diagram_renders",
   {
@@ -480,7 +480,7 @@ export const documentExports = pgTable(
   ],
 );
 
-/** Append-only (hard rule #8); a trigger rejects UPDATE and DELETE. */
+/** Append-only: a trigger rejects UPDATE and DELETE. */
 export const auditLogs = pgTable(
   "audit_logs",
   {
@@ -502,7 +502,7 @@ export const auditLogs = pgTable(
   ],
 );
 
-/** Review comments (feature `review`): root comments on a section, one level of replies. */
+/** Root comments on a section, with one level of replies. */
 export const comments = pgTable(
   "comments",
   {

@@ -38,7 +38,7 @@ import { llmStatusQuery, timeAgo } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
 import { commentsQuery } from "@/lib/review";
 import { traceQuery } from "@/lib/trace";
-import { useAssistant } from "@/lib/use-assistant";
+import { type Assistant, useAssistant } from "@/lib/use-assistant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/d/$documentId")({
@@ -77,7 +77,7 @@ function DocumentRoute() {
   return <DocumentWorkspace key={documentId} detail={detail.data} userId={me.user.id} />;
 }
 
-/** Below 1024 px one pane shows at a time (DESIGN §10). */
+/** Below 1024 px one pane shows at a time. */
 const panes = ["document", "assistant", "outline"] as const;
 type Pane = (typeof panes)[number];
 
@@ -87,7 +87,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const queryClient = useQueryClient();
   const { me } = Route.useRouteContext();
   const { document: doc } = detail;
-  // Approved documents are frozen until reopened (feature `review`).
+  // Approved documents are frozen until reopened.
   const approved = doc.status === "approved";
   const editable = detail.level === "edit" && !approved;
   const states = useRef(new Map<string, SaveState>());
@@ -214,18 +214,19 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     return chat.data?.state?.sections.find((s) => s.key === key)?.coverage ?? "missing";
   }
 
+  const emptyKeys = detail.sections.filter((s) => s.completeness === "empty").map((s) => s.key);
+
   function draftAll() {
-    const targets = detail.sections.filter((s) => s.completeness === "empty").map((s) => s.key);
     const missing = detail.sections.filter(
-      (s) => s.required && targets.includes(s.key) && coverageOf(s.key) === "missing",
+      (s) => s.required && emptyKeys.includes(s.key) && coverageOf(s.key) === "missing",
     );
     if (missing.length > 0) {
       setConfirm({
-        targets,
+        targets: emptyKeys,
         message: `${missing.length} required section${missing.length === 1 ? "" : "s"} lack information and will stay empty.`,
       });
     } else {
-      assistant.draftSections({ targets });
+      assistant.draftSections({ targets: emptyKeys });
     }
   }
 
@@ -316,70 +317,22 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     }
   }
 
-  const emptyCount = detail.sections.filter((s) => s.completeness === "empty").length;
-  const draft = assistant.draft;
-  const headerActions = running ? (
-    <span className="flex items-center gap-2 text-[13px]">
-      {draft && (
-        <span className="text-muted-foreground">
-          Drafting {Math.min(draft.finished.length + 1, draft.targets.length)} of{" "}
-          {draft.targets.length} section{draft.targets.length === 1 ? "" : "s"}…
-        </span>
-      )}
-      <Button size="sm" variant="outline" onClick={assistant.stop}>
-        ■ Stop
-      </Button>
-    </span>
-  ) : editable ? (
-    <span className="flex items-center gap-2">
-      {canDraftFromSource && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!llmConfigured || emptyCount === 0 || assistant.coverageUpdating}
-          title={
-            !llmConfigured
-              ? "Add an LLM provider to start drafting"
-              : assistant.coverageUpdating
-                ? "Updating coverage…"
-                : "Assess the source document, then draft every empty section"
-          }
-          onClick={() =>
-            assistant.draftSections({
-              fromSource: true,
-              targets: detail.sections.filter((s) => s.completeness === "empty").map((s) => s.key),
-            })
-          }
-        >
-          Draft from source
-        </Button>
-      )}
-      <Button
-        size="sm"
-        onClick={draftAll}
-        disabled={!llmConfigured || emptyCount === 0 || assistant.coverageUpdating}
-        title={
-          !llmConfigured
-            ? "Add an LLM provider to start drafting"
-            : assistant.coverageUpdating
-              ? "Updating coverage…"
-              : emptyCount === 0
-                ? "Every section has content; redraft sections one at a time"
-                : undefined
-        }
-      >
-        Draft all
-      </Button>
-    </span>
-  ) : null;
-
   return (
     <div className="flex h-full flex-col">
       <DocumentHeader
         detail={detail}
         userId={userId}
         save={save}
-        actions={headerActions}
+        actions={
+          <DraftActions
+            assistant={assistant}
+            editable={editable}
+            llmConfigured={llmConfigured}
+            canDraftFromSource={canDraftFromSource}
+            emptyKeys={emptyKeys}
+            onDraftAll={draftAll}
+          />
+        }
         onExport={() => setExporting(true)}
         onShowComments={(key) => {
           setCommentsSection(key);
@@ -506,7 +459,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         open={exporting}
         onOpenChange={setExporting}
         documentId={doc.id}
-        emptyCount={emptyCount}
+        emptyCount={emptyKeys.length}
         hasRequirements={hasRequirements}
         onQueued={setExportJob}
       />
@@ -554,5 +507,74 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function DraftActions({
+  assistant,
+  editable,
+  llmConfigured,
+  canDraftFromSource,
+  emptyKeys,
+  onDraftAll,
+}: {
+  assistant: Assistant;
+  editable: boolean;
+  llmConfigured: boolean;
+  canDraftFromSource: boolean;
+  emptyKeys: string[];
+  onDraftAll: () => void;
+}) {
+  const { draft } = assistant;
+  if (assistant.running !== null) {
+    return (
+      <span className="flex items-center gap-2 text-[13px]">
+        {draft && (
+          <span className="text-muted-foreground">
+            Drafting {Math.min(draft.finished.length + 1, draft.targets.length)} of{" "}
+            {draft.targets.length} section{draft.targets.length === 1 ? "" : "s"}…
+          </span>
+        )}
+        <Button size="sm" variant="outline" onClick={assistant.stop}>
+          ■ Stop
+        </Button>
+      </span>
+    );
+  }
+  if (!editable) return null;
+
+  const blocked = !llmConfigured
+    ? "Add an LLM provider to start drafting"
+    : assistant.coverageUpdating
+      ? "Updating coverage…"
+      : null;
+  const disabled = blocked !== null || emptyKeys.length === 0;
+  return (
+    <span className="flex items-center gap-2">
+      {canDraftFromSource && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          title={blocked ?? "Assess the source document, then draft every empty section"}
+          onClick={() => assistant.draftSections({ fromSource: true, targets: emptyKeys })}
+        >
+          Draft from source
+        </Button>
+      )}
+      <Button
+        size="sm"
+        onClick={onDraftAll}
+        disabled={disabled}
+        title={
+          blocked ??
+          (emptyKeys.length === 0
+            ? "Every section has content; redraft sections one at a time"
+            : undefined)
+        }
+      >
+        Draft all
+      </Button>
+    </span>
   );
 }

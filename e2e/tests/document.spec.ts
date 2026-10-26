@@ -19,7 +19,6 @@ test("create a PRD, edit sections with a diagram, resolve a conflict", async ({ 
   await expect(saveStatus(page)).toHaveText(/Saved/);
   await expect(outline(page)).toContainText("1 of 12 complete");
 
-  // Diagram in User Flow.
   await page.getByRole("textbox", { name: "User Flow", exact: true }).click();
   await page.keyboard.type("/diagram");
   await page.keyboard.press("Enter");

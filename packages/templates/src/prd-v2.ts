@@ -15,7 +15,7 @@ const guidance: Record<string, string> = {
   ),
 };
 
-/** v1 with requirement sections in the indexed table format (traceability). */
+/** v1 with requirement sections in the indexed table format. */
 export const prdV2: TemplateDefinition = {
   ...prdV1,
   version: 2,

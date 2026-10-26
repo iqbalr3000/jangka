@@ -29,13 +29,11 @@ test("blocks: slash insert, line after a table, bubble formatting, gutter delete
   await page.keyboard.type("After the table");
   await expect(overview.locator(":scope > p").last()).toHaveText("After the table");
 
-  // Bubble menu on a selection.
   await overview.getByText("First line").click({ clickCount: 3 });
   const formatting = page.getByRole("toolbar", { name: "Formatting" });
   await formatting.getByRole("button", { name: "Bold" }).click();
   await expect(overview.locator("strong")).toHaveText("First line");
 
-  // Gutter: delete the paragraph after the table.
   await overview.getByText("After the table").hover();
   await page.getByRole("button", { name: "Block actions" }).click();
   await page.getByRole("menuitem", { name: "Delete" }).click();

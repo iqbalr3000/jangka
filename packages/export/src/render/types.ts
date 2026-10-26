@@ -16,7 +16,7 @@ export type ExportInput = {
   /** By `diagramHash(source)`; a missing entry prints like a failed render. */
   diagrams: Map<string, DiagramResult>;
   includeCover: boolean;
-  /** Requirements appendix (FR-041); null or empty = none. */
+  /** Requirements appendix; null or empty = none. */
   appendix: AppendixRow[] | null;
 };
 

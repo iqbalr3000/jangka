@@ -89,7 +89,7 @@ function block(node: BlockNode): string {
   }
 }
 
-/** Markdown of a section (LLM context, and later export); a blank section is "". */
+/** A blank section is "". */
 export function toMarkdown(doc: DocNode): string {
   return (doc.content ?? [])
     .map(block)

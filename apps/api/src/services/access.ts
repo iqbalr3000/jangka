@@ -96,7 +96,6 @@ export function isHidden(data: AccessData, id: string): boolean {
   return false;
 }
 
-/** Collection ids of `rootId` and everything below it. */
 export function subtreeIds(data: AccessData, rootId: string): string[] {
   const children = new Map<string, string[]>();
   for (const row of data.rows.values()) {

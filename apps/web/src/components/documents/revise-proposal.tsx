@@ -14,7 +14,7 @@ type ReviseProposalProps = {
   onAccept: () => void;
 };
 
-/** Inline diff of a proposed revision (DESIGN §6.5): the document stays visible around it. */
+/** Inline diff of a proposed revision: the document stays visible around it. */
 export function ReviseProposal({
   current,
   proposal,

@@ -51,13 +51,13 @@ function withoutKeys(record: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
-/** Writes the audit row for this request (hard rule #8). Never put secrets in `metadata`. */
+/** Writes the audit row for this request. Never put secrets in `metadata`. */
 export async function audit(c: Context<AppEnv>, entry: AuditEntry): Promise<void> {
   const state = c.get("audit");
   let metadata = entry.metadata ?? {};
   const secrets = secretPaths(metadata);
   if (secrets.length > 0) {
-    // Hard rule #3: a bug in the caller, so loud in tests; in production the keys are dropped.
+    // A bug in the caller: loud in tests; in production the keys are dropped.
     if (state.strict) throw new Error(`audit metadata contains secret keys: ${secrets.join(", ")}`);
     state.logger.warn({ action: entry.action, keys: secrets }, "secret keys dropped from audit");
     metadata = withoutKeys(metadata);

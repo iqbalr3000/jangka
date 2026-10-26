@@ -110,84 +110,17 @@ function LlmProvidersPage() {
         )}
         {items.length > 0 && (
           <div className="rounded-md border border-border bg-card">
-            {items.map((provider) => {
-              const status = providerStatus(provider);
-              return (
-                <div
-                  key={provider.id}
-                  className={cn(
-                    "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
-                    !provider.enabled && "text-muted-foreground",
-                  )}
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-secondary font-semibold">
-                    {kindLabels[provider.kind][0]}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="flex items-center gap-2 font-medium">
-                      {kindLabels[provider.kind]}
-                      {provider.isDefault && (
-                        <span className="rounded-sm border border-primary px-1.5 font-mono text-[11px] text-primary">
-                          Default
-                        </span>
-                      )}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {provider.label}
-                      {provider.keyLast4 && ` · ••••${provider.keyLast4}`}
-                      {provider.baseUrl && ` · ${provider.baseUrl}`}
-                    </span>
-                  </span>
-                  <span className="flex w-44 flex-col text-xs">
-                    <span className="flex items-center gap-1.5 text-sm">
-                      <span
-                        className={cn("size-2 rounded-full", toneClass[status.tone])}
-                        aria-hidden
-                      />
-                      {status.label}
-                    </span>
-                    {provider.lastTestedAt && (
-                      <span className="text-muted-foreground">
-                        Tested {timeAgo(provider.lastTestedAt)}
-                      </span>
-                    )}
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
-                      aria-label={`Actions for ${provider.label}`}
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="text-[13px]">
-                      <DropdownMenuItem
-                        disabled={retest.isPending}
-                        onSelect={() => retest.mutate(provider.id)}
-                      >
-                        Test again
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setEditing(provider)}>
-                        Edit…
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          setEnabled.mutate({ id: provider.id, enabled: !provider.enabled })
-                        }
-                      >
-                        {provider.enabled ? "Disable" : "Enable"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() => setDeleting(provider)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })}
+            {items.map((provider) => (
+              <ProviderRow
+                key={provider.id}
+                provider={provider}
+                testing={retest.isPending}
+                onTest={() => retest.mutate(provider.id)}
+                onEdit={() => setEditing(provider)}
+                onToggle={() => setEnabled.mutate({ id: provider.id, enabled: !provider.enabled })}
+                onDelete={() => setDeleting(provider)}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -239,6 +172,81 @@ function LlmProvidersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ProviderRow({
+  provider,
+  testing,
+  onTest,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  provider: LLMProviderView;
+  testing: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const status = providerStatus(provider);
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
+        !provider.enabled && "text-muted-foreground",
+      )}
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-secondary font-semibold">
+        {kindLabels[provider.kind][0]}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-2 font-medium">
+          {kindLabels[provider.kind]}
+          {provider.isDefault && (
+            <span className="rounded-sm border border-primary px-1.5 font-mono text-[11px] text-primary">
+              Default
+            </span>
+          )}
+        </span>
+        <span className="truncate text-xs text-muted-foreground">
+          {provider.label}
+          {provider.keyLast4 && ` · ••••${provider.keyLast4}`}
+          {provider.baseUrl && ` · ${provider.baseUrl}`}
+        </span>
+      </span>
+      <span className="flex w-44 flex-col text-xs">
+        <span className="flex items-center gap-1.5 text-sm">
+          <span className={cn("size-2 rounded-full", toneClass[status.tone])} aria-hidden />
+          {status.label}
+        </span>
+        {provider.lastTestedAt && (
+          <span className="text-muted-foreground">Tested {timeAgo(provider.lastTestedAt)}</span>
+        )}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
+          aria-label={`Actions for ${provider.label}`}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-[13px]">
+          <DropdownMenuItem disabled={testing} onSelect={onTest}>
+            Test again
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>Edit…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggle}>
+            {provider.enabled ? "Disable" : "Enable"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

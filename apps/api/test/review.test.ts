@@ -1,4 +1,3 @@
-import { groups } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { createProvider } from "@jangka/llm";
 import { collectionSummary } from "@jangka/shared/access";
@@ -9,13 +8,13 @@ import {
   sectionVersionList,
 } from "@jangka/shared/document";
 import { commentList } from "@jangka/shared/review";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   buildApp,
   call,
   createUser,
+  grantAllUsers,
   login,
   setupInstance,
   type TestApp,
@@ -37,14 +36,6 @@ let admin: string;
 let rina: string;
 let docId: string;
 let collectionId: string;
-
-async function grantAllUsers(level: "view" | "edit" | "none") {
-  const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
-  await call(app, "PUT", "/admin/permissions", {
-    cookie: admin,
-    body: { changes: [{ collectionId, groupId: allUsers?.id, level }] },
-  });
-}
 
 beforeEach(async () => {
   await truncateAll(pool);
@@ -68,7 +59,7 @@ beforeEach(async () => {
   ).id;
   await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
   rina = await login(app, "rina@acme.co", "rina-password-123");
-  await grantAllUsers("view");
+  await grantAllUsers(app, db, admin, collectionId, "view");
 });
 
 async function comment(body: unknown, cookie = admin) {
@@ -112,7 +103,7 @@ describe("comments", () => {
 
   it("hides documents from people who can't view them", async () => {
     const root = await commentId({ sectionKey: "overview", body: "Hidden?" });
-    await grantAllUsers("none");
+    await grantAllUsers(app, db, admin, collectionId, "none");
     expect((await comment({ sectionKey: "overview", body: "x" }, rina)).status).toBe(404);
     expect((await call(app, "GET", `/documents/${docId}/comments`, { cookie: rina })).status).toBe(
       404,

@@ -23,7 +23,7 @@ export const NO_INVENTION =
 
 /**
  * The table convention every requirement section follows; requirements are indexed from it on
- * save (ADR 0003), so the column names matter.
+ * save, so the column names matter.
  */
 export function requirementTableGuidance(
   kind: RequirementKind,

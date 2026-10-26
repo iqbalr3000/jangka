@@ -45,7 +45,6 @@ type DocumentHeaderProps = {
   actions?: ReactNode;
   /** Opens the export dialog; viewers can export too. */
   onExport: () => void;
-  /** Opens the Comments tab on a section. */
   onShowComments: (sectionKey: string) => void;
 };
 

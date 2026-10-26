@@ -6,7 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { MermaidBlockView } from "@/components/documents/mermaid-block-view";
 import { SlashCommand } from "./slash-command";
 
-/** Mermaid diagram as an atom node holding its source (SPEC §8). */
+/** Mermaid diagram as an atom node holding its source. */
 export const MermaidBlock = Node.create({
   name: "mermaidBlock",
   group: "block",
@@ -56,7 +56,7 @@ export function sectionExtensions(placeholder: EmptyPlaceholder | null) {
     ...(placeholder
       ? [
           Placeholder.configure({
-            // Read-only sections (viewers, approved documents) show it too (DESIGN §6.3).
+            // Read-only sections (viewers, approved documents) show it too.
             showOnlyWhenEditable: false,
             placeholder: ({ editor, node }) => {
               if (editor.isEmpty)

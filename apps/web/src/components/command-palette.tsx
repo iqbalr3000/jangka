@@ -29,7 +29,7 @@ type Item = {
 
 const GROUP_ORDER: Item["group"][] = ["Documents", "Collections", "Go to", "Actions"];
 
-/** ⌘K (DESIGN §3): documents from the server, plus collections, admin pages and actions. */
+/** ⌘K: documents from the server, plus collections, admin pages and actions. */
 export function CommandPalette({
   open,
   onOpenChange,

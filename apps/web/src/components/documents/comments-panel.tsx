@@ -161,7 +161,7 @@ function Comment({
   );
 }
 
-/** Review threads per section: readers comment, editors reply and resolve (feature `review`). */
+/** Review threads per section: readers comment, editors reply and resolve. */
 export function CommentsPanel({
   documentId,
   sections,

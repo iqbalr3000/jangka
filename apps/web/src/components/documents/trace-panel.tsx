@@ -144,7 +144,7 @@ function Requirement({
   );
 }
 
-/** Document chain plus each requirement's upstream and downstream links (DESIGN §6.6). */
+/** Document chain plus each requirement's upstream and downstream links. */
 export function TracePanel({
   documentId,
   title,

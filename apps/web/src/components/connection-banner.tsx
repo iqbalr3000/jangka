@@ -1,7 +1,7 @@
 import { WifiOff } from "lucide-react";
 import { useConnection } from "@/lib/connection";
 
-/** DESIGN §8: offline / server down. Unsaved section edits stay in the tab and save on reconnect. */
+/** Offline / server down. Unsaved section edits stay in the tab and save on reconnect. */
 export function ConnectionBanner() {
   const connection = useConnection();
   if (connection === "online") return null;

@@ -120,7 +120,7 @@ export function can(ctx: PermissionContext, check: Check): boolean {
     case "view":
     case "edit":
       return atLeast(ctx, check.collectionId, check.action);
-    // Reviewers often have view access only (SPEC §4).
+    // Reviewers often have view access only.
     case "comment":
       return atLeast(ctx, check.collectionId, "view");
     case "move_document":

@@ -35,7 +35,7 @@ function row(cells: string[], header = false): TableRowNode {
   };
 }
 
-/** SPEC §11 baseline: 3 diagrams and a 30-row table (plus its header row). */
+/** Baseline load: 3 diagrams and a 30-row table (plus its header row). */
 export const baselineSections: Record<string, DocNode> = {
   overview: {
     type: "doc",

@@ -3,7 +3,7 @@ import { completenessSummary, sectionAnchor } from "@/lib/documents";
 import { cn } from "@/lib/utils";
 import { SectionStatusIcon } from "./section-status-icon";
 
-// 1024–1279 px: status icons only, titles as tooltips (DESIGN §10).
+// 1024–1279 px: status icons only, titles as tooltips.
 const wide = "lg:hidden xl:inline";
 
 /**

@@ -50,7 +50,7 @@ function blockingSections(error: unknown): string[] | null {
   return parsed.success ? parsed.data.sections : [];
 }
 
-/** `Draft ▾` (DESIGN §6.3): editors move the document through review; others see a badge. */
+/** Editors move the document through review; others see a badge. */
 export function StatusMenu({ document, editable, sections, onShowComments }: StatusMenuProps) {
   const queryClient = useQueryClient();
   const change = useMutation({

@@ -11,7 +11,7 @@ export function TopBar({ user }: { user?: ShellUser }) {
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // ⌘K / Ctrl K opens the command palette anywhere in the app; N starts a new document (DESIGN §9).
+  // ⌘K / Ctrl K opens the command palette anywhere in the app; N starts a new document.
   useEffect(() => {
     if (!user) return;
     function onKeyDown(event: KeyboardEvent) {

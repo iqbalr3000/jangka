@@ -38,7 +38,7 @@ export function domainAllowed(provider: SsoProvider, email: string | null, hd?: 
 }
 
 /**
- * SPEC §5 account linking: (1) known (provider, subject); (2) an existing user with the same
+ * Account linking: (1) known (provider, subject); (2) an existing user with the same
  * email, only when the IdP says it's verified; (3) auto-provision; else deny. Inactive users are
  * denied on every path.
  */

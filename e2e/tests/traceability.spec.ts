@@ -27,7 +27,6 @@ async function openTrace(page: Page) {
 test("BRD → PRD → TSD chain with linked requirements; restricted BRD for a member", async ({
   browser,
 }) => {
-  // Three documents drafted end to end.
   test.setTimeout(60_000);
   const admin = await signIn(browser, ADMIN);
 
@@ -63,7 +62,6 @@ test("BRD → PRD → TSD chain with linked requirements; restricted BRD for a m
   await expect(fr.getByRole("link", { name: "BR-001" })).toBeVisible();
   const prdUrl = admin.url();
 
-  // TSD from the PRD.
   await newDocument(admin, {
     type: "TSD",
     title: "Refund TSD",

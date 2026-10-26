@@ -41,7 +41,6 @@ export function exportFileName(title: string, format: "pdf" | "docx"): string {
   return `${slug || "document"}.${format}`;
 }
 
-/** The document as it is now (the snapshot is taken when the job runs). */
 /** Requirements grouped by kind (BR, FR, NFR, TR), each group in code order. */
 async function loadAppendix(db: Database, documentId: string): Promise<AppendixRow[]> {
   const rows = await db
@@ -59,6 +58,7 @@ async function loadAppendix(db: Database, documentId: string): Promise<AppendixR
     }));
 }
 
+/** The document as it is now (the snapshot is taken when the job runs). */
 async function loadInput(
   db: Database,
   renderer: Renderer,

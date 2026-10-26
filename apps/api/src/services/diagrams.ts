@@ -15,7 +15,7 @@ export interface DiagramChecker {
 
 const POLL_MS = 250;
 const WAIT_MS = 20_000;
-/** SPEC §6.2: fix attempts per diagram before keeping the source with its error badge. */
+/** Fix attempts per diagram before keeping the source with its error badge. */
 export const MAX_DIAGRAM_FIXES = 2;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {

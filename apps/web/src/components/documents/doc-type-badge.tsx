@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Mono outlined `BRD` / `PRD` / `TSD`; not color-coded by type (DESIGN §6.2). */
+/** Deliberately not color-coded by type. */
 export function DocTypeBadge({ docType, className }: { docType: string; className?: string }) {
   return (
     <span

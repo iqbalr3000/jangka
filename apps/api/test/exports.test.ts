@@ -1,4 +1,4 @@
-import { documentExports, groups } from "@jangka/db";
+import { documentExports } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { collectionSummary } from "@jangka/shared/access";
 import { documentSummary } from "@jangka/shared/document";
@@ -9,6 +9,7 @@ import {
   buildApp,
   call,
   createUser,
+  grantAllUsers,
   login,
   type RecordingQueue,
   setupInstance,
@@ -27,15 +28,6 @@ let admin: string;
 let rina: string;
 let collectionId: string;
 let docId: string;
-
-async function grantAllUsers(level: "view" | "none") {
-  const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
-  const res = await call(app, "PUT", "/admin/permissions", {
-    cookie: admin,
-    body: { changes: [{ collectionId, groupId: allUsers?.id, level }] },
-  });
-  expect(res.status).toBe(200);
-}
 
 beforeEach(async () => {
   await truncateAll(pool);
@@ -70,7 +62,7 @@ async function finish(id: string, overrides: Partial<typeof documentExports.$inf
 
 describe("create", () => {
   it("queues an export for a viewer and returns it", async () => {
-    await grantAllUsers("view");
+    await grantAllUsers(app, db, admin, collectionId, "view");
     const res = await requestExport(rina, { format: "docx", includeCover: false });
     expect(res.status).toBe(202);
     const job = exportJob.parse(await res.json());
@@ -100,7 +92,7 @@ describe("create", () => {
 
 describe("status and download", () => {
   it("are only for the requester", async () => {
-    await grantAllUsers("view");
+    await grantAllUsers(app, db, admin, collectionId, "view");
     const job = exportJob.parse(await (await requestExport(admin)).json());
     expect((await call(app, "GET", `/exports/${job.id}`, { cookie: rina })).status).toBe(404);
     await finish(job.id);
@@ -138,13 +130,13 @@ describe("status and download", () => {
   });
 
   it("stops once the requester loses view access", async () => {
-    await grantAllUsers("view");
+    await grantAllUsers(app, db, admin, collectionId, "view");
     const job = exportJob.parse(await (await requestExport(rina)).json());
     await finish(job.id);
     expect((await call(app, "GET", `/exports/${job.id}/download`, { cookie: rina })).status).toBe(
       200,
     );
-    await grantAllUsers("none");
+    await grantAllUsers(app, db, admin, collectionId, "none");
     expect((await call(app, "GET", `/exports/${job.id}/download`, { cookie: rina })).status).toBe(
       404,
     );

@@ -18,12 +18,10 @@ test("interview, draft everything, revise one section via chat, stop a reply", a
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByLabel("Document title")).toHaveValue("Refund self-service");
 
-  // Interview: the fake reply streams in and coverage fills.
   await send(page, "Customers wait 7 days for refunds.");
   await expect(panel(page)).toContainText("This is a fake reply");
   await expect(panel(page)).toContainText("COVERAGE 12/12");
 
-  // Draft all.
   await page.getByRole("button", { name: "Draft all" }).click();
   await expect(page.getByRole("navigation", { name: "Outline" })).toContainText(
     "12 of 12 complete",
@@ -35,7 +33,6 @@ test("interview, draft everything, revise one section via chat, stop a reply", a
   );
   await expect(panel(page)).toContainText("Drafted Overview");
 
-  // Revise via @mention, accept, undo.
   await composer(page).fill("@Non");
   await page.getByRole("option", { name: "Non-Functional Requirements" }).click();
   await composer(page).pressSequentially("Make every NFR measurable");
@@ -49,7 +46,6 @@ test("interview, draft everything, revise one section via chat, stop a reply", a
   await expect(acceptedNote).toHaveCount(0);
   await expect(panel(page)).toContainText("Proposed changes to Non-Functional Requirements");
 
-  // Stop mid-stream.
   await send(page, "[slow] Tell me more");
   await expect(panel(page)).toContainText("and more");
   await panel(page).getByRole("button", { name: "■ Stop" }).click();

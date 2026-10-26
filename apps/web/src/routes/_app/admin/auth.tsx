@@ -110,67 +110,15 @@ function AuthenticationPage() {
         {items.length > 0 && (
           <div className="rounded-md border border-border bg-card">
             {items.map((provider) => (
-              <div
+              <SsoProviderRow
                 key={provider.id}
-                className={cn(
-                  "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
-                  !provider.enabled && "text-muted-foreground",
-                )}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-secondary font-semibold">
-                  {provider.name[0]?.toUpperCase()}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="flex items-center gap-2 font-medium">
-                    {provider.name}
-                    {!provider.enabled && (
-                      <span className="rounded-sm border border-border px-1.5 text-[11px]">
-                        Disabled
-                      </span>
-                    )}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {provider.kind === "google" ? "Google" : provider.issuer} · ••••
-                    {provider.secretLast4}
-                    {" · "}
-                    {provider.allowedDomains.length
-                      ? provider.allowedDomains.join(", ")
-                      : "any domain"}
-                    {provider.autoProvision && " · creates accounts"}
-                  </span>
-                </span>
-                <span className="w-28 text-xs text-muted-foreground">
-                  {provider.linkedUsers} linked user{provider.linkedUsers === 1 ? "" : "s"}
-                </span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
-                    aria-label={`Actions for ${provider.name}`}
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="text-[13px]">
-                    <DropdownMenuItem
-                      disabled={test.isPending}
-                      onSelect={() => test.mutate(provider.id)}
-                    >
-                      Test discovery
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDialog(provider)}>Edit…</DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        setEnabled.mutate({ id: provider.id, enabled: !provider.enabled })
-                      }
-                    >
-                      {provider.enabled ? "Disable" : "Enable"}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(provider)}>
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                provider={provider}
+                testing={test.isPending}
+                onTest={() => test.mutate(provider.id)}
+                onEdit={() => setDialog(provider)}
+                onToggle={() => setEnabled.mutate({ id: provider.id, enabled: !provider.enabled })}
+                onDelete={() => setDeleting(provider)}
+              />
             ))}
           </div>
         )}
@@ -213,6 +161,75 @@ function AuthenticationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function SsoProviderRow({
+  provider,
+  testing,
+  onTest,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  provider: AuthProviderView;
+  testing: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const domains = provider.allowedDomains.length
+    ? provider.allowedDomains.join(", ")
+    : "any domain";
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
+        !provider.enabled && "text-muted-foreground",
+      )}
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-secondary font-semibold">
+        {provider.name[0]?.toUpperCase()}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-2 font-medium">
+          {provider.name}
+          {!provider.enabled && (
+            <span className="rounded-sm border border-border px-1.5 text-[11px]">Disabled</span>
+          )}
+        </span>
+        <span className="truncate text-xs text-muted-foreground">
+          {provider.kind === "google" ? "Google" : provider.issuer} · ••••{provider.secretLast4} ·{" "}
+          {domains}
+          {provider.autoProvision && " · creates accounts"}
+        </span>
+      </span>
+      <span className="w-28 text-xs text-muted-foreground">
+        {provider.linkedUsers} linked user{provider.linkedUsers === 1 ? "" : "s"}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
+          aria-label={`Actions for ${provider.name}`}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-[13px]">
+          <DropdownMenuItem disabled={testing} onSelect={onTest}>
+            Test discovery
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>Edit…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggle}>
+            {provider.enabled ? "Disable" : "Enable"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

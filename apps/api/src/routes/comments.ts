@@ -33,7 +33,7 @@ export function commentRoutes({ db }: RouteDeps) {
     return { auth, data };
   }
 
-  /** Viewable document the viewer may comment on (comment = view, SPEC §4); 404 otherwise. */
+  /** Viewable document the viewer may comment on (view access is enough); 404 otherwise. */
   async function commentableDocument(data: AccessData, id: string): Promise<DocumentRow> {
     const row = await viewableDocument(db, data, id);
     if (!can(data.ctx, { action: "comment", collectionId: row.collectionId })) {

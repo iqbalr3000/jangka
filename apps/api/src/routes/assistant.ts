@@ -121,7 +121,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
 
   /**
    * Runs a generation as SSE: the document lock is held for its duration, and a client
-   * disconnect aborts the provider request (hard rule #9).
+   * disconnect aborts the provider request.
    */
   function generate(
     c: Context<AppEnv>,
@@ -225,7 +225,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
         const transcript = transcriptOf(await threadMessages(db, doc.id));
         const common = { provider: resolved.provider, model: resolved.model };
 
-        // Other documents only from what this user can view (FR-075); the source is already in context.
+        // Other documents only from what this user can view; the source is already in context.
         const related = await retrieveSections(db, data, {
           query: message,
           excludeDocumentIds: [doc.id, ...(doc.sourceDocumentId ? [doc.sourceDocumentId] : [])],

@@ -19,7 +19,7 @@ const label: Record<CoverageLevel, string> = {
 type CoverageChecklistProps = {
   state: InterviewState | null;
   sections: Section[];
-  /** Collapsed to one line once drafting has started (DESIGN §6.3). */
+  /** Collapsed to one line once drafting has started. */
   defaultOpen: boolean;
   /** The last reply's coverage is still being assessed. */
   updating: boolean;

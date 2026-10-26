@@ -97,7 +97,7 @@ export const paginationQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
-// SSO (feature `sso`)
+// SSO
 
 export const authProviderKind = z.enum(["google", "oidc"]);
 export type AuthProviderKind = z.infer<typeof authProviderKind>;

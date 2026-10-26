@@ -12,7 +12,6 @@
   }
 }
 
-/* Design tokens — docs/DESIGN.md §3. */
 :root {
   --bg: #fafaf9;
   --surface: #ffffff;
@@ -176,7 +175,6 @@
     8px 8px;
 }
 
-/* Section body in the document editor — DESIGN §3: 16px / 1.7, headings 600, mono for code. */
 @layer components {
   .section-prose {
     font-size: 16px;
@@ -286,7 +284,7 @@
     & .selectedCell {
       background: color-mix(in srgb, var(--primary) 12%, transparent);
     }
-    /* Empty section (DESIGN §6.3): dashed placeholder box. */
+    /* Empty section: dashed placeholder box. */
     &:has(> p.is-editor-empty:only-child) {
       border: 1px dashed var(--border-strong);
       border-radius: var(--radius-sm);

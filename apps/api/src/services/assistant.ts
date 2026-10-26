@@ -167,7 +167,7 @@ export async function sourceContext(
   };
 }
 
-/** LLM context for `row`; the source is included only when `viewer` can view it (SPEC §4). */
+/** LLM context for `row`; the source is included only when `viewer` can view it. */
 export async function documentContext(
   db: Db,
   row: DocumentRow,

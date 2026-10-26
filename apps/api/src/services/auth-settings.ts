@@ -26,7 +26,7 @@ export async function passwordLoginAllowed(db: Db, config: AppConfig): Promise<b
 }
 
 /**
- * SPEC §5: password login can go off only while SSO works for an admin: an enabled provider
+ * Password login can go off only while SSO works for an admin: an enabled provider
  * through which some admin has signed in. Null when allowed.
  */
 export async function disablePasswordLoginBlocker(db: Db): Promise<string | null> {

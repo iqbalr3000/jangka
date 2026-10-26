@@ -12,5 +12,7 @@ export async function signIn(browser: Browser, account: { email: string; passwor
   await page.getByLabel("Password").fill(account.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/$/);
+  // Enabled once the shell has the user, which is also when its keyboard shortcuts are listening.
+  await expect(page.getByRole("button", { name: "+ New", exact: true })).toBeEnabled();
   return page;
 }

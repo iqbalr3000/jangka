@@ -35,6 +35,8 @@ export const Route = createFileRoute("/_app/admin/templates/")({
 
 const TYPES = ["brd", "prd", "tsd"] as const;
 
+type FamilyAction = "new-version" | "archive" | "restore" | "default";
+
 function latestPublishedId(family: TemplateFamily): string | undefined {
   return family.versions.find((v) => v.published)?.id;
 }
@@ -65,11 +67,7 @@ function TemplatesPage() {
   });
 
   const action = useMutation({
-    mutationFn: async (input: {
-      kind: "new-version" | "archive" | "restore" | "default";
-      family: TemplateFamily;
-      id: string;
-    }) => {
+    mutationFn: async (input: { kind: FamilyAction; family: TemplateFamily; id: string }) => {
       if (input.kind === "new-version") {
         return apiFetch(`/admin/templates/${input.id}/new-version`, {
           method: "POST",
@@ -130,108 +128,18 @@ function TemplatesPage() {
               {docTypeLabels[type]}
             </span>
             <ul className="rounded-md border border-border bg-card">
-              {ofType.map((family) => {
-                const published = latestPublishedId(family);
-                const latest = family.versions.find((v) => v.published);
-                const documentCount = family.versions.reduce((n, v) => n + v.documentCount, 0);
-                return (
-                  <li
-                    key={family.name}
-                    aria-label={family.name}
-                    className={cn(
-                      "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
-                      family.archived && "text-muted-foreground",
-                    )}
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex items-center gap-2 font-medium">
-                        {published ? (
-                          <Link
-                            to="/admin/templates/$templateId"
-                            params={{ templateId: published }}
-                            className="hover:underline"
-                          >
-                            {family.name}
-                          </Link>
-                        ) : (
-                          family.name
-                        )}
-                        {family.isBuiltin && <Badge>Built-in</Badge>}
-                        {family.isDefault && <Badge tone="primary">Default</Badge>}
-                        {family.archived && <Badge>Archived</Badge>}
-                        {family.draftId && <Badge tone="partial">Draft</Badge>}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {latest ? `v${latest.version}` : "Not published yet"} · {documentCount}{" "}
-                        document{documentCount === 1 ? "" : "s"}
-                      </span>
-                    </span>
-                    {family.draftId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => family.draftId && void openEditor(family.draftId)}
-                      >
-                        Edit draft
-                      </Button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
-                        aria-label={`Actions for ${family.name}`}
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="text-[13px]">
-                        <DropdownMenuItem
-                          disabled={!published}
-                          onSelect={() => {
-                            setName(`${family.name} (copy)`);
-                            setDuplicating(family);
-                          }}
-                        >
-                          Duplicate…
-                        </DropdownMenuItem>
-                        {!family.isBuiltin && (
-                          <DropdownMenuItem
-                            disabled={!published || family.draftId !== null}
-                            onSelect={() =>
-                              published &&
-                              action.mutate({ kind: "new-version", family, id: published })
-                            }
-                          >
-                            New version
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          disabled={!published || family.isDefault || family.archived}
-                          onSelect={() =>
-                            published && action.mutate({ kind: "default", family, id: published })
-                          }
-                        >
-                          Set as default
-                        </DropdownMenuItem>
-                        {!family.isBuiltin && published && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                action.mutate({
-                                  kind: family.archived ? "restore" : "archive",
-                                  family,
-                                  id: published,
-                                })
-                              }
-                            >
-                              {family.archived ? "Restore" : "Archive"}
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </li>
-                );
-              })}
+              {ofType.map((family) => (
+                <FamilyRow
+                  key={family.name}
+                  family={family}
+                  onEditDraft={(draftId) => void openEditor(draftId)}
+                  onDuplicate={() => {
+                    setName(`${family.name} (copy)`);
+                    setDuplicating(family);
+                  }}
+                  onAction={(kind, id) => action.mutate({ kind, family, id })}
+                />
+              ))}
             </ul>
           </section>
         );
@@ -267,6 +175,99 @@ function TemplatesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function FamilyRow({
+  family,
+  onEditDraft,
+  onDuplicate,
+  onAction,
+}: {
+  family: TemplateFamily;
+  onEditDraft: (draftId: string) => void;
+  onDuplicate: () => void;
+  onAction: (kind: FamilyAction, id: string) => void;
+}) {
+  const published = latestPublishedId(family);
+  const latest = family.versions.find((v) => v.id === published);
+  const documentCount = family.versions.reduce((n, v) => n + v.documentCount, 0);
+  const { draftId } = family;
+
+  return (
+    <li
+      aria-label={family.name}
+      className={cn(
+        "flex items-center gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0",
+        family.archived && "text-muted-foreground",
+      )}
+    >
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-2 font-medium">
+          {published ? (
+            <Link
+              to="/admin/templates/$templateId"
+              params={{ templateId: published }}
+              className="hover:underline"
+            >
+              {family.name}
+            </Link>
+          ) : (
+            family.name
+          )}
+          {family.isBuiltin && <Badge>Built-in</Badge>}
+          {family.isDefault && <Badge tone="primary">Default</Badge>}
+          {family.archived && <Badge>Archived</Badge>}
+          {draftId && <Badge tone="partial">Draft</Badge>}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {latest ? `v${latest.version}` : "Not published yet"} · {documentCount} document
+          {documentCount === 1 ? "" : "s"}
+        </span>
+      </span>
+      {draftId && (
+        <Button size="sm" variant="outline" onClick={() => onEditDraft(draftId)}>
+          Edit draft
+        </Button>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary"
+          aria-label={`Actions for ${family.name}`}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-[13px]">
+          <DropdownMenuItem disabled={!published} onSelect={onDuplicate}>
+            Duplicate…
+          </DropdownMenuItem>
+          {!family.isBuiltin && (
+            <DropdownMenuItem
+              disabled={!published || draftId !== null}
+              onSelect={() => published && onAction("new-version", published)}
+            >
+              New version
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            disabled={!published || family.isDefault || family.archived}
+            onSelect={() => published && onAction("default", published)}
+          >
+            Set as default
+          </DropdownMenuItem>
+          {!family.isBuiltin && published && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => onAction(family.archived ? "restore" : "archive", published)}
+              >
+                {family.archived ? "Restore" : "Archive"}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
   );
 }
 

@@ -7,7 +7,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 type Db = Database | Transaction;
 
 /**
- * Rewrites one section's slice of the requirements index from its content (ADR 0003). Rows whose
+ * Rewrites one section's slice of the requirements index from its content. Rows whose
  * values didn't change are left alone, so `updated_at` means "this requirement changed".
  */
 export async function indexRequirements(
@@ -39,7 +39,7 @@ export async function indexRequirements(
           upstreamCodes: sql`excluded.upstream_codes`,
           position: sql`excluded.position`,
           updatedAt: sql`now()`,
-          // Only a content change flags downstream requirements (impact-retrieval).
+          // Only a content change flags downstream requirements.
           contentChangedAt: sql`case when (${requirements.text}, ${requirements.priority})
             is distinct from (excluded.text, excluded.priority)
             then now() else ${requirements.contentChangedAt} end`,
@@ -74,7 +74,7 @@ export function reviewBaseline(row: {
   return reviewed && reviewed > row.contentChangedAt ? reviewed : row.contentChangedAt;
 }
 
-/** The upstream change that needs review, if it happened after the baseline (FR-054). */
+/** The upstream change that needs review, if it happened after the baseline. */
 export function changedSince(upstream: { contentChangedAt: Date }, baseline: Date): Date | null {
   return upstream.contentChangedAt > baseline ? upstream.contentChangedAt : null;
 }

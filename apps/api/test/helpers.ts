@@ -2,7 +2,9 @@ import { randomBytes } from "node:crypto";
 import { createDb, type Database, groupMembers, groups, users } from "@jangka/db";
 import { requireTestDatabaseUrl } from "@jangka/db/testing";
 import type { ProviderFactory } from "@jangka/llm";
+import { collectionSummary } from "@jangka/shared/access";
 import { hashPassword } from "@jangka/shared/crypto";
+import type { BlockNode, DocNode, TableRowNode } from "@jangka/shared/document";
 import type { JobQueue } from "@jangka/worker/jobs";
 import { eq } from "drizzle-orm";
 import pg from "pg";
@@ -74,7 +76,7 @@ export function buildApp(
       masterKey: TEST_MASTER_KEY,
       enableFakeLlm: options.enableFakeLlm ?? true,
       forcePasswordLogin: options.forcePasswordLogin ?? false,
-      // Every successful mutation in the suite must write an audit row (spec-history-audit).
+      // Every successful mutation in the suite must write an audit row.
       strictAudit: true,
     },
     setupState,
@@ -168,4 +170,47 @@ export async function login(app: TestApp, email: string, password: string): Prom
   const cookie = sessionCookie(res);
   if (res.status !== 200 || !cookie) throw new Error(`login failed: ${res.status}`);
   return cookie;
+}
+
+export async function createCollection(
+  app: TestApp,
+  cookie: string,
+  name: string,
+): Promise<string> {
+  const res = await call(app, "POST", "/collections", { cookie, body: { name, parentId: null } });
+  return collectionSummary.parse(await res.json()).id;
+}
+
+export async function grantAllUsers(
+  app: TestApp,
+  db: Database,
+  cookie: string,
+  collectionId: string,
+  level: "view" | "edit" | "none",
+): Promise<void> {
+  const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
+  const res = await call(app, "PUT", "/admin/permissions", {
+    cookie,
+    body: { changes: [{ collectionId, groupId: allUsers?.id, level }] },
+  });
+  if (res.status !== 200) throw new Error(`grant failed: ${res.status}`);
+}
+
+export const paragraph = (text: string): BlockNode =>
+  text ? { type: "paragraph", content: [{ type: "text", text }] } : { type: "paragraph" };
+
+/** A section holding one table; the first row is the header. */
+export function tableDoc(rows: string[][]): DocNode {
+  const row = (cells: string[], header: boolean): TableRowNode => ({
+    type: "tableRow",
+    content: cells.map((text) => ({
+      type: header ? "tableHeader" : "tableCell",
+      content: [paragraph(text)],
+    })),
+  });
+  const [head = [], ...body] = rows;
+  return {
+    type: "doc",
+    content: [{ type: "table", content: [row(head, true), ...body.map((r) => row(r, false))] }],
+  };
 }

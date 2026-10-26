@@ -40,7 +40,6 @@ type SectionBlockProps = {
   onEdit: () => void;
   onUndo: () => void;
   onAsk: () => void;
-  /** Opens the History tab on this section. */
   onHistory: () => void;
   /** Open review threads on this section. */
   openComments: number;

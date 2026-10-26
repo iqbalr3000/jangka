@@ -49,7 +49,7 @@ export const updateCommentRequest = z.object({ body });
 
 export const setStatusRequest = z.object({ status: documentStatus });
 
-/** Allowed status moves (SPEC §11 review): draft → in review → approved, and back to draft. */
+/** draft → in review → approved, and back to draft. */
 export const STATUS_TRANSITIONS = {
   draft: ["in_review"],
   in_review: ["approved", "draft"],

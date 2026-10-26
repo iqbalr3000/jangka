@@ -32,7 +32,7 @@ function maskKey(key: string): string {
   return key.length <= 8 ? "••••" : `${key.slice(0, 7)}••••${key.slice(-4)}`;
 }
 
-/** Provider → key → test → default model, as in mockup 1f. Completed steps collapse. */
+/** Provider → key → test → default model. Completed steps collapse. */
 export function AddProviderFlow({
   fakeEnabled,
   requireDefault,

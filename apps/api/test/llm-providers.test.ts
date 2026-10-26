@@ -224,7 +224,7 @@ describe("llm providers", () => {
 });
 
 // Runs last: the suite above exercised success and failure paths with a key-echoing provider.
-describe("key-leak check (SPEC §11 acceptance)", () => {
+describe("key-leak check", () => {
   it("never puts an API key in a log line or response body", () => {
     expect(logLines.length).toBeGreaterThan(0);
     expect(logLines.some((line) => line.includes("llm provider call failed"))).toBe(true);

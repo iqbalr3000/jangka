@@ -1,6 +1,5 @@
 import { collections, groups, users } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
-import { collectionSummary } from "@jangka/shared/access";
 import { type DocNode, documentSummary } from "@jangka/shared/document";
 import { SNIPPET_END, SNIPPET_START, searchResponse } from "@jangka/shared/search";
 import { eq } from "drizzle-orm";
@@ -9,6 +8,7 @@ import { prefixQuery } from "../src/routes/search";
 import {
   buildApp,
   call,
+  createCollection,
   createUser,
   login,
   setupInstance,
@@ -41,14 +41,6 @@ let rinaId: string;
 let product: string;
 let finance: string;
 
-async function collection(name: string): Promise<string> {
-  const res = await call(app, "POST", "/collections", {
-    cookie: admin,
-    body: { name, parentId: null },
-  });
-  return collectionSummary.parse(await res.json()).id;
-}
-
 async function create(cookie: string, body: Record<string, unknown>, overview?: string) {
   const res = await call(app, "POST", "/documents", { cookie, body });
   expect(res.status).toBe(201);
@@ -73,8 +65,8 @@ beforeEach(async () => {
   await truncateAll(pool);
   app = buildApp(db, pool).app;
   admin = await setupInstance(app, db);
-  product = await collection("Product");
-  finance = await collection("Finance");
+  product = await createCollection(app, admin, "Product");
+  finance = await createCollection(app, admin, "Finance");
   const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
   await call(app, "PUT", "/admin/permissions", {
     cookie: admin,
@@ -128,13 +120,13 @@ describe("search", () => {
       docType: "prd",
     });
     await call(app, "POST", `/documents/${archived}/archive`, { cookie: admin });
-    const legacy = await collection("Legacy");
+    const legacy = await createCollection(app, admin, "Legacy");
     await create(admin, { title: "Refund legacy", collectionId: legacy, docType: "prd" });
     await call(app, "POST", `/collections/${legacy}/archive`, { cookie: admin });
     expect(await search("q=refund", admin)).toEqual([]);
   });
 
-  it("never returns documents the user can't view (SPEC §11)", async () => {
+  it("never returns documents the user can't view", async () => {
     const visible = await create(admin, {
       title: "Refund policy",
       collectionId: product,

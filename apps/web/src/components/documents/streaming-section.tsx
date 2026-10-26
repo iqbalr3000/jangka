@@ -15,7 +15,7 @@ function toDoc(markdown: string): DocNode {
   }
 }
 
-/** Read-only live rendering of a section being drafted (DESIGN §6.4). */
+/** Read-only live rendering of a section being drafted. */
 export function StreamingSection({ markdown }: { markdown: string }) {
   const editor = useEditor({
     // No placeholder: the preview starts empty for a moment on every stream.

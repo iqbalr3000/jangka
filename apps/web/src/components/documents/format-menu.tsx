@@ -42,7 +42,7 @@ function MenuButton({
   );
 }
 
-/** Formatting for the selected text, floating above it (replaces the heading-row toolbar). */
+/** Formatting for the selected text, floating above it. */
 export function FormatMenu({ editor }: { editor: Editor }) {
   const [mode, setMode] = useState<"buttons" | "types" | "link">("buttons");
   const [href, setHref] = useState("");

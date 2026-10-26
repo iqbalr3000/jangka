@@ -43,7 +43,6 @@ test("restore an older section version and find it in the audit log", async ({ b
   await expect(overview).toHaveText("Customers wait a week for refunds.");
   await expect(versions).toContainText(/Restored from r\d+/);
 
-  // The admin audit log shows it under Documents.
   await page.goto("/admin/audit");
   await page.getByLabel("Area").selectOption({ label: "Documents" });
   const entries = page.getByRole("region", { name: "Audit entries" });

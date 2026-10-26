@@ -10,7 +10,7 @@ export const SECRET_KEYS = [
   "masterKey",
 ];
 
-// Safety net for hard rule #3 — callers still must not log secrets deliberately.
+// Safety net only: callers must still never log secrets.
 export const redactPaths = [
   ...SECRET_KEYS,
   ...SECRET_KEYS.map((key) => `*.${key}`),

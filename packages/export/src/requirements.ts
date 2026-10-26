@@ -122,7 +122,7 @@ function collect(blocks: BlockNode[], codePattern: RegExp): ExtractedRequirement
 }
 
 /**
- * Requirements written in a requirement section (ADR 0003): rows of a table with an `ID` column,
+ * Requirements written in a requirement section: rows of a table with an `ID` column,
  * or legacy lines starting with a code. Only codes with the section kind's prefix count; the
  * first occurrence of a code wins.
  */

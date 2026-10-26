@@ -1,15 +1,12 @@
-import { groups, requirements } from "@jangka/db";
+import { requirements } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { createProvider, type ProviderFactory } from "@jangka/llm";
-import { collectionSummary } from "@jangka/shared/access";
 import { type AssistantEvent, assistantEvent } from "@jangka/shared/assistant";
 import {
-  type BlockNode,
   type DocNode,
   documentDetail,
   documentList,
   documentSummary,
-  type TableRowNode,
 } from "@jangka/shared/document";
 import { traceResponse } from "@jangka/shared/trace";
 import { asc, eq } from "drizzle-orm";
@@ -17,11 +14,15 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   buildApp,
   call,
+  createCollection,
   createUser,
+  grantAllUsers,
   login,
   ORIGIN,
+  paragraph,
   setupInstance,
   type TestApp,
+  tableDoc,
   testDatabase,
 } from "./helpers";
 
@@ -29,24 +30,6 @@ const { db, pool } = testDatabase();
 afterAll(async () => {
   await pool.end();
 });
-
-const p = (text: string): BlockNode =>
-  text ? { type: "paragraph", content: [{ type: "text", text }] } : { type: "paragraph" };
-
-function table(rows: string[][]): DocNode {
-  const row = (cells: string[], header: boolean): TableRowNode => ({
-    type: "tableRow",
-    content: cells.map((text) => ({
-      type: header ? "tableHeader" : "tableCell",
-      content: [p(text)],
-    })),
-  });
-  const [head = [], ...body] = rows;
-  return {
-    type: "doc",
-    content: [{ type: "table", content: [row(head, true), ...body.map((r) => row(r, false))] }],
-  };
-}
 
 const SOURCE_SECRET = "Refund fraud costs 2M a year";
 const FR_TABLE = [
@@ -80,23 +63,6 @@ let rina: string;
 let business: string;
 let product: string;
 let brdId: string;
-
-async function collection(name: string): Promise<string> {
-  const res = await call(app, "POST", "/collections", {
-    cookie: admin,
-    body: { name, parentId: null },
-  });
-  return collectionSummary.parse(await res.json()).id;
-}
-
-async function grant(collectionId: string, level: "view" | "edit" | "none") {
-  const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
-  const res = await call(app, "PUT", "/admin/permissions", {
-    cookie: admin,
-    body: { changes: [{ collectionId, groupId: allUsers?.id, level }] },
-  });
-  expect(res.status).toBe(200);
-}
 
 async function create(
   body: { title: string; collectionId: string; docType: string; sourceDocumentId?: string },
@@ -148,17 +114,17 @@ beforeEach(async () => {
   systems.length = 0;
   app = buildApp(db, pool, { llm }).app;
   admin = await setupInstance(app, db);
-  business = await collection("Business");
-  product = await collection("Product");
-  await grant(product, "edit");
+  business = await createCollection(app, admin, "Business");
+  product = await createCollection(app, admin, "Product");
+  await grantAllUsers(app, db, admin, product, "edit");
   await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
   rina = await login(app, "rina@acme.co", "rina-password-123");
   brdId = await createId({ title: "Refund BRD", collectionId: business, docType: "brd" });
-  await save(brdId, "business_problem", { type: "doc", content: [p(SOURCE_SECRET)] });
+  await save(brdId, "business_problem", { type: "doc", content: [paragraph(SOURCE_SECRET)] });
   await save(
     brdId,
     "business_requirements",
-    table([
+    tableDoc([
       ["ID", "Requirement", "Priority"],
       ["BR-001", "Refunds within 24 hours", "Must"],
     ]),
@@ -178,7 +144,7 @@ describe("requirements index", () => {
     await save(
       prd,
       "functional_requirements",
-      table([
+      tableDoc([
         ["ID", "Requirement", "Priority", "Upstream"],
         ["FR-001", "Request a refund", "Must", "BR-001"],
         ["FR-002", "Track it", "Could", ""],
@@ -193,7 +159,7 @@ describe("requirements index", () => {
     await save(
       prd,
       "functional_requirements",
-      table([
+      tableDoc([
         ["ID", "Requirement", "Priority", "Upstream"],
         ["FR-001", "Request a refund", "Must", "BR-001"],
         ["FR-003", "Cancel it", "Should", ""],
@@ -206,10 +172,10 @@ describe("requirements index", () => {
     expect(second[0]?.updatedAt).toEqual(first[0]?.updatedAt);
 
     // Non-requirement sections and wrong prefixes are ignored; the legacy list format counts.
-    await save(prd, "overview", { type: "doc", content: [p("FR-009: not here")] });
+    await save(prd, "overview", { type: "doc", content: [paragraph("FR-009: not here")] });
     await save(prd, "non_functional_requirements", {
       type: "doc",
-      content: [p("NFR-001: p95 under 300 ms"), p("FR-004: wrong section")],
+      content: [paragraph("NFR-001: p95 under 300 ms"), paragraph("FR-004: wrong section")],
     });
     expect((await rows()).map((r) => r.code).sort()).toEqual(["FR-001", "FR-003", "NFR-001"]);
 
@@ -285,7 +251,7 @@ describe("trace", () => {
     await save(
       prd,
       "functional_requirements",
-      table([
+      tableDoc([
         ["ID", "Requirement", "Priority", "Upstream"],
         ["FR-001", "Request a refund", "Must", "BR-001, BR-009"],
       ]),
@@ -299,7 +265,7 @@ describe("trace", () => {
     await save(
       tsd,
       "technical_requirements",
-      table([
+      tableDoc([
         ["ID", "Requirement", "Priority", "Upstream"],
         ["TR-001", "Refund queue", "Must", "FR-001"],
       ]),

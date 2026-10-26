@@ -15,7 +15,7 @@ export function jsonSchemaOf(schema: z.ZodType): JsonSchema {
 
 /**
  * Validates each attempt with Zod; on failure retries up to 2 times with the validation
- * error appended, then gives up with `invalid_output` (hard rule #5).
+ * error appended, then gives up with `invalid_output`.
  */
 export async function generateWithRetry<T>(
   attempt: ObjectAttempt,
