@@ -1,6 +1,6 @@
 import type { CoverageLevel, InterviewState } from "@jangka/shared/assistant";
 import type { Section } from "@jangka/shared/document";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +21,16 @@ type CoverageChecklistProps = {
   sections: Section[];
   /** Collapsed to one line once drafting has started (DESIGN §6.3). */
   defaultOpen: boolean;
+  /** The last reply's coverage is still being assessed. */
+  updating: boolean;
 };
 
-export function CoverageChecklist({ state, sections, defaultOpen }: CoverageChecklistProps) {
+export function CoverageChecklist({
+  state,
+  sections,
+  defaultOpen,
+  updating,
+}: CoverageChecklistProps) {
   const [open, setOpen] = useState(defaultOpen);
   const titles = new Map(sections.map((s) => [s.key, s.title]));
   const items =
@@ -44,6 +51,15 @@ export function CoverageChecklist({ state, sections, defaultOpen }: CoverageChec
           className={cn("size-3 transition-transform", open && "rotate-90")}
           aria-hidden
         />
+        {updating && (
+          <span
+            role="status"
+            className="ml-auto flex items-center gap-1 normal-case tracking-normal"
+          >
+            <Loader2 className="size-3 animate-spin" aria-hidden />
+            Updating…
+          </span>
+        )}
       </button>
       {open && (
         <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">

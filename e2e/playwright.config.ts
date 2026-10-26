@@ -28,6 +28,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "editor",
+      testMatch: "editor.spec.ts",
+      dependencies: ["onboarding"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "llm",
       testMatch: "llm.spec.ts",
       dependencies: ["onboarding"],

@@ -30,15 +30,14 @@ import {
 } from "@/components/ui/dialog";
 import { ApiError, apiFetch } from "@/lib/api";
 import { chatQuery } from "@/lib/assistant";
-import { documentQuery, sectionAnchor } from "@/lib/documents";
+import { applySavedSection, documentQuery, sectionAnchor } from "@/lib/documents";
 import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
-import { versionsKey } from "@/lib/history";
 import { isPlainKey } from "@/lib/keyboard";
 import { llmStatusQuery, timeAgo } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
 import { commentsQuery } from "@/lib/review";
-import { traceKey, traceQuery } from "@/lib/trace";
+import { traceQuery } from "@/lib/trace";
 import { useAssistant } from "@/lib/use-assistant";
 import { cn } from "@/lib/utils";
 
@@ -93,8 +92,6 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const editable = detail.level === "edit" && !approved;
   const states = useRef(new Map<string, SaveState>());
   const [save, setSave] = useState<SaveSummary>({ state: "idle", at: null });
-  // Bumped to remount a section's editor with content written outside it (drafts, accepts).
-  const [generations, setGenerations] = useState<Record<string, number>>({});
   const [seeds, setSeeds] = useState<Record<string, DocNode>>({});
   const [accepted, setAccepted] = useState<Record<string, DocNode>>({});
   const [composer, setComposer] = useState("");
@@ -134,35 +131,16 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     }));
   }, []);
 
-  // Keep outline/completeness live without re-seeding the editors (they own their content).
   const onSaved = useCallback(
-    (saved: Section) => {
-      // Requirement tables are indexed on save, and a save may add a version.
-      void queryClient.invalidateQueries({ queryKey: traceKey(doc.id) });
-      void queryClient.invalidateQueries({ queryKey: versionsKey(doc.id, saved.key) });
-      queryClient.setQueryData(documentQuery(doc.id).queryKey, (current) =>
-        current
-          ? {
-              ...current,
-              sections: current.sections.map((s) => (s.key === saved.key ? saved : s)),
-            }
-          : current,
-      );
-    },
+    (saved: Section) => applySavedSection(queryClient, doc.id, saved),
     [queryClient, doc.id],
   );
 
-  const replaceSection = useCallback(
-    (saved: Section) => {
-      onSaved(saved);
-      setGenerations((g) => ({ ...g, [saved.key]: (g[saved.key] ?? 0) + 1 }));
-    },
-    [onSaved],
-  );
-
-  const assistant = useAssistant(doc.id, replaceSection);
+  const assistant = useAssistant(doc.id);
+  const { replaceSection, generations } = assistant;
   const running = assistant.running !== null;
-  const canGenerate = editable && llmConfigured && !running;
+  // Drafting reads the coverage the last chat turn is still assessing.
+  const canGenerate = editable && llmConfigured && !running && !assistant.coverageUpdating;
 
   const pendingDraft = new Set(
     assistant.draft
@@ -302,7 +280,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     const proposal = assistant.proposals[section.key];
     if (!proposal) return;
     setSeeds((s) => ({ ...s, [section.key]: fromMarkdown(proposal.markdown) }));
-    setGenerations((g) => ({ ...g, [section.key]: (g[section.key] ?? 0) + 1 }));
+    assistant.remountSection(section.key);
     assistant.clearProposal(section.key);
   }
 
@@ -358,11 +336,13 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
         <Button
           size="sm"
           variant="outline"
-          disabled={!llmConfigured || emptyCount === 0}
+          disabled={!llmConfigured || emptyCount === 0 || assistant.coverageUpdating}
           title={
             !llmConfigured
               ? "Add an LLM provider to start drafting"
-              : "Assess the source document, then draft every empty section"
+              : assistant.coverageUpdating
+                ? "Updating coverage…"
+                : "Assess the source document, then draft every empty section"
           }
           onClick={() =>
             assistant.draftSections({
@@ -377,13 +357,15 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
       <Button
         size="sm"
         onClick={draftAll}
-        disabled={!llmConfigured || emptyCount === 0}
+        disabled={!llmConfigured || emptyCount === 0 || assistant.coverageUpdating}
         title={
           !llmConfigured
             ? "Add an LLM provider to start drafting"
-            : emptyCount === 0
-              ? "Every section has content; redraft sections one at a time"
-              : undefined
+            : assistant.coverageUpdating
+              ? "Updating coverage…"
+              : emptyCount === 0
+                ? "Every section has content; redraft sections one at a time"
+                : undefined
         }
       >
         Draft all
@@ -451,7 +433,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           ref={mainRef}
           className={cn("min-w-0 flex-1 overflow-auto", pane !== "document" && "hidden lg:block")}
         >
-          <article className="mx-auto flex max-w-[72ch] flex-col gap-10 px-6 py-10">
+          {/* Wider on the left: the block gutter sits in that padding. */}
+          <article className="mx-auto flex max-w-[72ch] flex-col gap-10 px-6 py-10 sm:pl-11">
             <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
               {doc.title}
             </h1>

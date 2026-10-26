@@ -29,7 +29,8 @@ test("export a PRD with a diagram to PDF and DOCX", async ({ browser }) => {
   await page.getByRole("textbox", { name: "Overview", exact: true }).click();
   await page.keyboard.type("Customers request refunds themselves.");
   await page.getByRole("textbox", { name: "User Flow", exact: true }).click();
-  await page.getByRole("button", { name: "Diagram" }).click();
+  await page.keyboard.type("/diagram");
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("img", { name: "Diagram preview" }).locator("svg")).toBeVisible();
   await expect(saveStatus(page)).toHaveText(/Saved/);
 

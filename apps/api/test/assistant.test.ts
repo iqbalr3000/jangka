@@ -8,6 +8,7 @@ import { type DocNode, documentDetail, documentSummary, section } from "@jangka/
 import { builtinTemplates } from "@jangka/templates";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { RateLimiter } from "../src/lib/rate-limit";
 import {
   buildApp,
@@ -161,7 +162,9 @@ describe("chat", () => {
     expect(list[0]?.type).toBe("message_start");
     const text = list.flatMap((e) => (e.type === "text" ? [e.delta] : [])).join("");
     expect(text).toContain("This is a fake reply");
-    expect(list.find((e) => e.type === "coverage")).toBeTruthy();
+    const types = list.map((e) => e.type);
+    expect(types.indexOf("reply_done")).toBeGreaterThan(types.lastIndexOf("text"));
+    expect(types.indexOf("coverage")).toBeGreaterThan(types.indexOf("reply_done"));
     expect(list.at(-1)?.type).toBe("done");
 
     const { messages, state } = await thread();
@@ -220,6 +223,65 @@ describe("chat", () => {
     expect(await second.json()).toMatchObject({ error: { code: "generation_in_progress" } });
     controller.abort();
     await iterator.return(undefined);
+  });
+});
+
+describe("coverage after the reply", () => {
+  const chunk = (content: string) => ({
+    id: "c",
+    object: "chat.completion.chunk",
+    created: 1,
+    model: "gpt-x",
+    choices: [{ index: 0, delta: { content }, finish_reason: null }],
+  });
+  const completion = (content: unknown) => ({
+    id: "c",
+    object: "chat.completion",
+    created: 1,
+    model: "gpt-x",
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: JSON.stringify(content) },
+        finish_reason: "stop",
+        logprobs: null,
+      },
+    ],
+  });
+
+  it("releases the document at reply_done, and a stale assessment is not saved", async () => {
+    await useStubOpenAI();
+    let assessments = 0;
+    stub.handle((req) => {
+      const body = z.object({ stream: z.boolean().optional() }).parse(req.body);
+      if (body.stream) return { sse: [{ data: chunk("Noted.") }], done: "[DONE]" };
+      assessments++;
+      // The first turn's assessment finishes after the second turn's.
+      return assessments === 1
+        ? { json: completion(coverageWith(KEYS)), delayMs: 500 }
+        : { json: completion(coverageWith([])) };
+    });
+
+    const first = events(await post(`/documents/${docId}/chat`, { message: "One" }));
+    const seen: AssistantEvent[] = [];
+    for (;;) {
+      const { value, done } = await first.next();
+      if (done || !value) break;
+      seen.push(value);
+      if (value.type === "reply_done") break;
+    }
+    expect(seen.at(-1)?.type).toBe("reply_done");
+
+    const second = await post(`/documents/${docId}/chat`, { message: "Two" });
+    expect(second.status).toBe(200);
+    const secondEvents = await all(second);
+    expect(secondEvents.find((e) => e.type === "coverage")).toBeTruthy();
+
+    const rest: AssistantEvent[] = [];
+    for await (const event of first) rest.push(event);
+    expect(rest.map((e) => e.type)).toEqual(["done"]);
+    const { state } = await thread();
+    expect(state?.sections.every((s) => s.coverage === "covered")).toBe(true);
   });
 });
 

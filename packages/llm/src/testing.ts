@@ -9,7 +9,7 @@ export type StubRequest = {
 };
 
 export type StubResponse =
-  | { status?: number; headers?: Record<string, string>; json: unknown }
+  | { status?: number; headers?: Record<string, string>; json: unknown; delayMs?: number }
   /** Each entry is written as one SSE frame; `event` adds an `event:` line. */
   | { sse: { event?: string; data: unknown }[]; done?: string }
   /** Sends headers and the first frames, then never finishes (abort tests). */
@@ -42,11 +42,13 @@ export async function startStub() {
         `${f.event ? `event: ${f.event}\n` : ""}data: ${typeof f.data === "string" ? f.data : JSON.stringify(f.data)}\n\n`;
 
       if ("json" in response) {
-        res.writeHead(response.status ?? 200, {
-          "content-type": "application/json",
-          ...response.headers,
-        });
-        res.end(JSON.stringify(response.json));
+        setTimeout(() => {
+          res.writeHead(response.status ?? 200, {
+            "content-type": "application/json",
+            ...response.headers,
+          });
+          res.end(JSON.stringify(response.json));
+        }, response.delayMs ?? 0);
         return;
       }
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });

@@ -21,7 +21,8 @@ test("create a PRD, edit sections with a diagram, resolve a conflict", async ({ 
 
   // Diagram in User Flow.
   await page.getByRole("textbox", { name: "User Flow", exact: true }).click();
-  await page.getByRole("button", { name: "Diagram" }).click();
+  await page.keyboard.type("/diagram");
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("img", { name: "Diagram preview" }).locator("svg")).toBeVisible();
   await expect(saveStatus(page)).toHaveText(/Saved/);
 

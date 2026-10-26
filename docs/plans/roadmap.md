@@ -31,6 +31,7 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
 | Upgrade documents to a newer template version | Feature | Deferred in `custom-templates` |
+| Editor & chat polish | Enhancement | [spec](spec-editor-chat-polish.md) — composer released before coverage, typing reveal + thinking state, Notion-like blocks, bubble menu, `/` commands |
 
 ## Completed work
 

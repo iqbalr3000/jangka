@@ -183,17 +183,27 @@
     line-height: 1.7;
 
     & > * + * {
-      margin-top: 0.75em;
+      margin-top: 0.6em;
     }
     & h3 {
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 600;
-      margin-top: 1.25em;
+      line-height: 1.4;
+      margin-top: 1.5em;
     }
     & h4 {
       font-size: 16px;
       font-weight: 600;
-      margin-top: 1em;
+      line-height: 1.5;
+      margin-top: 1.2em;
+    }
+    & > h3:first-child,
+    & > h4:first-child {
+      margin-top: 0;
+    }
+    & h3 + *,
+    & h4 + * {
+      margin-top: 0.35em;
     }
     & ul {
       list-style: disc;
@@ -203,8 +213,9 @@
       list-style: decimal;
       padding-left: 1.6em;
     }
+    & li + li,
     & li > p + * {
-      margin-top: 0.25em;
+      margin-top: 0.2em;
     }
     & blockquote {
       border-left: 2px solid var(--border-strong);
@@ -241,6 +252,19 @@
     }
     & hr {
       border-color: var(--border);
+      margin-block: 1.25em;
+    }
+    /* A block picked from the gutter menu, or a selected diagram / divider. */
+    & .ProseMirror-selectednode {
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+      outline-offset: 2px;
+    }
+    /* The "/query" being typed while the block menu is open. */
+    & .suggestion {
+      border-radius: 3px;
+      background: var(--surface-2);
     }
     & table {
       width: 100%;
@@ -268,6 +292,14 @@
       border-radius: var(--radius-sm);
       padding: 10px 14px;
     }
+    /* Hint on the focused empty line of a non-empty section. */
+    &.ProseMirror-focused p.is-empty:not(.is-editor-empty)::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+      color: var(--status-empty);
+    }
     & p.is-editor-empty:first-child::before {
       content: attr(data-placeholder);
       float: left;
@@ -275,5 +307,47 @@
       pointer-events: none;
       color: var(--status-empty);
     }
+  }
+
+  /* Assistant waiting for the first token: dots in a wave, a shimmer across the label. */
+  .thinking-dot {
+    animation: thinking-wave 1.2s ease-in-out infinite;
+  }
+  .thinking-label {
+    background:
+      linear-gradient(
+        90deg,
+        var(--text-muted) 0%,
+        var(--text-muted) 40%,
+        var(--text) 50%,
+        var(--text-muted) 60%,
+        var(--text-muted) 100%
+      )
+      0 0 / 250% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: thinking-shimmer 2s linear infinite;
+  }
+}
+
+@keyframes thinking-wave {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes thinking-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
   }
 }

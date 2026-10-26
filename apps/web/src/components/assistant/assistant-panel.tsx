@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { chatQuery } from "@/lib/assistant";
 import { docTypeLabels } from "@/lib/trace";
 import type { Assistant } from "@/lib/use-assistant";
+import { useSmoothText } from "@/lib/use-smooth-text";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { CoverageChecklist } from "./coverage-checklist";
+import { ThinkingIndicator } from "./thinking-indicator";
 
 export const panelTabs = ["chat", "history", "trace", "comments"] as const;
 export type PanelTab = (typeof panelTabs)[number];
@@ -52,13 +54,25 @@ function parseMention(message: string, sections: Section[]) {
   return instruction ? { key: section.key, instruction } : null;
 }
 
+type DisplayMessage = Pick<ChatMessage, "id" | "role" | "content" | "author" | "interrupted"> &
+  Partial<Pick<ChatMessage, "references">>;
+
 function Message({
   message,
+  live = false,
+  streaming = false,
+  referenceCount = 0,
 }: {
-  message: Pick<ChatMessage, "role" | "content" | "author" | "interrupted"> &
-    Partial<Pick<ChatMessage, "references">>;
+  message: DisplayMessage;
+  /** The latest reply: typed out instead of shown whole. */
+  live?: boolean;
+  /** More text is still on its way. */
+  streaming?: boolean;
+  referenceCount?: number;
 }) {
   const assistant = message.role === "assistant";
+  const text = useSmoothText(message.content, live);
+  const typing = streaming || text.length < message.content.length;
   return (
     <li className={cn("flex flex-col gap-1", !assistant && "items-end")}>
       <span className="font-mono text-[11px] text-muted-foreground">
@@ -70,7 +84,16 @@ function Message({
           assistant ? "bg-secondary" : "border border-border bg-card",
         )}
       >
-        {message.content || "…"}
+        {assistant && message.content === "" && streaming ? (
+          <ThinkingIndicator referenceCount={referenceCount} />
+        ) : (
+          text || "…"
+        )}
+        {typing && text !== "" && (
+          <span className="ml-0.5 animate-pulse text-primary" aria-hidden>
+            ▍
+          </span>
+        )}
         {message.interrupted && (
           <span className="ml-1 text-xs text-muted-foreground">(interrupted)</span>
         )}
@@ -123,6 +146,36 @@ export function AssistantPanel({
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [messages.length, assistant.reply, assistant.pendingUser]);
+
+  // One keyed list: the live reply keeps its typing state when its saved copy (same id) arrives.
+  const saved = new Set(messages.map((m) => m.id));
+  const display: DisplayMessage[] = [...messages];
+  const { stopped, pendingUser, reply, replyId } = assistant;
+  if (stopped && !saved.has(stopped.id)) {
+    display.push({
+      id: stopped.id,
+      role: "assistant",
+      content: stopped.content,
+      author: null,
+      interrupted: true,
+    });
+  }
+  if (pendingUser) {
+    display.push({
+      id: "pending-user",
+      role: "user",
+      content: pendingUser,
+      author: null,
+      interrupted: false,
+    });
+  }
+  if (reply !== null) {
+    const id = replyId ?? "pending-reply";
+    if (!saved.has(id) && stopped?.id !== id) {
+      display.push({ id, role: "assistant", content: reply, author: null, interrupted: false });
+    }
+  }
+  const replyStreaming = assistant.running === "chat";
 
   function send(message: string) {
     const mention = parseMention(message, sections);
@@ -183,6 +236,7 @@ export function AssistantPanel({
               state={chat.data.state}
               sections={sections}
               defaultOpen={!hasDrafted}
+              updating={assistant.coverageUpdating}
             />
           )}
           <ol className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 py-3">
@@ -197,39 +251,18 @@ export function AssistantPanel({
                 follow-up questions before drafting anything.
               </li>
             )}
-            {messages.map((m) => (
-              <Message key={m.id} message={m} />
-            ))}
-            {assistant.stopped && !messages.some((m) => m.id === assistant.stopped?.id) && (
-              <Message
-                message={{
-                  role: "assistant",
-                  content: assistant.stopped.content,
-                  author: null,
-                  interrupted: true,
-                }}
-              />
-            )}
-            {assistant.pendingUser && (
-              <Message
-                message={{
-                  role: "user",
-                  content: assistant.pendingUser,
-                  author: null,
-                  interrupted: false,
-                }}
-              />
-            )}
-            {assistant.reply !== null && (
-              <Message
-                message={{
-                  role: "assistant",
-                  content: assistant.reply,
-                  author: null,
-                  interrupted: false,
-                }}
-              />
-            )}
+            {display.map((m) => {
+              const live = m.role === "assistant" && (m.id === replyId || m.id === "pending-reply");
+              return (
+                <Message
+                  key={m.id}
+                  message={m}
+                  live={live && !m.interrupted}
+                  streaming={live && replyStreaming}
+                  referenceCount={assistant.referenceCount}
+                />
+              );
+            })}
             {assistant.notice && (
               <li
                 role="alert"

@@ -75,7 +75,9 @@ Status is never communicated by color alone: always paired with an icon and labe
 - Spacing: 4 px base (`4, 8, 12, 16, 24, 32, 48`).
 - Radius: `--radius-sm 4px` (inputs, chips), `--radius-md 8px` (cards, dialogs). No pill buttons.
 - Elevation: borders first; shadows only for floating layers (menus, dialogs, toasts): `0 4px 16px rgb(0 0 0 / 0.08)`.
-- Motion: 120–180 ms ease-out for UI; no motion on streaming text other than a blinking caret. Respect `prefers-reduced-motion`.
+- Motion: 120–180 ms ease-out for UI. Streamed chat replies are revealed with a fast, even typing animation plus a
+  blinking caret; before the first token the reply bubble shows a thinking indicator (wave dots, shimmer label). Respect
+  `prefers-reduced-motion` (text shown whole, indicator static).
 
 ## 4. Information architecture
 
@@ -208,7 +210,12 @@ Access: Edit (via Engineering)                                         ← why y
 - **Section header actions** (on hover/focus): `⟳ Revise`, `History`, `Copy link`.
 - **Partial/empty hint:** one-line note under the heading from the completeness check, in `--status-partial` / `--status-empty`.
 - **Empty section placeholder:** dashed border box: "Not enough information yet. [Ask me about this]" — clicking pre-fills the chat.
-- **Coverage panel** sits at the top of Chat; collapses to a single line `Coverage 7/12 ▸` once drafting starts.
+- **Editing (Notion-like):** selecting text shows a floating format menu (Turn into, bold, italic, code, link) — no
+  toolbar in the layout. Hovering a block shows a gutter: `+` (wide screens) inserts below, `⋮⋮` opens Turn into /
+  Duplicate / Move up / Move down / Delete. `/` opens the block menu; the focused empty line hints "Type '/' for
+  commands". Clicking under the last block continues the section.
+- **Coverage panel** sits at the top of Chat; collapses to a single line `Coverage 7/12 ▸` once drafting starts. While
+  the last reply's coverage is assessed it shows "Updating…"; the composer is already usable.
 - Panels collapse: `⌘\` toggles outline, `⌘.` toggles right panel.
 
 ### 6.4 Drafting & streaming state

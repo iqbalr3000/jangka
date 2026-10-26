@@ -1,10 +1,11 @@
 import type { AssistantEvent } from "@jangka/shared/assistant";
 import type { Section } from "@jangka/shared/document";
-import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState } from "react";
+import { notifyManager, type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useSyncExternalStore } from "react";
 import { ApiError } from "./api";
 import { chatQuery, streamAssistant } from "./assistant";
 import { collectionsKey } from "./collections";
+import { applySavedSection } from "./documents";
 import { errorMessage } from "./form-errors";
 
 export type Proposal = {
@@ -23,212 +24,314 @@ export type AssistantNotice = { message: string; retry?: () => void };
 
 type Kind = "chat" | "draft" | "revise";
 
-/**
- * Client side of the assistant for one document: runs one generation at a time over SSE, keeps
- * the streamed text, and reports saved sections back to the workspace.
- */
-export function useAssistant(documentId: string, onSectionSaved: (section: Section) => void) {
-  const queryClient = useQueryClient();
-  const controller = useRef<AbortController | null>(null);
-  const [running, setRunning] = useState<Kind | null>(null);
-  const [pendingUser, setPendingUser] = useState<string | null>(null);
-  const [reply, setReply] = useState<string | null>(null);
-  const replyText = useRef("");
-  const messageId = useRef<string | null>(null);
+type AssistantState = {
+  running: Kind | null;
+  /** The last chat reply is saved; its coverage is still being assessed. */
+  coverageUpdating: boolean;
+  pendingUser: string | null;
+  reply: string | null;
+  /** Id of the latest chat reply, live or saved; the panel animates that message. */
+  replyId: string | null;
+  referenceCount: number;
   /** A reply the user stopped: shown until the server's saved copy (same id) arrives. */
-  const [stopped, setStopped] = useState<{ id: string; content: string } | null>(null);
-  const [draft, setDraft] = useState<DraftProgress | null>(null);
-  const [streaming, setStreaming] = useState<Record<string, string>>({});
-  const [proposals, setProposals] = useState<Record<string, Proposal>>({});
-  const [notice, setNotice] = useState<AssistantNotice | null>(null);
+  stopped: { id: string; content: string } | null;
+  draft: DraftProgress | null;
+  streaming: Record<string, string>;
+  proposals: Record<string, Proposal>;
+  notice: AssistantNotice | null;
+  /** Bumped to remount a section's editor with content written outside it (drafts, accepts). */
+  generations: Record<string, number>;
+};
 
+const initialState: AssistantState = {
+  running: null,
+  coverageUpdating: false,
+  pendingUser: null,
+  reply: null,
+  replyId: null,
+  referenceCount: 0,
+  stopped: null,
+  draft: null,
+  streaming: {},
+  proposals: {},
+  notice: null,
+  generations: {},
+};
+
+/**
+ * Client side of the assistant for one document: runs one generation at a time over SSE and keeps
+ * the streamed text. It lives outside the page, so a draft keeps going (and stays visible) when
+ * the user navigates away and back; closing or reloading the tab still stops it.
+ */
+function createAssistantStore(documentId: string, queryClient: QueryClient) {
+  let state = initialState;
+  const listeners = new Set<() => void>();
   const chatKey = chatQuery(documentId).queryKey;
+  let controller: AbortController | null = null;
+  /** Identifies the latest run, so an older run's cleanup can't reset a newer run's state. */
+  let runId = 0;
+  /** The open stream only assesses coverage: a new run may replace it. */
+  let coverageOnly = false;
+  let replyText = "";
+  let messageId: string | null = null;
 
-  const run = useCallback(
-    async (
-      kind: Kind,
-      path: string,
-      body: unknown,
-      onEvent: (event: AssistantEvent) => void,
-      retry: () => void,
-    ) => {
-      if (controller.current) return;
-      const abort = new AbortController();
-      controller.current = abort;
-      setRunning(kind);
-      setNotice(null);
-      setStopped(null);
-      replyText.current = "";
-      messageId.current = null;
-      try {
-        await streamAssistant(path, body, {
-          signal: abort.signal,
-          onEvent: (event) => {
-            if (event.type === "error") {
-              setNotice({
+  function set(update: Partial<AssistantState> | ((s: AssistantState) => Partial<AssistantState>)) {
+    state = { ...state, ...(typeof update === "function" ? update(state) : update) };
+    for (const listener of listeners) listener();
+  }
+
+  /**
+   * Remounts in the same flush as query observers, which are notified on a later tick: earlier,
+   * the editor would mount with the old content.
+   */
+  function remountSection(key: string) {
+    notifyManager.schedule(() =>
+      set((s) => ({ generations: { ...s.generations, [key]: (s.generations[key] ?? 0) + 1 } })),
+    );
+  }
+
+  /** Saves into the document cache and remounts the section's editor with the new content. */
+  function replaceSection(saved: Section) {
+    applySavedSection(queryClient, documentId, saved);
+    remountSection(saved.key);
+  }
+
+  async function run(
+    kind: Kind,
+    path: string,
+    body: unknown,
+    onEvent: (event: AssistantEvent) => void,
+    retry: () => void,
+  ) {
+    if (controller) {
+      if (!coverageOnly) return;
+      // The next turn reassesses coverage.
+      controller.abort();
+    }
+    const id = ++runId;
+    const isCurrent = () => runId === id;
+    const abort = new AbortController();
+    controller = abort;
+    coverageOnly = false;
+    let replied = false;
+    replyText = "";
+    messageId = null;
+    set({
+      running: kind,
+      coverageUpdating: false,
+      referenceCount: 0,
+      notice: null,
+      stopped: null,
+    });
+    try {
+      await streamAssistant(path, body, {
+        signal: abort.signal,
+        onEvent: (event) => {
+          if (event.type === "error") {
+            set({
+              notice: {
                 message: event.message,
                 retry: event.code === "aborted" ? undefined : retry,
-              });
-            } else if (event.type === "message_start") {
-              messageId.current = event.messageId;
-            } else if (event.type === "coverage") {
-              queryClient.setQueryData(chatKey, (current) =>
-                current ? { ...current, state: event.state } : current,
-              );
-            }
-            onEvent(event);
-          },
-        });
-      } catch (error) {
-        if (!abort.signal.aborted) {
-          setNotice({
+              },
+            });
+          } else if (event.type === "message_start") {
+            messageId = event.messageId;
+            if (kind === "chat") set({ replyId: event.messageId });
+          } else if (event.type === "references") {
+            set({ referenceCount: event.items.length });
+          } else if (event.type === "reply_done") {
+            replied = true;
+            coverageOnly = true;
+            set({ running: null, coverageUpdating: true });
+            void queryClient.invalidateQueries({ queryKey: chatKey }).then(() => {
+              if (isCurrent()) set({ pendingUser: null });
+            });
+          } else if (event.type === "coverage") {
+            queryClient.setQueryData(chatKey, (current) =>
+              current ? { ...current, state: event.state } : current,
+            );
+          }
+          onEvent(event);
+        },
+      });
+    } catch (error) {
+      if (!abort.signal.aborted) {
+        set({
+          notice: {
             message: errorMessage(error),
             retry: error instanceof ApiError && error.status >= 500 ? retry : undefined,
-          });
-        }
-      } finally {
-        if (abort.signal.aborted && kind === "chat" && messageId.current) {
-          setStopped({ id: messageId.current, content: replyText.current });
+          },
+        });
+      }
+    } finally {
+      // A run replaced while only coverage was left leaves the state to the newer run.
+      if (isCurrent()) {
+        if (abort.signal.aborted && kind === "chat" && messageId && !replied) {
+          set({ stopped: { id: messageId, content: replyText } });
           // The server saves the interrupted reply just after the disconnect.
           setTimeout(() => void queryClient.invalidateQueries({ queryKey: chatKey }), 800);
         }
-        controller.current = null;
-        setRunning(null);
-        setPendingUser(null);
-        setReply(null);
-        setDraft(null);
-        setStreaming({});
-        // A stopped revision leaves no half proposal behind.
-        setProposals((p) =>
-          Object.fromEntries(
-            Object.entries(p).filter(([, proposal]) => proposal.status === "ready"),
+        controller = null;
+        coverageOnly = false;
+        set((s) => ({
+          running: null,
+          coverageUpdating: false,
+          pendingUser: null,
+          reply: null,
+          draft: null,
+          streaming: {},
+          // A stopped revision leaves no half proposal behind.
+          proposals: Object.fromEntries(
+            Object.entries(s.proposals).filter(([, proposal]) => proposal.status === "ready"),
           ),
-        );
+        }));
         await queryClient.invalidateQueries({ queryKey: chatKey });
         await queryClient.invalidateQueries({ queryKey: collectionsKey });
       }
-    },
-    [queryClient, chatKey],
-  );
+    }
+  }
 
-  const sendChat = useCallback(
-    (message: string) => {
-      setPendingUser(message);
-      setReply("");
-      void run(
-        "chat",
-        `/documents/${documentId}/chat`,
-        { message },
-        (event) => {
-          if (event.type === "text") {
-            replyText.current += event.delta;
-            setReply(replyText.current);
-          }
-        },
-        () => sendChat(message),
-      );
-    },
-    [documentId, run],
-  );
+  function sendChat(message: string) {
+    set({ pendingUser: message, reply: "", replyId: null });
+    void run(
+      "chat",
+      `/documents/${documentId}/chat`,
+      { message },
+      (event) => {
+        if (event.type === "text") {
+          replyText += event.delta;
+          set({ reply: replyText });
+        }
+      },
+      () => sendChat(message),
+    );
+  }
 
-  const draftSections = useCallback(
-    (options: {
-      sections?: string[];
-      force?: boolean;
-      fromSource?: boolean;
-      targets: string[];
-    }) => {
-      setDraft({ targets: options.targets, current: null, finished: [] });
-      void run(
-        "draft",
-        `/documents/${documentId}/draft`,
-        { sections: options.sections, force: options.force, fromSource: options.fromSource },
-        (event) => {
-          if (event.type === "section_start") {
-            setDraft((d) => d && { ...d, current: event.key });
-            setStreaming((s) => ({ ...s, [event.key]: "" }));
-          } else if (event.type === "text" && event.sectionKey) {
-            const key = event.sectionKey;
-            setStreaming((s) => ({ ...s, [key]: (s[key] ?? "") + event.delta }));
-          } else if (event.type === "section_done") {
-            onSectionSaved(event.section);
-            setDraft(
-              (d) => d && { ...d, current: null, finished: [...d.finished, event.section.key] },
-            );
-            setStreaming(({ [event.section.key]: _done, ...rest }) => rest);
-          } else if (event.type === "section_skipped" || event.type === "section_conflict") {
-            setDraft((d) => d && { ...d, finished: [...d.finished, event.key] });
-            if (event.type === "section_conflict") {
-              setNotice({
+  function draftSections(options: {
+    sections?: string[];
+    force?: boolean;
+    fromSource?: boolean;
+    targets: string[];
+  }) {
+    set({ draft: { targets: options.targets, current: null, finished: [] } });
+    void run(
+      "draft",
+      `/documents/${documentId}/draft`,
+      { sections: options.sections, force: options.force, fromSource: options.fromSource },
+      (event) => {
+        if (event.type === "section_start") {
+          set((s) => ({
+            draft: s.draft && { ...s.draft, current: event.key },
+            streaming: { ...s.streaming, [event.key]: "" },
+          }));
+        } else if (event.type === "text" && event.sectionKey) {
+          const key = event.sectionKey;
+          set((s) => ({
+            streaming: { ...s.streaming, [key]: (s.streaming[key] ?? "") + event.delta },
+          }));
+        } else if (event.type === "section_done") {
+          const { key } = event.section;
+          replaceSection(event.section);
+          set((s) => {
+            const { [key]: _done, ...rest } = s.streaming;
+            return {
+              draft: s.draft && { ...s.draft, current: null, finished: [...s.draft.finished, key] },
+              streaming: rest,
+            };
+          });
+        } else if (event.type === "section_skipped" || event.type === "section_conflict") {
+          set((s) => ({
+            draft: s.draft && { ...s.draft, finished: [...s.draft.finished, event.key] },
+          }));
+          if (event.type === "section_conflict") {
+            set({
+              notice: {
                 message: "A section was edited while it was being drafted; your edit was kept.",
-              });
-            }
+              },
+            });
           }
-        },
-        () => draftSections(options),
-      );
-    },
-    [documentId, run, onSectionSaved],
-  );
+        }
+      },
+      () => draftSections(options),
+    );
+  }
 
-  const revise = useCallback(
-    (key: string, instruction: string) => {
-      setProposals((p) => ({ ...p, [key]: { instruction, markdown: "", status: "streaming" } }));
-      void run(
-        "revise",
-        `/documents/${documentId}/sections/${key}/revise`,
-        { instruction },
-        (event) => {
-          if (event.type === "text" && event.sectionKey === key) {
-            setProposals((p) => {
-              const current = p[key];
-              return current
-                ? { ...p, [key]: { ...current, markdown: current.markdown + event.delta } }
-                : p;
-            });
-          } else if (event.type === "proposal" && event.sectionKey === key) {
-            // The server fixed diagrams the stream contained.
-            setProposals((p) => {
-              const current = p[key];
-              return current ? { ...p, [key]: { ...current, markdown: event.markdown } } : p;
-            });
-          } else if (event.type === "done") {
-            setProposals((p) => {
-              const current = p[key];
-              return current ? { ...p, [key]: { ...current, status: "ready" } } : p;
-            });
-          } else if (event.type === "error") {
-            setProposals(({ [key]: _failed, ...rest }) => rest);
-          }
-        },
-        () => revise(key, instruction),
-      );
-    },
-    [documentId, run],
-  );
+  function updateProposal(key: string, update: (p: Proposal) => Proposal) {
+    set((s) => {
+      const current = s.proposals[key];
+      return current ? { proposals: { ...s.proposals, [key]: update(current) } } : {};
+    });
+  }
 
-  const stop = useCallback(() => controller.current?.abort(), []);
+  function clearProposal(key: string) {
+    set((s) => {
+      const { [key]: _gone, ...rest } = s.proposals;
+      return { proposals: rest };
+    });
+  }
 
-  const clearProposal = useCallback((key: string) => {
-    setProposals(({ [key]: _gone, ...rest }) => rest);
-  }, []);
+  function revise(key: string, instruction: string) {
+    set((s) => ({
+      proposals: { ...s.proposals, [key]: { instruction, markdown: "", status: "streaming" } },
+    }));
+    void run(
+      "revise",
+      `/documents/${documentId}/sections/${key}/revise`,
+      { instruction },
+      (event) => {
+        if (event.type === "text" && event.sectionKey === key) {
+          updateProposal(key, (p) => ({ ...p, markdown: p.markdown + event.delta }));
+        } else if (event.type === "proposal" && event.sectionKey === key) {
+          // The server fixed diagrams the stream contained.
+          updateProposal(key, (p) => ({ ...p, markdown: event.markdown }));
+        } else if (event.type === "done") {
+          updateProposal(key, (p) => ({ ...p, status: "ready" }));
+        } else if (event.type === "error") {
+          clearProposal(key);
+        }
+      },
+      () => revise(key, instruction),
+    );
+  }
 
   return {
-    running,
-    pendingUser,
-    reply,
-    stopped,
-    draft,
-    streaming,
-    proposals,
-    notice,
-    dismissNotice: () => setNotice(null),
-    sendChat,
-    draftSections,
-    revise,
-    stop,
-    clearProposal,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getSnapshot: () => state,
+    actions: {
+      sendChat,
+      draftSections,
+      revise,
+      replaceSection,
+      remountSection,
+      clearProposal,
+      stop: () => controller?.abort(),
+      dismissNotice: () => set({ notice: null }),
+    },
   };
+}
+
+type AssistantStore = ReturnType<typeof createAssistantStore>;
+
+/** One store per document for the life of the tab (one QueryClient per app). */
+const stores = new Map<string, AssistantStore>();
+
+export function useAssistant(documentId: string) {
+  const queryClient = useQueryClient();
+  const store = useMemo(() => {
+    let existing = stores.get(documentId);
+    if (!existing) {
+      existing = createAssistantStore(documentId, queryClient);
+      stores.set(documentId, existing);
+    }
+    return existing;
+  }, [documentId, queryClient]);
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  return { ...state, ...store.actions };
 }
 
 export type Assistant = ReturnType<typeof useAssistant>;

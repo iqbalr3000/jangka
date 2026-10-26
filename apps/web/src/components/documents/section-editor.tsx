@@ -5,29 +5,17 @@ import {
   type Section,
   section as sectionSchema,
 } from "@jangka/shared/document";
-import { type Editor, EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import {
-  Bold,
-  Code,
-  GitFork,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  type LucideIcon,
-  SquareCode,
-  Table2,
-} from "lucide-react";
+import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
 import { useConnection } from "@/lib/connection";
 import { DiagramFixContext, type FixDiagram, fixDiagram } from "@/lib/diagram-fix";
-import { NEW_DIAGRAM, sectionExtensions } from "@/lib/editor-extensions";
+import { sectionExtensions } from "@/lib/editor-extensions";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
-import { cn } from "@/lib/utils";
+import { BlockGutter } from "./block-gutter";
+import { FormatMenu } from "./format-menu";
 
 const AUTOSAVE_MS = 1500;
 // Read-only wording matches the PDF/DOCX export.
@@ -43,98 +31,7 @@ type SectionEditorProps = {
   onSaveState: (key: string, state: SaveState) => void;
   /** Unsaved starting content (e.g. "Edit before accepting"); saved like a human edit. */
   seed?: DocNode;
-  /** Where the formatting toolbar goes while editing: the section's heading row. */
-  toolbarSlot: HTMLElement | null;
 };
-
-type ToolbarButton = { label: string; icon: LucideIcon; active?: boolean; run: () => void };
-
-function Toolbar({ editor }: { editor: Editor }) {
-  const state = useEditorState({
-    editor,
-    selector: ({ editor: e }) => ({
-      bold: e.isActive("bold"),
-      italic: e.isActive("italic"),
-      code: e.isActive("code"),
-      link: e.isActive("link"),
-      bullet: e.isActive("bulletList"),
-      ordered: e.isActive("orderedList"),
-    }),
-  });
-  const chain = () => editor.chain().focus();
-  const buttons: ToolbarButton[] = [
-    { label: "Bold", icon: Bold, active: state.bold, run: () => chain().toggleBold().run() },
-    {
-      label: "Italic",
-      icon: Italic,
-      active: state.italic,
-      run: () => chain().toggleItalic().run(),
-    },
-    { label: "Inline code", icon: Code, active: state.code, run: () => chain().toggleCode().run() },
-    {
-      label: "Link",
-      icon: Link2,
-      active: state.link,
-      run: () => {
-        if (editor.isActive("link")) return void chain().unsetLink().run();
-        const href = window.prompt("Link URL (https://…)");
-        if (href) chain().setLink({ href }).run();
-      },
-    },
-    {
-      label: "Bulleted list",
-      icon: List,
-      active: state.bullet,
-      run: () => chain().toggleBulletList().run(),
-    },
-    {
-      label: "Numbered list",
-      icon: ListOrdered,
-      active: state.ordered,
-      run: () => chain().toggleOrderedList().run(),
-    },
-    {
-      label: "Table",
-      icon: Table2,
-      run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-    },
-    { label: "Code block", icon: SquareCode, run: () => chain().toggleCodeBlock().run() },
-    {
-      label: "Diagram",
-      icon: GitFork,
-      run: () =>
-        chain()
-          .insertContent({ type: "mermaidBlock", attrs: { source: NEW_DIAGRAM } })
-          .run(),
-    },
-  ];
-
-  return (
-    <div
-      role="toolbar"
-      aria-label="Formatting"
-      className="flex gap-0.5 rounded-sm border border-border bg-card p-0.5"
-    >
-      {buttons.map(({ label, icon: Icon, active, run }) => (
-        <button
-          key={label}
-          type="button"
-          title={label}
-          aria-label={label}
-          aria-pressed={active}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={run}
-          className={cn(
-            "flex size-7 items-center justify-center rounded-[3px] text-muted-foreground hover:bg-secondary hover:text-foreground",
-            active && "bg-secondary text-foreground",
-          )}
-        >
-          <Icon className="size-3.5" aria-hidden />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /**
  * One section's editor. Saves are debounced and serialized: each request carries the revision the
@@ -147,7 +44,6 @@ export function SectionEditor({
   onSaved,
   onSaveState,
   seed,
-  toolbarSlot,
 }: SectionEditorProps) {
   const revision = useRef(section.revision);
   const pending = useRef<DocNode | null>(null);
@@ -160,7 +56,7 @@ export function SectionEditor({
   const conflictRef = useRef<Section | null>(null);
   conflictRef.current = conflict;
   const [error, setError] = useState<string | null>(null);
-  const [focused, setFocused] = useState(false);
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const { key } = section;
 
   const report = useCallback((state: SaveState) => onSaveState(key, state), [key, onSaveState]);
@@ -238,11 +134,7 @@ export function SectionEditor({
       clearTimeout(timer.current);
       timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
     },
-    onFocus: () => setFocused(true),
-    onBlur: () => {
-      setFocused(false);
-      void flush();
-    },
+    onBlur: () => void flush(),
   });
 
   // `false`: setEditable would otherwise emit an update and autosave unchanged content.
@@ -300,14 +192,21 @@ export function SectionEditor({
     void flush();
   }
 
+  // Clicking under the last block continues the section, even after a table or diagram.
+  function continueAtEnd(event: MouseEvent) {
+    if (!editor) return;
+    event.preventDefault();
+    const { doc } = editor.state;
+    const last = doc.lastChild;
+    if (last?.type.name === "paragraph" && last.content.size === 0) {
+      editor.commands.focus("end");
+      return;
+    }
+    editor.chain().insertContentAt(doc.content.size, { type: "paragraph" }).focus("end").run();
+  }
+
   return (
     <div className="relative flex flex-col gap-2">
-      {/* In the heading row, beside the section actions rather than over them. */}
-      {editable &&
-        editor &&
-        focused &&
-        toolbarSlot &&
-        createPortal(<Toolbar editor={editor} />, toolbarSlot)}
       {conflict && (
         <div
           role="alert"
@@ -325,9 +224,21 @@ export function SectionEditor({
         </div>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <DiagramFixContext value={fix}>
-        <EditorContent editor={editor} />
-      </DiagramFixContext>
+      {/* Wider than the text by the gutter, so moving onto the block handle keeps it shown. */}
+      <div ref={setFrame} className="relative -ml-6 pl-6 sm:-ml-11 sm:pl-11">
+        <DiagramFixContext value={fix}>
+          <EditorContent editor={editor} />
+        </DiagramFixContext>
+        {editable && editor && frame && <BlockGutter editor={editor} container={frame} />}
+        {editable && editor && <FormatMenu editor={editor} />}
+        {editable && (
+          <div
+            aria-hidden
+            onMouseDown={(event) => continueAtEnd(event.nativeEvent)}
+            className="h-6 cursor-text"
+          />
+        )}
+      </div>
     </div>
   );
 }

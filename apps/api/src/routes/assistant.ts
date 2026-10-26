@@ -126,9 +126,19 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
   function generate(
     c: Context<AppEnv>,
     doc: DocumentRow,
-    run: (send: (event: AssistantEvent) => Promise<void>, signal: AbortSignal) => Promise<void>,
+    run: (
+      send: (event: AssistantEvent) => Promise<void>,
+      signal: AbortSignal,
+      unlock: () => void,
+    ) => Promise<void>,
   ) {
     const release = locks.acquire(doc.id);
+    let released = false;
+    // Another generation may hold the lock by the time `finally` runs.
+    const unlock = () => {
+      if (!released) release();
+      released = true;
+    };
     return streamSSE(c, async (stream: SSEStreamingApi) => {
       const controller = new AbortController();
       stream.onAbort(() => controller.abort());
@@ -136,12 +146,12 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
         if (!controller.signal.aborted) await stream.writeSSE({ data: JSON.stringify(event) });
       };
       try {
-        await run(send, controller.signal);
+        await run(send, controller.signal, unlock);
       } catch (error) {
         logger.error({ err: error, documentId: doc.id }, "assistant stream failed");
         await send({ type: "error", code: "internal", message: "Something went wrong" });
       } finally {
-        release();
+        unlock();
       }
     });
   }
@@ -208,7 +218,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
       });
       await audit(c, { action: "assistant.chat", targetType: "document", targetId: doc.id });
 
-      return generate(c, doc, async (send, signal) => {
+      return generate(c, doc, async (send, signal, unlock) => {
         const messageId = uuidv7();
         await send({ type: "message_start", messageId });
         const { context } = await documentContext(db, doc, data);
@@ -241,6 +251,9 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
           await send(providerError(resolved, result.error, logger));
           return;
         }
+        // Coverage is advisory: the next message may be sent while it is assessed.
+        await send({ type: "reply_done", messageId });
+        unlock();
 
         try {
           const transcriptNow = transcriptOf(await threadMessages(db, doc.id));
@@ -249,8 +262,11 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
             { doc: context, transcript: transcriptNow },
             signal,
           );
-          await saveState(db, doc.id, state);
-          await send({ type: "coverage", state });
+          // A newer turn reassesses; this one must not overwrite it.
+          if ((await threadMessages(db, doc.id)).at(-1)?.id === messageId) {
+            await saveState(db, doc.id, state);
+            await send({ type: "coverage", state });
+          }
         } catch (error) {
           // Coverage is advisory: the reply is already saved, so a failed assessment isn't fatal.
           if (error instanceof LLMError) {

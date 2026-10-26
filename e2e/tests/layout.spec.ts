@@ -14,7 +14,8 @@ test("a broken diagram offers Fix with assistant", async ({ browser }) => {
   await expect(page.getByLabel("Document title")).toHaveValue("Layout check");
 
   await page.getByRole("textbox", { name: "User Flow", exact: true }).click();
-  await page.getByRole("button", { name: "Diagram" }).click();
+  await page.keyboard.type("/diagram");
+  await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "source", exact: true }).click();
   await page.getByLabel("Mermaid source").fill("flowchart TD\n  A -->");
   await expect(page.getByText("Render error")).toBeVisible();

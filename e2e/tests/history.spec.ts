@@ -17,9 +17,7 @@ test("restore an older section version and find it in the audit log", async ({ b
   await page.keyboard.type("Customers wait a week for refunds.");
   await expect(saveStatus(page)).toHaveText(/Saved/);
 
-  // r2: an accepted AI revision, from the section menu while still editing it (the formatting
-  // toolbar used to cover this menu).
-  await expect(page.getByRole("toolbar", { name: "Formatting" })).toBeVisible();
+  // r2: an accepted AI revision, from the section menu while still editing it.
   await page.getByRole("button", { name: "Assistant actions for Overview" }).click();
   await page.getByRole("menuitem", { name: "⟳ Revise…" }).click();
   await page.getByLabel("Revise Overview").fill("Make it shorter");

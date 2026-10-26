@@ -4,8 +4,10 @@ import {
   documentList,
   type Section,
 } from "@jangka/shared/document";
-import { queryOptions } from "@tanstack/react-query";
+import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { apiFetch } from "./api";
+import { versionsKey } from "./history";
+import { traceKey } from "./trace";
 
 export const documentsKey = ["documents"] as const;
 
@@ -36,3 +38,15 @@ export function completenessSummary(sections: Pick<Section, "completeness">[]): 
 }
 
 export const sectionAnchor = (key: string) => `section-${key}`;
+
+/** Keeps outline/completeness live after a section save, without re-seeding open editors. */
+export function applySavedSection(queryClient: QueryClient, documentId: string, saved: Section) {
+  // Requirement tables are indexed on save, and a save may add a version.
+  void queryClient.invalidateQueries({ queryKey: traceKey(documentId) });
+  void queryClient.invalidateQueries({ queryKey: versionsKey(documentId, saved.key) });
+  queryClient.setQueryData(documentQuery(documentId).queryKey, (current) =>
+    current
+      ? { ...current, sections: current.sections.map((s) => (s.key === saved.key ? saved : s)) }
+      : current,
+  );
+}

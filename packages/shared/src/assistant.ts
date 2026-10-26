@@ -64,6 +64,8 @@ export const assistantEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("message_start"), messageId: z.string() }),
   z.object({ type: z.literal("references"), items: z.array(chatReference) }),
   z.object({ type: z.literal("text"), delta: z.string(), sectionKey: z.string().optional() }),
+  /** The chat reply is saved; the stream continues only to assess coverage. */
+  z.object({ type: z.literal("reply_done"), messageId: z.string() }),
   z.object({ type: z.literal("section_start"), key: z.string() }),
   z.object({ type: z.literal("section_done"), section }),
   z.object({

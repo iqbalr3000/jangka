@@ -56,3 +56,31 @@ test("interview, draft everything, revise one section via chat, stop a reply", a
   await expect(panel(page)).toContainText("(interrupted)");
   await expect(panel(page).getByRole("button", { name: "↑ Send" })).toBeVisible();
 });
+
+test("a draft keeps going while the user is on another page", async ({ browser }) => {
+  const page = await signIn(browser, ADMIN);
+  await page.getByRole("button", { name: "+ New", exact: true }).click();
+  await page.getByLabel("Title").fill("Background draft");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByLabel("Document title")).toHaveValue("Background draft");
+
+  // "[slow]" in the transcript makes the fake draft each section slowly.
+  await send(page, "[slow] Customers wait 7 days for refunds.");
+  await expect(panel(page)).toContainText("COVERAGE 12/12", { timeout: 15_000 });
+
+  await page.getByRole("heading", { name: "Overview" }).hover();
+  await page.getByRole("button", { name: "Assistant actions for Overview" }).click();
+  await page.getByRole("menuitem", { name: "Draft this section" }).click();
+  await expect(page.getByText("Drafting…").first()).toBeVisible();
+
+  // In-app navigation away and back: progress is still live, no reload needed.
+  await page.getByRole("link", { name: "Home" }).click();
+  await expect(page.getByLabel("Document title")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "■ Stop" }).first()).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Overview", exact: true })).toContainText(
+    "and more",
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("button", { name: "■ Stop" })).toHaveCount(0);
+});
