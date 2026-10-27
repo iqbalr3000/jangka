@@ -89,20 +89,35 @@ export function toTurns(messages: Turn[]): Turn[] {
   return turns;
 }
 
-/** Keys come from the template, so the model can't invent sections. */
-export function coverageSchema(template: TemplateDefinition) {
+export const MAX_SUGGESTIONS = 3;
+
+/**
+ * Keys come from the template, so the model can't invent sections. Suggestions may only name
+ * sections with content (`contentKeys`); with none, the field is left out (an enum can't be empty).
+ */
+export function coverageSchema(template: TemplateDefinition, contentKeys: string[] = []) {
   const keys = template.sections.map((s) => s.key);
-  return z.object({
+  const base = z.object({
     coverage: z.object(Object.fromEntries(keys.map((k) => [k, coverageLevel]))),
     notes: z.object(Object.fromEntries(keys.map((k) => [k, z.string().max(300)]))),
     openQuestions: z.array(z.string().max(300)).max(10),
     readyToDraft: z.boolean(),
   });
+  const [first, ...rest] = contentKeys;
+  if (first === undefined) return base;
+  return base.extend({
+    suggestions: z
+      .array(z.object({ key: z.enum([first, ...rest]), reason: z.string().max(200) }))
+      .max(MAX_SUGGESTIONS),
+  });
 }
 
 export function normalizeCoverage(
   template: TemplateDefinition,
-  result: z.infer<ReturnType<typeof coverageSchema>>,
+  result: z.infer<ReturnType<typeof coverageSchema>> & {
+    suggestions?: { key: string; reason: string }[];
+  },
+  contentKeys: string[] = [],
 ): InterviewState {
   const sections = template.sections.map((s) => {
     const level = coverageLevel.safeParse(result.coverage[s.key]);
@@ -115,7 +130,13 @@ export function normalizeCoverage(
   const readyToDraft = template.sections.every(
     (s, i) => !s.required || sections[i]?.coverage !== "missing",
   );
-  return { sections, openQuestions: result.openQuestions, readyToDraft };
+  const suggestions: InterviewState["suggestions"] = [];
+  for (const suggestion of result.suggestions ?? []) {
+    const known = contentKeys.includes(suggestion.key);
+    if (known && !suggestions.some((s) => s.key === suggestion.key)) suggestions.push(suggestion);
+  }
+  suggestions.splice(MAX_SUGGESTIONS);
+  return { sections, openQuestions: result.openQuestions, readyToDraft, suggestions };
 }
 
 type Common = { provider: LLMProvider; model: string; contextWindow?: number };
@@ -135,19 +156,23 @@ export function interview(
   );
 }
 
+/** `suggest`: also name sections with content that the conversation changes (chat turns only). */
 export async function assessCoverage(
   { provider, model, contextWindow }: Common,
-  input: { doc: DocumentContext; transcript: Turn[] },
+  input: { doc: DocumentContext; transcript: Turn[]; suggest?: boolean },
   signal?: AbortSignal,
 ): Promise<InterviewState> {
   const fitted = fitBudget(
     { doc: input.doc, transcript: toTurns(input.transcript) },
     contextWindow,
   );
+  const contentKeys = input.suggest
+    ? input.doc.sections.filter((s) => s.markdown.trim()).map((s) => s.key)
+    : [];
   const result = await provider.generateObject(
     {
       model,
-      system: coverageSystem(fitted.doc),
+      system: coverageSystem(fitted.doc, contentKeys.length > 0),
       messages: [
         {
           role: "user",
@@ -155,10 +180,10 @@ export async function assessCoverage(
         },
       ],
     },
-    coverageSchema(input.doc.template),
+    coverageSchema(input.doc.template, contentKeys),
     signal,
   );
-  return normalizeCoverage(input.doc.template, result);
+  return normalizeCoverage(input.doc.template, result, contentKeys);
 }
 
 export function draftSection(
@@ -201,20 +226,33 @@ export function checkSection(
   );
 }
 
+/** With a `transcript`, the revision may only apply facts the conversation states. */
 export function reviseSection(
   { provider, model, contextWindow }: Common,
-  input: { doc: DocumentContext; section: TemplateSection; current: string; instruction: string },
+  input: {
+    doc: DocumentContext;
+    section: TemplateSection;
+    current: string;
+    instruction: string;
+    transcript?: Turn[];
+  },
   signal?: AbortSignal,
 ): AsyncIterable<StreamEvent> {
   const fitted = fitBudget(
-    { doc: input.doc, transcript: [], focusKey: input.section.key },
+    { doc: input.doc, transcript: toTurns(input.transcript ?? []), focusKey: input.section.key },
     contextWindow,
   );
+  const request = reviseMessage(input.current, input.instruction);
   return provider.streamText(
     {
       model,
-      system: reviseSystem(fitted.doc, input.section),
-      messages: [{ role: "user", content: reviseMessage(input.current, input.instruction) }],
+      system: reviseSystem(fitted.doc, input.section, input.transcript !== undefined),
+      messages: [
+        {
+          role: "user",
+          content: input.transcript ? transcriptMessage(fitted.transcript, "", request) : request,
+        },
+      ],
     },
     signal,
   );

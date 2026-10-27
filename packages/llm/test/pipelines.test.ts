@@ -11,6 +11,7 @@ import {
   fitBudget,
   fixDiagram,
   interview,
+  reviseSection,
   toTurns,
 } from "../src/pipelines/index";
 import { jsonSchemaOf } from "../src/structured";
@@ -81,6 +82,90 @@ describe("coverage", () => {
     expect(state.sections.every((s) => s.coverage === "covered")).toBe(true);
     expect(state.readyToDraft).toBe(true);
     expect(sampleFromSchema({ type: "array", items: { type: "string" } })).toEqual(["Fake"]);
+  });
+});
+
+describe("update suggestions", () => {
+  const withContent: DocumentContext = {
+    ...doc,
+    sections: doc.sections.map((s) =>
+      s.key === "goals" || s.key === "non_functional_requirements"
+        ? { ...s, markdown: "Refunds within 5 days." }
+        : s,
+    ),
+  };
+  const coverageOnly = {
+    coverage: Object.fromEntries(template.sections.map((s) => [s.key, "partial"])),
+    notes: Object.fromEntries(template.sections.map((s) => [s.key, ""])),
+    openQuestions: [],
+    readyToDraft: true,
+  };
+  const suggestionKeys = (schema: ReturnType<typeof coverageSchema>) =>
+    (
+      jsonSchemaOf(schema).properties as {
+        suggestions?: { items: { properties: { key: { enum: string[] } } } };
+      }
+    ).suggestions?.items.properties.key.enum;
+
+  it("may only name sections with content, and has no field when none do", () => {
+    expect(suggestionKeys(coverageSchema(template, ["goals"]))).toEqual(["goals"]);
+    expect(suggestionKeys(coverageSchema(template))).toBeUndefined();
+  });
+
+  it("keeps known content sections only, once each, at most three", async () => {
+    fakeResponses({
+      ...coverageOnly,
+      suggestions: [
+        { key: "goals", reason: "Refunds now within 3 days" },
+        { key: "goals", reason: "Duplicate" },
+        { key: "non_functional_requirements", reason: "3-day SLA" },
+      ],
+    });
+    const state = await assessCoverage(
+      { provider: fake, model: "m" },
+      { doc: withContent, transcript: [], suggest: true },
+    );
+    expect(state.suggestions).toEqual([
+      { key: "goals", reason: "Refunds now within 3 days" },
+      { key: "non_functional_requirements", reason: "3-day SLA" },
+    ]);
+  });
+
+  it("asks for suggestions only when told to", async () => {
+    const rec = recording();
+    const state = await assessCoverage(
+      { provider: rec.provider, model: "m" },
+      { doc: withContent, transcript: [] },
+    );
+    expect(state.suggestions).toEqual([]);
+    expect(rec.system[0]).not.toContain("In suggestions");
+
+    await assessCoverage(
+      { provider: rec.provider, model: "m" },
+      { doc: withContent, transcript: [], suggest: true },
+    );
+    expect(rec.system[1]).toContain("Use only facts the user stated");
+  });
+
+  it("an update from the conversation sends the transcript and the facts-only rule", async () => {
+    const rec = recording();
+    const section = template.sections.find((s) => s.key === "goals");
+    if (!section) throw new Error("goals missing");
+    await collect(
+      reviseSection(
+        { provider: rec.provider, model: "m" },
+        {
+          doc: withContent,
+          section,
+          current: "Refunds within 5 days.",
+          instruction: "Update with: refunds now within 3 days",
+          transcript: [{ role: "user", content: "Refunds must now finish in 3 days" }],
+        },
+      ),
+    );
+    expect(rec.messages[0]).toContain("Refunds must now finish in 3 days");
+    expect(rec.messages[0]).toContain("Instruction: Update with: refunds now within 3 days");
+    expect(rec.system[0]).toContain("Apply only facts the user stated");
   });
 });
 

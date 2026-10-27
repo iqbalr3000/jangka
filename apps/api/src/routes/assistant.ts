@@ -15,6 +15,7 @@ import {
   chatRequest,
   draftRequest,
   fixDiagramRequest,
+  proposeUpdatesRequest,
   reviseRequest,
 } from "@jangka/shared/assistant";
 import type { DocNode } from "@jangka/shared/document";
@@ -259,7 +260,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
           const transcriptNow = transcriptOf(await threadMessages(db, doc.id));
           const state = await assessCoverage(
             common,
-            { doc: context, transcript: transcriptNow },
+            { doc: context, transcript: transcriptNow, suggest: true },
             signal,
           );
           // A newer turn reassesses; this one must not overwrite it.
@@ -484,6 +485,132 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
         });
       },
     )
+    .post(
+      "/:id/propose-updates",
+      zValidate("param", idParam),
+      zValidate("json", proposeUpdatesRequest),
+      async (c) => {
+        const { auth, doc, resolved, data } = await prepare(c, c.req.valid("param").id);
+        requireNotApproved(doc);
+        const requested = c.req.valid("json").sections;
+        const state = await loadState(db, doc.id);
+        const reasons = new Map((state?.suggestions ?? []).map((s) => [s.key, s.reason]));
+        if (!state || requested.some((key) => !reasons.has(key))) {
+          throw new AppError(
+            "validation_failed",
+            400,
+            "Only sections the assistant suggested can be updated from the chat",
+          );
+        }
+        const { template } = await documentContext(db, doc, data);
+        const targets = template.sections.filter((s) => requested.includes(s.key));
+        const titles = targets.map((s) => s.title).join(", ");
+
+        const threadId = await ensureThread(db, doc.id, auth.user.id);
+        await db.insert(chatMessages).values({
+          threadId,
+          role: "user",
+          kind: "revise",
+          content: `Update from chat: ${titles}`,
+          createdBy: auth.user.id,
+        });
+        await audit(c, {
+          action: "assistant.propose_updates",
+          targetType: "document",
+          targetId: doc.id,
+          metadata: { sections: requested },
+        });
+
+        return generate(c, doc, async (send, signal) => {
+          const messageId = uuidv7();
+          await send({ type: "message_start", messageId });
+          const { context } = await documentContext(db, doc, data);
+          const transcript = transcriptOf(await threadMessages(db, doc.id));
+          const common = { provider: resolved.provider, model: resolved.model };
+          const usage = { inputTokens: 0, outputTokens: 0 };
+
+          for (const section of targets) {
+            const result = await relay(
+              reviseSection(
+                common,
+                {
+                  doc: context,
+                  section,
+                  current: context.sections.find((s) => s.key === section.key)?.markdown ?? "",
+                  instruction: `Update this section with the new information from the conversation: ${reasons.get(section.key)}`,
+                  transcript,
+                },
+                signal,
+              ),
+              (delta) => send({ type: "text", delta, sectionKey: section.key }),
+            );
+            usage.inputTokens += result.usage.inputTokens;
+            usage.outputTokens += result.usage.outputTokens;
+            if (result.error) {
+              await saveAssistantMessage(threadId, {
+                id: messageId,
+                kind: "revise",
+                content: `Couldn't propose updates to ${titles}.`,
+                interrupted: true,
+                usage,
+                resolved,
+              });
+              await send(providerError(resolved, result.error, logger));
+              return;
+            }
+            const rendered = await withRenderedDiagrams(
+              fromMarkdown(result.text),
+              resolved,
+              section,
+              signal,
+            );
+            await send({
+              type: "proposal_ready",
+              sectionKey: section.key,
+              markdown: toMarkdown(rendered),
+            });
+            // Done ones leave the chip; a stop or failure leaves the rest suggested.
+            const latest = await loadState(db, doc.id);
+            if (latest) {
+              await saveState(db, doc.id, {
+                ...latest,
+                suggestions: latest.suggestions.filter((s) => s.key !== section.key),
+              });
+            }
+          }
+
+          await saveAssistantMessage(threadId, {
+            id: messageId,
+            kind: "revise",
+            content: `Proposed updates to ${titles}. Review them in the document.`,
+            interrupted: false,
+            usage,
+            resolved,
+          });
+          await send({ type: "done", usage });
+        });
+      },
+    )
+    .delete("/:id/chat/suggestions", zValidate("param", idParam), async (c) => {
+      const auth = requireAuth(c);
+      const data = await loadAccess(db, {
+        userId: auth.user.id,
+        isAdmin: auth.user.isAdmin,
+        groupIds: auth.groupIds,
+      });
+      const doc = await viewableDocument(db, data, c.req.valid("param").id);
+      requireDocEdit(data, doc);
+      const state = await loadState(db, doc.id);
+      if (state && state.suggestions.length > 0) {
+        await saveState(db, doc.id, { ...state, suggestions: [] });
+      }
+      await audit(c, {
+        action: "assistant.dismiss_suggestions",
+        targetType: "document",
+        targetId: doc.id,
+      });
+      return c.body(null, 204);
+    })
     .post(
       "/:id/sections/:key/fix-diagram",
       zValidate("param", sectionParam),

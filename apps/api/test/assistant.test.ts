@@ -1,4 +1,11 @@
-import { chatMessages, collections, groups, sectionVersions } from "@jangka/db";
+import {
+  auditLogs,
+  chatMessages,
+  collections,
+  groups,
+  interviewStates,
+  sectionVersions,
+} from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { createProvider, fakeResponses } from "@jangka/llm";
 import { SECRET_KEY, type Stub, startStub } from "@jangka/llm/testing";
@@ -456,6 +463,137 @@ describe("revise", () => {
     expect(section.parse(await res.json()).revision).toBe(1);
     const [version] = await db.select().from(sectionVersions);
     expect(version?.source).toBe("llm");
+  });
+});
+
+describe("updates from chat", () => {
+  const text = (value: string): DocNode => ({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: value }] }],
+  });
+  const suggest = (suggestions: { key: string; reason: string }[]) => ({
+    ...coverageWith([]),
+    suggestions,
+  });
+
+  async function withContent(key: string, value: string) {
+    const res = await call(app, "PUT", `/documents/${docId}/sections/${key}`, {
+      cookie: adminCookie,
+      body: { content: text(value), revision: 0 },
+    });
+    expect(res.status).toBe(200);
+  }
+
+  /** A chat turn whose assessment suggests updating `goals` and `non_functional_requirements`. */
+  async function chatWithSuggestions() {
+    await useFake();
+    await withContent("goals", "Refunds within 5 days.");
+    await withContent("non_functional_requirements", "p95 refund API < 500 ms.");
+    fakeResponses(
+      suggest([
+        { key: "non_functional_requirements", reason: "Refund API must answer in 300 ms" },
+        { key: "goals", reason: "Refunds now within 3 days" },
+      ]),
+    );
+    await all(await post(`/documents/${docId}/chat`, { message: "Refunds must take 3 days now" }));
+  }
+
+  it("a chat turn saves the suggestions", async () => {
+    await chatWithSuggestions();
+    expect((await thread()).state?.suggestions).toEqual([
+      { key: "non_functional_requirements", reason: "Refund API must answer in 300 ms" },
+      { key: "goals", reason: "Refunds now within 3 days" },
+    ]);
+  });
+
+  it("proposes updates in template order without touching the sections", async () => {
+    await chatWithSuggestions();
+    const list = await all(
+      await post(`/documents/${docId}/propose-updates`, {
+        sections: ["non_functional_requirements", "goals"],
+      }),
+    );
+    const ready = list.flatMap((e) => (e.type === "proposal_ready" ? [e.sectionKey] : []));
+    expect(ready).toEqual(["goals", "non_functional_requirements"]);
+    const goalsText = list.flatMap((e) =>
+      e.type === "text" && e.sectionKey === "goals" ? [e.delta] : [],
+    );
+    expect(goalsText.length).toBeGreaterThan(0);
+    expect(list.at(-1)?.type).toBe("done");
+
+    const sections = await sectionsNow();
+    expect(sections.find((s) => s.key === "goals")?.revision).toBe(1);
+
+    const { messages, state } = await thread();
+    expect(state?.suggestions).toEqual([]);
+    expect(messages.slice(-2).map((m) => [m.role, m.kind, m.content])).toEqual([
+      ["user", "revise", "Update from chat: Goals & Success Metrics, Non-Functional Requirements"],
+      [
+        "assistant",
+        "revise",
+        "Proposed updates to Goals & Success Metrics, Non-Functional Requirements. Review them in the document.",
+      ],
+    ]);
+    const [logged] = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, "assistant.propose_updates"));
+    expect(logged?.metadata).toEqual({ sections: ["non_functional_requirements", "goals"] });
+  });
+
+  it("only updates sections the assistant suggested", async () => {
+    await chatWithSuggestions();
+    const res = await post(`/documents/${docId}/propose-updates`, { sections: ["risks"] });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: { code: "validation_failed" } });
+  });
+
+  it("is refused on approved documents and for viewers", async () => {
+    await chatWithSuggestions();
+    await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
+    const rina = await login(app, "rina@acme.co", "rina-password-123");
+    const viewer = await post(
+      `/documents/${docId}/propose-updates`,
+      { sections: ["goals"] },
+      undefined,
+      rina,
+    );
+    expect([403, 404]).toContain(viewer.status);
+
+    for (const status of ["in_review", "approved"]) {
+      await call(app, "POST", `/documents/${docId}/status`, {
+        cookie: adminCookie,
+        body: { status },
+      });
+    }
+    const res = await post(`/documents/${docId}/propose-updates`, { sections: ["goals"] });
+    expect(res.status).toBe(409);
+  });
+
+  it("dismiss clears the suggestions", async () => {
+    await chatWithSuggestions();
+    const res = await call(app, "DELETE", `/documents/${docId}/chat/suggestions`, {
+      cookie: adminCookie,
+    });
+    expect(res.status).toBe(204);
+    expect((await thread()).state?.suggestions).toEqual([]);
+    const [logged] = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, "assistant.dismiss_suggestions"));
+    expect(logged).toBeTruthy();
+  });
+
+  it("a state saved before suggestions existed still loads", async () => {
+    await useFake();
+    const { suggestions: _none, ...legacy } = {
+      sections: KEYS.map((key) => ({ key, coverage: "partial", note: "" })),
+      openQuestions: [],
+      readyToDraft: true,
+      suggestions: [],
+    };
+    await db.insert(interviewStates).values({ documentId: docId, state: legacy });
+    expect((await thread()).state?.suggestions).toEqual([]);
   });
 });
 

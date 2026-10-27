@@ -80,3 +80,45 @@ test("a draft keeps going while the user is on another page", async ({ browser }
   );
   await expect(page.getByRole("button", { name: "■ Stop" })).toHaveCount(0);
 });
+
+// The fake's assessment always suggests its last option: the last section with content.
+test("the chat suggests updates to drafted sections; review one, dismiss another", async ({
+  browser,
+}) => {
+  const page = await signIn(browser, ADMIN);
+  await page.getByRole("button", { name: "+ New", exact: true }).click();
+  await page.getByLabel("Title").fill("Refund updates");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByLabel("Document title")).toHaveValue("Refund updates");
+
+  // Nothing drafted yet: nothing to update.
+  await send(page, "Customers wait 7 days for refunds.");
+  await expect(panel(page)).toContainText("COVERAGE 12/12");
+  const suggestions = panel(page).getByRole("listitem", { name: "Suggested updates" });
+  await expect(suggestions).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Draft all" }).click();
+  await expect(page.getByRole("navigation", { name: "Outline" })).toContainText(
+    "12 of 12 complete",
+    { timeout: 30_000 },
+  );
+
+  await send(page, "Refunds must now finish within 3 days.");
+  await expect(suggestions).toContainText("This may change 1 section");
+  await expect(suggestions).toContainText("Open Questions");
+  await suggestions.getByRole("button", { name: "Dismiss" }).click();
+  await expect(suggestions).toHaveCount(0);
+  await page.reload();
+  await expect(panel(page)).toContainText("COVERAGE 12/12");
+  await expect(suggestions).toHaveCount(0);
+
+  await send(page, "Partial refunds are allowed too.");
+  await suggestions.getByRole("button", { name: "Review updates" }).click();
+  const proposal = page.getByRole("region", { name: "Proposed revision" });
+  await expect(proposal).toContainText("From chat: Fake");
+  await expect(proposal.getByRole("button", { name: "Accept", exact: true })).toBeEnabled();
+  await proposal.getByRole("button", { name: "Accept", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
+  await expect(panel(page)).toContainText("Proposed updates to Open Questions");
+  await expect(suggestions).toHaveCount(0);
+});

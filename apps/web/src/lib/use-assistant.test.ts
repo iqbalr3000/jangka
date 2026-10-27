@@ -5,6 +5,7 @@ import { createAssistantStore } from "./use-assistant";
 
 type FakeStream = {
   path: string;
+  body: unknown;
   signal: AbortSignal;
   emit: (event: AssistantEvent) => void;
   end: () => void;
@@ -19,12 +20,12 @@ vi.mock("./assistant", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./assistant")>()),
   streamAssistant: (
     path: string,
-    _body: unknown,
+    body: unknown,
     { signal, onEvent }: { signal: AbortSignal; onEvent: (event: AssistantEvent) => void },
   ) =>
     new Promise<void>((resolve, reject) => {
       signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
-      streams.push({ path, signal, emit: onEvent, end: resolve });
+      streams.push({ path, body, signal, emit: onEvent, end: resolve });
     }),
 }));
 
@@ -36,7 +37,7 @@ function stream(index: number): FakeStream {
 
 const coverage: AssistantEvent = {
   type: "coverage",
-  state: { sections: [], openQuestions: [], readyToDraft: false },
+  state: { sections: [], openQuestions: [], readyToDraft: false, suggestions: [] },
 };
 
 let store: ReturnType<typeof createAssistantStore>;
@@ -115,5 +116,61 @@ describe("revise", () => {
     stream(0).end();
     await vi.waitFor(() => expect(state().running).toBeNull());
     expect(state().proposals.goals).toMatchObject({ status: "ready", markdown: "Fixed draft" });
+  });
+});
+
+describe("updates from chat", () => {
+  const suggestions = [
+    { key: "goals", reason: "Refunds now within 3 days" },
+    { key: "non_functional_requirements", reason: "Refund API in 300 ms" },
+  ];
+
+  it("streams one proposal per section and marks each ready with its final text", async () => {
+    store.actions.proposeUpdates(suggestions);
+    expect(stream(0).path).toBe("/documents/doc-1/propose-updates");
+    stream(0).emit({ type: "text", delta: "Refunds within ", sectionKey: "goals" });
+    stream(0).emit({ type: "text", delta: "3 days.", sectionKey: "goals" });
+    expect(state().proposals.goals).toEqual({
+      instruction: "From chat: Refunds now within 3 days",
+      markdown: "Refunds within 3 days.",
+      status: "streaming",
+    });
+
+    stream(0).emit({
+      type: "proposal_ready",
+      sectionKey: "goals",
+      markdown: "Refunds within 3 days.",
+    });
+    stream(0).emit({
+      type: "text",
+      delta: "p95 < 300 ms",
+      sectionKey: "non_functional_requirements",
+    });
+    expect(state().proposals.goals?.status).toBe("ready");
+    expect(state().proposals.non_functional_requirements?.status).toBe("streaming");
+  });
+
+  it("a stop keeps the finished proposals only", async () => {
+    store.actions.proposeUpdates(suggestions);
+    stream(0).emit({ type: "text", delta: "Refunds within 3 days.", sectionKey: "goals" });
+    stream(0).emit({
+      type: "proposal_ready",
+      sectionKey: "goals",
+      markdown: "Refunds within 3 days.",
+    });
+    stream(0).emit({ type: "text", delta: "p95", sectionKey: "non_functional_requirements" });
+    store.actions.stop();
+    await vi.waitFor(() => expect(state().running).toBeNull());
+    expect(Object.keys(state().proposals)).toEqual(["goals"]);
+  });
+
+  it("retry asks only for the sections that weren't finished", async () => {
+    store.actions.proposeUpdates(suggestions);
+    stream(0).emit({ type: "proposal_ready", sectionKey: "goals", markdown: "Done." });
+    stream(0).emit({ type: "error", code: "provider_error", message: "Overloaded" });
+    stream(0).end();
+    await vi.waitFor(() => expect(state().notice?.retry).toBeDefined());
+    state().notice?.retry?.();
+    expect(stream(1).body).toEqual({ sections: ["non_functional_requirements"] });
   });
 });

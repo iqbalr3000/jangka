@@ -9,6 +9,8 @@ export const interviewState = z.object({
   sections: z.array(z.object({ key: z.string(), coverage: coverageLevel, note: z.string() })),
   openQuestions: z.array(z.string()),
   readyToDraft: z.boolean(),
+  /** Sections with content the conversation adds facts to or contradicts. */
+  suggestions: z.array(z.object({ key: z.string(), reason: z.string() })).default([]),
 });
 export type InterviewState = z.infer<typeof interviewState>;
 
@@ -52,6 +54,13 @@ export const draftRequest = z.object({
   fromSource: z.boolean().optional(),
 });
 export const reviseRequest = z.object({ instruction: z.string().trim().min(1).max(2000) });
+export const proposeUpdatesRequest = z.object({
+  sections: z
+    .array(z.string().regex(/^[a-z][a-z0-9_]*$/))
+    .min(1)
+    .max(3)
+    .refine((keys) => new Set(keys).size === keys.length, { error: "Sections must be unique" }),
+});
 /** A diagram the editor couldn't render, with the renderer's error. */
 export const fixDiagramRequest = z.object({
   source: z.string().trim().min(1).max(MAX_MERMAID_CHARS),
@@ -76,6 +85,8 @@ export const assistantEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("section_conflict"), key: z.string() }),
   /** Replaces the streamed revision text (e.g. after diagrams were fixed). */
   z.object({ type: z.literal("proposal"), sectionKey: z.string(), markdown: z.string() }),
+  /** One section of a multi-section update is final (after diagram checks). */
+  z.object({ type: z.literal("proposal_ready"), sectionKey: z.string(), markdown: z.string() }),
   z.object({ type: z.literal("coverage"), state: interviewState }),
   z.object({
     type: z.literal("done"),

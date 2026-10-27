@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@jangka/shared/assistant";
+import type { ChatMessage, InterviewState } from "@jangka/shared/assistant";
 import type { Section } from "@jangka/shared/document";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { CoverageChecklist } from "./coverage-checklist";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { UpdateSuggestions } from "./update-suggestions";
 
 export const panelTabs = ["chat", "history", "trace", "comments"] as const;
 export type PanelTab = (typeof panelTabs)[number];
@@ -39,6 +40,8 @@ type AssistantPanelProps = {
   onComposerChange: (value: string) => void;
   /** `@Section instruction` messages revise that section instead of chatting. */
   onRevise: (key: string, instruction: string) => void;
+  /** "Review updates" on the chat's update suggestions. */
+  onReviewUpdates: (suggestions: InterviewState["suggestions"]) => void;
   /** Visibility per breakpoint, set by the document layout. */
   className?: string;
 };
@@ -135,6 +138,7 @@ export function AssistantPanel({
   composer,
   onComposerChange,
   onRevise,
+  onReviewUpdates,
   className,
 }: AssistantPanelProps) {
   const chat = useQuery(chatQuery(documentId));
@@ -176,6 +180,13 @@ export function AssistantPanel({
     }
   }
   const replyStreaming = assistant.running === "chat";
+  const suggestions = chat.data?.state?.suggestions ?? [];
+  const showSuggestions =
+    editable &&
+    llmConfigured &&
+    suggestions.length > 0 &&
+    assistant.running === null &&
+    !assistant.coverageUpdating;
 
   function send(message: string) {
     const mention = parseMention(message, sections);
@@ -263,6 +274,14 @@ export function AssistantPanel({
                 />
               );
             })}
+            {showSuggestions && (
+              <UpdateSuggestions
+                documentId={documentId}
+                suggestions={suggestions}
+                sections={sections}
+                onReview={onReviewUpdates}
+              />
+            )}
             {assistant.notice && (
               <li
                 role="alert"

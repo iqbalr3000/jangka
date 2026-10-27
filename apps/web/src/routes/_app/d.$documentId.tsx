@@ -1,4 +1,5 @@
 import { fromMarkdown } from "@jangka/export";
+import type { InterviewState } from "@jangka/shared/assistant";
 import {
   type DocNode,
   type DocumentDetail,
@@ -291,6 +292,14 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     showSection(key);
   }
 
+  function reviewUpdates(suggestions: InterviewState["suggestions"]) {
+    const keys = new Set(suggestions.map((s) => s.key));
+    setAccepted((a) => Object.fromEntries(Object.entries(a).filter(([key]) => !keys.has(key))));
+    assistant.proposeUpdates(suggestions);
+    const first = detail.sections.find((s) => keys.has(s.key));
+    if (first) showSection(first.key);
+  }
+
   function askAbout(section: Section) {
     showPanel("chat");
     setComposer(`About ${section.title}: `);
@@ -448,6 +457,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           composer={composer}
           onComposerChange={setComposer}
           onRevise={revise}
+          onReviewUpdates={reviewUpdates}
           className={cn(
             pane === "assistant" ? "flex w-full" : "hidden",
             panel === "open" ? "lg:flex" : "lg:hidden",

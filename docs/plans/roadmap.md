@@ -26,7 +26,7 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Assistant proposes document updates from chat | Feature | When chat adds new information, offer updates to affected sections as diff + Accept |
+| Assistant proposes document updates from chat | Feature | [spec](spec-chat-updates.md) — suggestions from the post-reply assessment, Review updates → per-section diffs |
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |

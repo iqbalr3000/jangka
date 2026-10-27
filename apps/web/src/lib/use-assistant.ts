@@ -294,6 +294,48 @@ export function createAssistantStore(documentId: string, queryClient: QueryClien
     );
   }
 
+  /** Proposes updates to sections the chat added facts to; each becomes a reviewable proposal. */
+  function proposeUpdates(suggestions: { key: string; reason: string }[]) {
+    const reasons = new Map(suggestions.map((s) => [s.key, s.reason]));
+    const started = new Set<string>();
+    const ready = new Set<string>();
+    void run(
+      "revise",
+      `/documents/${documentId}/propose-updates`,
+      { sections: [...reasons.keys()] },
+      (event) => {
+        if (event.type === "text" && event.sectionKey && reasons.has(event.sectionKey)) {
+          const key = event.sectionKey;
+          const instruction = `From chat: ${reasons.get(key) ?? ""}`;
+          // The first delta replaces any earlier proposal for this section.
+          const markdown = started.has(key) ? (state.proposals[key]?.markdown ?? "") : "";
+          started.add(key);
+          set((s) => ({
+            proposals: {
+              ...s.proposals,
+              [key]: { instruction, markdown: markdown + event.delta, status: "streaming" },
+            },
+          }));
+        } else if (event.type === "proposal_ready" && reasons.has(event.sectionKey)) {
+          const key = event.sectionKey;
+          ready.add(key);
+          set((s) => ({
+            proposals: {
+              ...s.proposals,
+              [key]: {
+                instruction: `From chat: ${reasons.get(key) ?? ""}`,
+                markdown: event.markdown,
+                status: "ready",
+              },
+            },
+          }));
+        }
+      },
+      // Ready sections already left the server's suggestions.
+      () => proposeUpdates(suggestions.filter((s) => !ready.has(s.key))),
+    );
+  }
+
   return {
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -306,6 +348,7 @@ export function createAssistantStore(documentId: string, queryClient: QueryClien
       sendChat,
       draftSections,
       revise,
+      proposeUpdates,
       replaceSection,
       remountSection,
       clearProposal,

@@ -97,7 +97,7 @@ export function interviewSystem(doc: DocumentContext): string {
   ].join("\n\n");
 }
 
-export function coverageSystem(doc: DocumentContext): string {
+export function coverageSystem(doc: DocumentContext, suggest = false): string {
   return [
     base(doc),
     [
@@ -106,7 +106,15 @@ export function coverageSystem(doc: DocumentContext): string {
       "For each section give a one-line note on what is still missing (empty string if nothing).",
       "List the most important open questions. readyToDraft is true when every required section is at least partial.",
     ].join(" "),
-  ].join("\n\n");
+    suggest
+      ? [
+          "In suggestions, list the sections that already have content and that the conversation contradicts or adds a concrete fact to.",
+          "The reason is one line naming that fact. Use only facts the user stated; return an empty list if there are none.",
+        ].join(" ")
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function diagramInstruction(section: TemplateSection): string {
@@ -161,11 +169,18 @@ export function checkSystem(section: TemplateSection): string {
   ].join(" ");
 }
 
-export function reviseSystem(doc: DocumentContext, section: TemplateSection): string {
+export function reviseSystem(
+  doc: DocumentContext,
+  section: TemplateSection,
+  fromConversation = false,
+): string {
   return [
     base(doc),
     `Revise the "${section.title}" section following the user's instruction. Guidance: ${section.guidance}`,
     "Keep everything the instruction doesn't ask to change. Return the full revised section.",
+    fromConversation
+      ? "Apply only facts the user stated in the transcript. Change only what those facts require; keep all other content as is."
+      : "",
     diagramInstruction(section),
     tableRule(doc, section),
     OUTPUT_RULES,
