@@ -120,6 +120,15 @@
 }
 
 @layer base {
+  /* Tailwind v4 borders default to currentColor; unlabelled `border` means the design's border token. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
+
   /* 14px = UI default; document body (16px) is set by the editor. */
   body {
     font-size: 14px;

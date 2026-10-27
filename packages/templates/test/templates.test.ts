@@ -6,6 +6,7 @@ import {
   sectionKeyFor,
   type TemplateDefinition,
   templateDefinition,
+  templateDraftDefinition,
 } from "../src/index";
 
 const latest = (docType: TemplateDefinition["docType"]) =>
@@ -95,6 +96,21 @@ describe("built-in templates", () => {
       version: 1,
       sections: [section, section],
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("draft definitions", () => {
+  const empty = { docType: "tsd", name: "x", version: 1, sections: [] };
+  const section = { key: "a", title: "A", required: true, guidance: "g", interviewHints: [] };
+
+  it("allow a draft with no sections, but not a published definition", () => {
+    expect(templateDraftDefinition.safeParse(empty).success).toBe(true);
+    expect(templateDefinition.safeParse(empty).success).toBe(false);
+  });
+
+  it("still reject duplicate keys in a draft", () => {
+    const result = templateDraftDefinition.safeParse({ ...empty, sections: [section, section] });
     expect(result.success).toBe(false);
   });
 });

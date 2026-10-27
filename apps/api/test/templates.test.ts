@@ -1,4 +1,4 @@
-import { documents, templates } from "@jangka/db";
+import { auditLogs, documents, templates } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { documentDetail, documentSummary, templateList } from "@jangka/shared/document";
 import { templateDetail, templateFamilyList } from "@jangka/shared/templates";
@@ -145,6 +145,94 @@ describe("template lifecycle", () => {
     expect(
       (await req("POST", `/admin/templates/${builtinPrdId}/duplicate`, { name: "X" }, rina)).status,
     ).toBe(403);
+  });
+});
+
+describe("create template", () => {
+  it("creates a blank draft that saves empty, then publishes once it has a section", async () => {
+    const res = await req("POST", "/admin/templates", { docType: "tsd", name: "Acme TSD" });
+    expect(res.status).toBe(201);
+    const draft = templateDetail.parse(await res.json());
+    expect(draft).toMatchObject({ docType: "tsd", name: "Acme TSD", version: 1, published: false });
+    expect(draft.sections).toEqual([]);
+
+    expect((await saveDraft(draft.id, { sections: [] })).status).toBe(200);
+    const reopened = templateDetail.parse(
+      await (await req("GET", `/admin/templates/${draft.id}`)).json(),
+    );
+    expect(reopened.sections).toEqual([]);
+
+    const refused = await req("POST", `/admin/templates/${draft.id}/publish`);
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({
+      error: { code: "invalid_template", details: [{ path: ["sections"] }] },
+    });
+
+    expect((await saveDraft(draft.id, { sections: [extraSection] })).status).toBe(200);
+    const published = await req("POST", `/admin/templates/${draft.id}/publish`);
+    expect(templateDetail.parse(await published.json())).toMatchObject({
+      published: true,
+      sections: [{ key: "rollout_plan" }],
+    });
+
+    const [row] = await db.select().from(auditLogs).where(eq(auditLogs.action, "template.create"));
+    expect(row).toMatchObject({ targetId: draft.id, metadata: { from: null, name: "Acme TSD" } });
+  });
+
+  it("saves a section without guidance, but won't publish it", async () => {
+    const draft = templateDetail.parse(
+      await (await req("POST", "/admin/templates", { docType: "tsd", name: "Acme TSD" })).json(),
+    );
+    const saved = await saveDraft(draft.id, { sections: [{ ...extraSection, guidance: "" }] });
+    expect(saved.status).toBe(200);
+    const refused = await req("POST", `/admin/templates/${draft.id}/publish`);
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({
+      error: { details: [{ path: ["sections", 0, "guidance"] }] },
+    });
+  });
+
+  it("copies the sections of a published source", async () => {
+    const res = await req("POST", "/admin/templates", {
+      docType: "prd",
+      name: "Acme PRD",
+      sourceId: builtinPrdId,
+    });
+    expect(res.status).toBe(201);
+    const draft = templateDetail.parse(await res.json());
+    const builtin = templateDetail.parse(
+      await (await req("GET", `/admin/templates/${builtinPrdId}`)).json(),
+    );
+    expect(draft.sections).toEqual(builtin.sections);
+  });
+
+  it("rejects a source that is a draft, of another type, or unknown", async () => {
+    const draft = await duplicate();
+    for (const body of [
+      { docType: "prd", name: "A", sourceId: draft.id },
+      { docType: "tsd", name: "B", sourceId: builtinPrdId },
+      { docType: "prd", name: "C", sourceId: "01900000-0000-7000-8000-000000000000" },
+    ]) {
+      const res = await req("POST", "/admin/templates", body);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: { code: "invalid_template" } });
+    }
+  });
+
+  it("rejects a name already used for the type", async () => {
+    await duplicate("Acme PRD");
+    const res = await req("POST", "/admin/templates", { docType: "prd", name: "Acme PRD" });
+    expect(res.status).toBe(409);
+    expect(
+      (await req("POST", "/admin/templates", { docType: "tsd", name: "Acme PRD" })).status,
+    ).toBe(201);
+  });
+
+  it("is admin only", async () => {
+    await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
+    const rina = await login(app, "rina@acme.co", "rina-password-123");
+    const res = await req("POST", "/admin/templates", { docType: "prd", name: "X" }, rina);
+    expect(res.status).toBe(403);
   });
 });
 

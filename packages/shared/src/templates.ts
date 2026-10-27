@@ -1,4 +1,4 @@
-import { templateSection } from "@jangka/templates";
+import { templateDraftSection } from "@jangka/templates";
 import { z } from "zod";
 import { docTypeSchema } from "./document";
 
@@ -10,6 +10,7 @@ export const templateVersionView = z.object({
   published: z.boolean(),
   publishedAt: z.string().nullable(),
   documentCount: z.number(),
+  sectionCount: z.number(),
 });
 
 /** One (doc type, name) family with its versions, newest first. */
@@ -35,20 +36,30 @@ export const templateDetail = z.object({
   isBuiltin: z.boolean(),
   /** Whether the family has a published version (then its name is fixed). */
   familyPublished: z.boolean(),
-  sections: z.array(templateSection),
+  /** Published versions always have guidance; drafts may not yet. */
+  sections: z.array(templateDraftSection),
 });
 export type TemplateDetail = z.infer<typeof templateDetail>;
 
 /** Sections without a key are new: the server derives one from the title. */
-export const draftSection = templateSection.extend({ key: templateSection.shape.key.optional() });
+export const draftSection = templateDraftSection.extend({
+  key: templateDraftSection.shape.key.optional(),
+});
 export type DraftSection = z.infer<typeof draftSection>;
 
 export const saveTemplateDraftRequest = z.object({
   name: templateName.optional(),
-  sections: z.array(draftSection).min(1, { error: "Add at least one section" }).max(60),
+  sections: z.array(draftSection).max(60),
 });
 
 export const duplicateTemplateRequest = z.object({ name: templateName });
+
+/** No `sourceId` = blank draft; otherwise a copy of that published version. */
+export const createTemplateRequest = z.object({
+  docType: docTypeSchema,
+  name: templateName,
+  sourceId: z.uuid().optional(),
+});
 
 export const setDefaultTemplateRequest = z.object({
   docType: docTypeSchema,

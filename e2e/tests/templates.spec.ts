@@ -58,3 +58,45 @@ test("an admin publishes a custom PRD template and new PRDs use it", async ({ br
   await expect(family("Product Requirements Document")).toContainText("Default");
   await expect(family("Acme PRD")).not.toContainText("Default");
 });
+
+test("an admin creates a blank TSD template and new TSDs can use it", async ({ browser }) => {
+  const page = await signIn(browser, ADMIN);
+  await page.goto("/admin/templates");
+  await page.getByRole("button", { name: "New template" }).click();
+  const create = page.getByRole("dialog", { name: "New template" });
+  await create.getByText("TSD", { exact: true }).click();
+  await expect(create.getByRole("radio", { name: /^TSD/ })).toBeChecked();
+  await create.getByLabel("Name").fill("Acme TSD");
+  await expect(create.getByLabel("Start from")).toHaveValue("");
+  await create.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Acme TSD");
+  await expect(page.getByText("No sections yet.")).toBeVisible();
+
+  // An empty draft can't be published.
+  await page.getByRole("button", { name: "Publish v1" }).click();
+  await expect(page.getByText("Add at least one section before publishing")).toBeVisible();
+
+  await page.getByRole("button", { name: "+ Add section" }).click();
+  await page
+    .getByRole("group", { name: "New section" })
+    .getByLabel("Section title")
+    .fill("Runbook");
+  await expect(page.getByText("No section collects requirements")).toBeVisible();
+
+  // Guidance starts empty and is required at publish; the failing card says why.
+  await page.getByRole("button", { name: "Publish v1" }).click();
+  const runbook = page.getByRole("group", { name: "Runbook" });
+  await expect(runbook).toContainText("Write guidance for the assistant");
+  await runbook.getByLabel("Guidance").fill("Steps to operate and recover the service.");
+  await page.getByRole("button", { name: "Publish v1" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v1 · Published");
+
+  await page.getByRole("button", { name: "+ New", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "New document" });
+  await dialog.getByText("TSD", { exact: true }).click();
+  await dialog.getByLabel("Template").selectOption({ label: "Acme TSD · v1" });
+  await dialog.getByLabel("Title").fill("Blank template doc");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("textbox", { name: "Runbook", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Outline" })).toContainText("0 of 1 complete");
+});

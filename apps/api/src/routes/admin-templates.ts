@@ -1,13 +1,19 @@
 import { documents, instanceSettings, templates } from "@jangka/db";
 import { AppError } from "@jangka/shared/errors";
 import {
+  createTemplateRequest,
   duplicateTemplateRequest,
   saveTemplateDraftRequest,
   setDefaultTemplateRequest,
   type TemplateDetail,
   type TemplateFamily,
 } from "@jangka/shared/templates";
-import { customTemplateDefinition, sectionKeyFor, templateDefinition } from "@jangka/templates";
+import {
+  customTemplateDefinition,
+  sectionKeyFor,
+  type TemplateDefinition,
+  templateDraftDefinition,
+} from "@jangka/templates";
 import { and, count, desc, eq, isNotNull, isNull, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -67,7 +73,10 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
       published: row.publishedAt !== null,
       isBuiltin: row.isBuiltin,
       familyPublished: await familyPublished(row),
-      sections: definitionOf(row).sections,
+      sections: (row.publishedAt
+        ? definitionOf(row)
+        : templateDraftDefinition.parse(row.definition)
+      ).sections,
     };
   }
 
@@ -87,16 +96,19 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
     }
   }
 
-  /** Inserts a draft copying `definition`, as `version` of the (docType, name) family. */
-  async function insertDraft(
-    source: TemplateRow,
-    input: { name: string; version: number; userId: string },
-  ): Promise<TemplateRow> {
-    const definition = definitionOf(source);
+  /** Inserts a draft with `sections`, as `version` of the (docType, name) family. */
+  async function insertDraft(input: {
+    docType: TemplateRow["docType"];
+    sections: TemplateDefinition["sections"];
+    name: string;
+    version: number;
+    userId: string;
+  }): Promise<TemplateRow> {
+    const definition = { docType: input.docType, sections: input.sections };
     const [row] = await db
       .insert(templates)
       .values({
-        docType: source.docType,
+        docType: input.docType,
         name: input.name,
         version: input.version,
         definition: { ...definition, name: input.name, version: input.version },
@@ -109,6 +121,32 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
   }
 
   return app
+    .post("/templates", zValidate("json", createTemplateRequest), async (c) => {
+      const auth = requireAdmin(c);
+      const { docType, name, sourceId } = c.req.valid("json");
+      let sections: TemplateDefinition["sections"] = [];
+      if (sourceId) {
+        const [source] = await db.select().from(templates).where(eq(templates.id, sourceId));
+        if (!source?.publishedAt || source.docType !== docType) {
+          throw new AppError(
+            "invalid_template",
+            400,
+            "Start from a published template of the same type",
+            [{ path: ["sourceId"], message: "Pick a published template of this type" }],
+          );
+        }
+        sections = definitionOf(source).sections;
+      }
+      await assertNameFree(docType, name);
+      const row = await insertDraft({ docType, sections, name, version: 1, userId: auth.user.id });
+      await audit(c, {
+        action: "template.create",
+        targetType: "template",
+        targetId: row.id,
+        metadata: { docType, name, from: sourceId ?? null },
+      });
+      return c.json(await detail(row), 201);
+    })
     .get("/templates", async (c) => {
       const rows = await db
         .select()
@@ -143,6 +181,7 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
               published: v.publishedAt !== null,
               publishedAt: v.publishedAt?.toISOString() ?? null,
               documentCount: used.get(v.id) ?? 0,
+              sectionCount: templateDraftDefinition.parse(v.definition).sections.length,
             })),
             draftId: versions.find((v) => v.publishedAt === null)?.id ?? null,
           },
@@ -162,7 +201,13 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
         const source = await findTemplate(c.req.valid("param").id);
         const { name } = c.req.valid("json");
         await assertNameFree(source.docType, name);
-        const row = await insertDraft(source, { name, version: 1, userId: auth.user.id });
+        const row = await insertDraft({
+          docType: source.docType,
+          sections: definitionOf(source).sections,
+          name,
+          version: 1,
+          userId: auth.user.id,
+        });
         await audit(c, {
           action: "template.duplicate",
           targetType: "template",
@@ -200,7 +245,9 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
           ),
         );
       if (draft) throw new AppError("conflict", 409, "This template already has a draft");
-      const row = await insertDraft(latest, {
+      const row = await insertDraft({
+        docType: latest.docType,
+        sections: definitionOf(latest).sections,
         name: source.name,
         version: (top?.version ?? latest.version) + 1,
         userId: auth.user.id,
@@ -237,7 +284,7 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
           keys.add(key);
           return { ...section, key };
         });
-        const parsed = templateDefinition.safeParse({
+        const parsed = templateDraftDefinition.safeParse({
           docType: row.docType,
           name,
           version: row.version,
@@ -269,6 +316,11 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
     .post("/templates/:id/publish", zValidate("param", idParam), async (c) => {
       const row = await findTemplate(c.req.valid("param").id);
       requireDraft(row);
+      if (templateDraftDefinition.parse(row.definition).sections.length === 0) {
+        throw new AppError("invalid_template", 400, "Add at least one section before publishing", [
+          { path: ["sections"], message: "Add at least one section" },
+        ]);
+      }
       const result = customTemplateDefinition.safeParse(row.definition);
       if (!result.success) {
         throw new AppError(

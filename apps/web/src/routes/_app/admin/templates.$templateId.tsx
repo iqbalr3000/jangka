@@ -1,7 +1,8 @@
 import { type DraftSection, type TemplateDetail, templateDetail } from "@jangka/shared/templates";
+import { REQUIREMENT_KINDS_BY_TYPE } from "@jangka/templates";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { TemplateSectionCard } from "@/components/admin/template-section-card";
@@ -62,6 +63,9 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
   const [name, setName] = useState(template.name);
   const [sections, setSections] = useState<EditableSection[]>(() => toEditable(template.sections));
   const [saved, setSaved] = useState(() => JSON.stringify([template.name, template.sections]));
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+  // The section just added: its title gets focus.
+  const [focusUid, setFocusUid] = useState<string | null>(null);
 
   const payload = () => ({
     ...(template.familyPublished ? {} : { name: name.trim() }),
@@ -84,7 +88,13 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
 
   const afterSave = async (next: TemplateDetail) => {
     queryClient.setQueryData(templateDetailQuery(next.id).queryKey, next);
-    setSections(toEditable(next.sections));
+    // Same order as sent: keep each card's uid so open cards stay open.
+    setSections((current) =>
+      next.sections.map((section, i) => ({
+        ...section,
+        uid: current[i]?.uid ?? section.key,
+      })),
+    );
     setName(next.name);
     setSaved(JSON.stringify([next.name, next.sections]));
     await queryClient.invalidateQueries({ queryKey: [...templatesKey, "admin"], exact: true });
@@ -117,6 +127,18 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
       await afterSave(published);
       await queryClient.invalidateQueries({ queryKey: templatesKey });
     },
+    onError: (failure) => {
+      const failing = Object.keys(sectionErrors(failure)).map(Number);
+      if (failing.length === 0) return;
+      setOpen((current) => {
+        const next = new Set(current);
+        for (const index of failing) {
+          const uid = sections[index]?.uid;
+          if (uid) next.add(uid);
+        }
+        return next;
+      });
+    },
   });
 
   const discard = useMutation({
@@ -138,6 +160,42 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
   const errorsBySection = sectionErrors(error);
   const update = (index: number, section: DraftSection) =>
     setSections((list) => list.map((s, i) => (i === index ? { ...s, ...section } : s)));
+  const insertAt = (index: number) => {
+    const uid = crypto.randomUUID();
+    setSections((list) => [
+      ...list.slice(0, index),
+      { uid, title: "New section", required: false, guidance: "", interviewHints: [] },
+      ...list.slice(index),
+    ]);
+    setOpen((current) => new Set(current).add(uid));
+    setFocusUid(uid);
+  };
+  const toggle = (uid: string) =>
+    setOpen((current) => {
+      if (!current.has(uid)) return new Set([uid]);
+      const next = new Set(current);
+      next.delete(uid);
+      return next;
+    });
+  const allOpen = sections.length > 0 && sections.every((s) => open.has(s.uid));
+
+  // ⌘S / Ctrl+S saves the draft instead of the browser's "Save page".
+  const saveRef = useRef(() => {});
+  saveRef.current = () => {
+    if (dirty && !save.isPending) save.mutate();
+  };
+  useEffect(() => {
+    if (readOnly) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        saveRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [readOnly]);
+
   const move = (index: number, delta: -1 | 1) =>
     setSections((list) => {
       const next = [...list];
@@ -147,8 +205,8 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
     });
 
   return (
-    <div className="flex flex-col gap-6 px-10 pt-7 pb-10">
-      <header className="flex items-end gap-3">
+    <div className="flex flex-col gap-6 px-10 pb-10">
+      <header className="sticky top-0 z-10 -mx-10 flex items-end gap-3 border-b border-border bg-background px-10 pt-7 pb-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <Link
             to="/admin/templates"
@@ -180,6 +238,7 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
               variant="outline"
               size="sm"
               disabled={save.isPending || !dirty}
+              title="Save draft (⌘S)"
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : dirty ? "Save draft" : "Saved"}
@@ -197,6 +256,15 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
         </p>
       )}
       {error && <ErrorBanner>{errorMessage(error)}</ErrorBanner>}
+      {!readOnly &&
+        sections.length > 0 &&
+        REQUIREMENT_KINDS_BY_TYPE[template.docType].length > 0 &&
+        !sections.some((s) => s.requirementKind) && (
+          <p className="text-sm text-muted-foreground">
+            No section collects requirements, so documents from this template won't have requirement
+            IDs or trace links.
+          </p>
+        )}
 
       {!readOnly && !template.familyPublished && (
         <div className="max-w-md">
@@ -211,38 +279,55 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
         </div>
       )}
 
-      <section aria-label="Sections" className="flex flex-col gap-3">
+      <section aria-label="Sections" className="flex flex-col">
+        {sections.length > 0 && (
+          <div className="flex h-7 items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {sections.length} section{sections.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.uid)))}
+              className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              {allOpen ? "Collapse all" : "Expand all"}
+            </button>
+          </div>
+        )}
+        {sections.length === 0 && (
+          <p className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            No sections yet. Add the first section to define the document.
+          </p>
+        )}
         {sections.map((section, index) => (
-          <TemplateSectionCard
-            key={section.uid}
-            index={index}
-            count={sections.length}
-            docType={template.docType}
-            section={section}
-            readOnly={readOnly}
-            errors={errorsBySection[index] ?? {}}
-            onChange={(next) => update(index, next)}
-            onMove={(delta) => move(index, delta)}
-            onRemove={() => setSections((list) => list.filter((_, i) => i !== index))}
-          />
+          <div key={section.uid} className="flex flex-col">
+            {readOnly ? (
+              <div className="h-2" />
+            ) : (
+              <InsertSection position={index + 1} onInsert={() => insertAt(index)} />
+            )}
+            <TemplateSectionCard
+              index={index}
+              count={sections.length}
+              docType={template.docType}
+              section={section}
+              readOnly={readOnly}
+              expanded={open.has(section.uid)}
+              autoFocus={focusUid === section.uid}
+              errors={errorsBySection[index] ?? {}}
+              onToggle={() => toggle(section.uid)}
+              onChange={(next) => update(index, next)}
+              onMove={(delta) => move(index, delta)}
+              onRemove={() => setSections((list) => list.filter((_, i) => i !== index))}
+            />
+          </div>
         ))}
         {!readOnly && (
           <Button
             variant="outline"
             size="sm"
-            className="self-start"
-            onClick={() =>
-              setSections((list) => [
-                ...list,
-                {
-                  uid: crypto.randomUUID(),
-                  title: "New section",
-                  required: false,
-                  guidance: "Describe what this section should contain.",
-                  interviewHints: [],
-                },
-              ])
-            }
+            className="mt-3 self-start"
+            onClick={() => insertAt(sections.length)}
           >
             + Add section
           </Button>
@@ -268,6 +353,23 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
         onConfirm={() => discard.mutate()}
         onClose={() => setDiscarding(false)}
       />
+    </div>
+  );
+}
+
+/** A thin gap between cards that reveals "Insert section" on hover or keyboard focus. */
+function InsertSection({ position, onInsert }: { position: number; onInsert: () => void }) {
+  return (
+    <div className="group relative flex h-3 items-center">
+      <div className="h-px w-full bg-transparent group-hover:bg-border" />
+      <button
+        type="button"
+        aria-label={`Insert section at position ${position}`}
+        onClick={onInsert}
+        className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-sm border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground opacity-0 shadow-float group-hover:opacity-100 hover:text-foreground focus-visible:opacity-100"
+      >
+        <Plus className="size-3" aria-hidden /> Insert section
+      </button>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MoreHorizontal } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
+import { NewTemplateDialog } from "@/components/admin/new-template-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
 import { LoadingRows } from "@/components/loading-rows";
@@ -47,6 +48,7 @@ function TemplatesPage() {
   const families = useQuery(templateFamiliesQuery);
   const [duplicating, setDuplicating] = useState<TemplateFamily | null>(null);
   const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: templatesKey });
   const openEditor = (templateId: string) =>
@@ -103,13 +105,18 @@ function TemplatesPage() {
 
   return (
     <div className="flex flex-col gap-6 px-10 pt-7 pb-10">
-      <header className="flex flex-col gap-1.5">
-        <span className="text-xs text-muted-foreground">Admin</span>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Templates</h1>
-        <p className="max-w-[620px] text-sm text-muted-foreground">
-          Duplicate a built-in template to adapt its sections and guidance. Published versions never
-          change; documents keep the version they were created with.
-        </p>
+      <header className="flex items-end gap-3">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">Admin</span>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Templates</h1>
+          <p className="max-w-[620px] text-sm text-muted-foreground">
+            Create a template from scratch or from an existing one. Published versions never change;
+            documents keep the version they were created with.
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreating(true)}>
+          New template
+        </Button>
       </header>
 
       {error && <ErrorBanner>{errorMessage(error)}</ErrorBanner>}
@@ -144,6 +151,17 @@ function TemplatesPage() {
           </section>
         );
       })}
+
+      <NewTemplateDialog
+        open={creating}
+        families={items}
+        onOpenChange={setCreating}
+        onCreated={async (templateId) => {
+          setCreating(false);
+          await invalidate();
+          await openEditor(templateId);
+        }}
+      />
 
       <Dialog open={duplicating !== null} onOpenChange={(open) => !open && setDuplicating(null)}>
         <DialogContent className="sm:max-w-[440px]">
