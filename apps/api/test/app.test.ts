@@ -103,3 +103,17 @@ describe("GET /api/v1/health", () => {
     expect((await errorOf(res)).code).toBe("db_unavailable");
   });
 });
+
+describe("security headers", () => {
+  it("sends a CSP that forbids framing and inline scripts", async () => {
+    const res = await app.request("/api/v1/health/__test/app-error");
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(res.headers.get("strict-transport-security")).toBeNull();
+  });
+});

@@ -8,6 +8,7 @@ import type { JobQueue } from "@jangka/worker/jobs";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type pg from "pg";
 import { auditMiddleware } from "./lib/audit";
@@ -83,6 +84,27 @@ export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>();
 
   app.use(requestId());
+  app.use(
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        // React style props and Mermaid's <style> inside rendered SVGs.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+      xFrameOptions: "DENY",
+      referrerPolicy: "strict-origin-when-cross-origin",
+      // The app runs over plain http on localhost too; HSTS belongs to the TLS proxy.
+      strictTransportSecurity: false,
+    }),
+  );
   app.use(async (c, next) => {
     const start = performance.now();
     await next();

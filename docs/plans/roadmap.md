@@ -31,12 +31,10 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
 | Upgrade documents to a newer template version | Feature | Deferred in `custom-templates` |
-| Create templates from scratch | Feature | [spec](spec-template-create.md) — New template button, blank or from an existing template |
-| Editor & chat polish | Enhancement | [spec](spec-editor-chat-polish.md) — composer released before coverage, typing reveal + thinking state, Notion-like blocks, bubble menu, `/` commands |
 
 ## Completed work
 
-Cutoff: 2026-10-25
+Cutoff: 2026-10-27
 
 - **foundation** — monorepo, env validation, crypto util, Drizzle base, error shape, `audit()` no-op, Docker image + compose, SPA shell + design tokens.
 - **auth** — setup wizard (token + advisory lock), password login, rolling sessions, CSRF origin check, `/auth/me`, invite + password-reset links, admin users page, Playwright e2e.
@@ -59,3 +57,6 @@ Cutoff: 2026-10-25
 - **Phase 4: read-only empty sections** — the dashed placeholder also shows read-only (viewers, approved documents) as "Not yet specified.", matching the export; the streaming preview has none.
 - **Phase 4: smaller Docker image** — 1.49 GB → 965 MB: worker runtime files copied to `dist/assets` (Playwright is the only prod dependency, node_modules 217 → 14 MB); xvfb and the Mesa/LLVM it pulls in, and ffmpeg, removed from the Playwright layer (611 → 399 MB); fonts kept for CJK/emoji diagrams.
 - **Phase 4: fixes and ops** — CI installs Chromium before unit tests and builds the Docker image; LLM requests rate-limited per user (60 / 10 min, `429 rate_limited`); "Fix with assistant" on diagrams that fail to render (`POST …/sections/:key/fix-diagram`, worker-verified); responsive document layout (icon outline at 1024–1279 px, one pane with tabs below); shortcuts `N`, `⌘\`, `[` / `]`; offline / server-down banner with save retry on reconnect; loading skeletons; README with deployment, backup and upgrade guide.
+- **Phase 4: template-create** ([spec](spec-template-create.md)) — New template dialog (type buttons, blank or start from any published template with its section count), `POST /admin/templates`, drafts with no sections or empty guidance (required at publish); editor polish: collapsible section cards with chips and issue counts, insert between cards, sticky header with ⌘S, requirement-section note; default border colour fix for dialogs/dropdowns and bounded dialog grid for long model names.
+- **Phase 4: editor & chat polish** ([spec](spec-editor-chat-polish.md)) — composer free at `reply_done` (coverage runs unlocked, stale coverage dropped), smooth typing reveal and thinking state, Notion-like block gutter (`+`, `⋮⋮` menu), bubble formatting menu, `/` slash commands, no forced trailing paragraph.
+- **Phase 4: brand** — SVG mark and app icons (light / dark / alt), PNG logo lockups, favicon (SVG following the OS scheme, ICO, apple-touch-icon), wordmark Λ as inline SVG, README rewrite with logo, features, layout and docs index.

@@ -241,8 +241,10 @@ flowchart TD
 
 ## 12. Open Questions
 
-1. Should approved documents be locked from editing, or allow edits that revert status to Draft?
+1. ~~Should approved documents be locked from editing, or allow edits that revert status to Draft?~~
+   **Resolved:** locked; section writes are refused until the document is reopened, which returns it to Draft
+   (`spec-review.md`).
 2. Per-collection default LLM provider/model, or instance-wide only?
 3. Should exports include version number and change log, or only the current state?
 4. Language of built-in templates: English only, or English + Indonesian variants?
-5. License for the public repo (MIT vs AGPL to discourage closed SaaS forks)?
+5. ~~License for the public repo (MIT vs AGPL to discourage closed SaaS forks)?~~ **Resolved:** MIT (`LICENSE`).

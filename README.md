@@ -193,6 +193,7 @@ Checks:
 pnpm typecheck && pnpm lint
 pnpm test:db:up && pnpm test  # integration tests against a throwaway Postgres on :54329
 pnpm test:e2e                 # Playwright, against the built app
+pnpm test:perf                # NFR-007 timings with 5,000 documents (not part of CI)
 ```
 
 ### Project layout

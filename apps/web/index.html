@@ -7,13 +7,8 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <script>
-      // Apply the saved theme before first paint (key matches src/lib/theme.ts).
-      try {
-        const theme = localStorage.getItem("jangka.theme");
-        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
-      } catch (_) {}
-    </script>
+    <!-- Blocking on purpose: applies the saved theme before first paint. A file, not inline, for the CSP. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

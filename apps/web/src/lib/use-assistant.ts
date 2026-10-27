@@ -63,7 +63,7 @@ const initialState: AssistantState = {
  * the streamed text. It lives outside the page, so a draft keeps going (and stays visible) when
  * the user navigates away and back; closing or reloading the tab still stops it.
  */
-function createAssistantStore(documentId: string, queryClient: QueryClient) {
+export function createAssistantStore(documentId: string, queryClient: QueryClient) {
   let state = initialState;
   const listeners = new Set<() => void>();
   const chatKey = chatQuery(documentId).queryKey;

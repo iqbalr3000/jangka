@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
+    "test:perf": "pnpm --filter @jangka/api test:perf",
     "lint": "biome check .",
     "format": "biome check --write .",
     "db:generate": "pnpm --filter @jangka/db generate",

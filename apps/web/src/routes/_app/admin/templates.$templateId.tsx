@@ -11,8 +11,9 @@ import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { Button } from "@/components/ui/button";
-import { ApiError, apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
+import { sectionErrors } from "@/lib/template-errors";
 import { templateDetailQuery, templatesKey } from "@/lib/templates";
 import { docTypeLabels } from "@/lib/trace";
 
@@ -21,24 +22,6 @@ export const Route = createFileRoute("/_app/admin/templates/$templateId")({
 });
 
 type EditableSection = DraftSection & { uid: string };
-
-const issueList = z.array(
-  z.object({ path: z.array(z.union([z.string(), z.number()])), message: z.string() }),
-);
-
-/** `sections.3.requirementKind` style API issues → per-section field messages. */
-function sectionErrors(error: unknown): Record<number, Record<string, string>> {
-  if (!(error instanceof ApiError)) return {};
-  const parsed = issueList.safeParse(error.details);
-  if (!parsed.success) return {};
-  const out: Record<number, Record<string, string>> = {};
-  for (const { path, message } of parsed.data) {
-    const [root, index, field] = path;
-    if (root !== "sections" || typeof index !== "number") continue;
-    out[index] = { ...out[index], [String(field ?? "title")]: message };
-  }
-  return out;
-}
 
 function TemplateEditorRoute() {
   const { templateId } = Route.useParams();

@@ -26,4 +26,7 @@ COPY --from=build /repo/apps/web/dist apps/web/dist
 COPY --from=build /repo/packages/db/migrations packages/db/migrations
 USER node
 EXPOSE 3000
+# Checks the API and its database; APP_ROLE=worker serves no HTTP, so it only checks the process is up.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD ["node", "-e", "if (process.env.APP_ROLE === 'worker') process.exit(0); fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 CMD ["node", "apps/api/dist/main.js"]
