@@ -52,6 +52,9 @@ export function SectionOutline({
             >
               <SectionStatusIcon completeness={section.completeness} />
               <span className={cn(wide, "min-w-0 flex-1 truncate")}>{section.title}</span>
+              {section.retired && (
+                <span className={cn(wide, "text-[11px] text-muted-foreground")}>Removed</span>
+              )}
               {labels[section.key] && (
                 <span className={cn(wide, "text-[11px] text-primary")}>{labels[section.key]}</span>
               )}
@@ -69,7 +72,7 @@ export function SectionOutline({
         ))}
       </ol>
       <span className={cn(wide, "px-2 text-xs text-muted-foreground")}>
-        {completenessSummary(sections)}
+        {completenessSummary(sections.filter((s) => !s.retired))}
       </span>
     </nav>
   );

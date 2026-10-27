@@ -6,6 +6,7 @@ import type { RequestIdVariables } from "hono/request-id";
 import type { AuditState } from "./lib/audit";
 import type { RateLimiter } from "./lib/rate-limit";
 import type { Logger } from "./logger";
+import type { GenerationLocks } from "./services/assistant";
 import type { DiagramChecker } from "./services/diagrams";
 
 /** `groupIds` are explicit memberships; the implicit All Users group is added by `loadAccess`. */
@@ -37,4 +38,6 @@ export type RouteDeps = {
   queue: JobQueue;
   diagrams: DiagramChecker;
   llmLimiter: RateLimiter;
+  /** One assistant generation or template upgrade per document at a time. */
+  locks: GenerationLocks;
 };

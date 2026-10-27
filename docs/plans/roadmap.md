@@ -26,11 +26,10 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Assistant proposes document updates from chat | Feature | [spec](spec-chat-updates.md) — suggestions from the post-reply assessment, Review updates → per-section diffs |
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
-| Upgrade documents to a newer template version | Feature | Deferred in `custom-templates` |
+| Upgrade documents to a newer template version | Feature | [spec](spec-template-upgrade.md) — banner + preview, same family, retired sections kept |
 
 ## Completed work
 
@@ -60,3 +59,4 @@ Cutoff: 2026-10-27
 - **Phase 4: template-create** ([spec](spec-template-create.md)) — New template dialog (type buttons, blank or start from any published template with its section count), `POST /admin/templates`, drafts with no sections or empty guidance (required at publish); editor polish: collapsible section cards with chips and issue counts, insert between cards, sticky header with ⌘S, requirement-section note; default border colour fix for dialogs/dropdowns and bounded dialog grid for long model names.
 - **Phase 4: editor & chat polish** ([spec](spec-editor-chat-polish.md)) — composer free at `reply_done` (coverage runs unlocked, stale coverage dropped), smooth typing reveal and thinking state, Notion-like block gutter (`+`, `⋮⋮` menu), bubble formatting menu, `/` slash commands, no forced trailing paragraph.
 - **Phase 4: brand** — SVG mark and app icons (light / dark / alt), PNG logo lockups, favicon (SVG following the OS scheme, ICO, apple-touch-icon), wordmark Λ as inline SVG, README rewrite with logo, features, layout and docs index.
+- **Phase 4: chat-updates** ([spec](spec-chat-updates.md)) — the post-reply assessment suggests up to 3 sections with content that the chat adds facts to or contradicts; "This may change N sections" chip with Review updates / Dismiss; `POST /documents/:id/propose-updates` streams conversation-aware revisions as per-section diffs (`proposal_ready`), each suggestion cleared once its proposal is ready; facts-only revise prompt with the transcript.

@@ -16,6 +16,7 @@ import {
   saveSectionRequest,
   type TemplateSummary,
   updateDocumentRequest,
+  upgradeTemplateRequest,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
 import { STATUS_TRANSITIONS, setStatusRequest } from "@jangka/shared/review";
@@ -25,13 +26,20 @@ import { z } from "zod";
 import { audit } from "../lib/audit";
 import { requireAuth } from "../lib/session";
 import { zValidate } from "../lib/validate";
-import { isHidden, loadAccess, requireEdit, resolveDocLevel } from "../services/access";
+import {
+  type AccessData,
+  isHidden,
+  loadAccess,
+  requireEdit,
+  resolveDocLevel,
+} from "../services/access";
 import {
   assertUsableCollection,
   createDocumentSections,
   type DocumentRow,
   linkedSource,
   requireDocEdit,
+  requireNotApproved,
   saveSection,
   sectionByKey,
   sectionsOf,
@@ -39,6 +47,7 @@ import {
   validSource,
   viewableDocument,
 } from "../services/documents";
+import { applyUpgrade, newerTemplate, upgradePreview } from "../services/template-upgrade";
 import { defaultTemplates, definitionOf, templateForNewDocument } from "../services/templates";
 import type { AppEnv, RouteDeps } from "../types";
 
@@ -96,7 +105,7 @@ export function templateRoutes({ db }: RouteDeps) {
   });
 }
 
-export function documentRoutes({ db }: RouteDeps) {
+export function documentRoutes({ db, locks }: RouteDeps) {
   const access = (c: Context<AppEnv>) => {
     const auth = requireAuth(c);
     return loadAccess(db, {
@@ -121,6 +130,36 @@ export function documentRoutes({ db }: RouteDeps) {
     const [summary] = await summaries(db, [row]);
     if (!summary) throw new Error("summary missing");
     return summary;
+  }
+
+  async function detailOf(data: AccessData, row: DocumentRow): Promise<DocumentDetail> {
+    const collection = row.collectionId ? data.rows.get(row.collectionId) : undefined;
+    const level = resolveDocLevel(data, row) === "edit" ? "edit" : "view";
+    const newer = level === "edit" ? await newerTemplate(db, row) : null;
+    return {
+      document: await summaryOf(row),
+      source: await linkedSource(db, data, row),
+      statusChange: await statusChangeOf(row),
+      level,
+      collection: collection
+        ? {
+            id: collection.id,
+            name: collection.name,
+            personalOwnerId: collection.personalOwnerId,
+          }
+        : null,
+      inPersonalTree: personalOwnerOf(data.ctx, row.collectionId) !== null,
+      sections: await sectionsOf(db, row),
+      templateUpgrade: newer
+        ? { templateId: newer.target.id, version: newer.target.version }
+        : null,
+    };
+  }
+
+  async function requireNewer(row: DocumentRow) {
+    const newer = await newerTemplate(db, row);
+    if (!newer) throw new AppError("conflict", 409, "This document uses the newest template");
+    return newer;
   }
 
   return new Hono<AppEnv>()
@@ -187,24 +226,47 @@ export function documentRoutes({ db }: RouteDeps) {
     .get("/:id", zValidate("param", idParam), async (c) => {
       const data = await access(c);
       const row = await viewableDocument(db, data, c.req.valid("param").id);
-      const collection = row.collectionId ? data.rows.get(row.collectionId) : undefined;
-      const detail: DocumentDetail = {
-        document: await summaryOf(row),
-        source: await linkedSource(db, data, row),
-        statusChange: await statusChangeOf(row),
-        level: resolveDocLevel(data, row) === "edit" ? "edit" : "view",
-        collection: collection
-          ? {
-              id: collection.id,
-              name: collection.name,
-              personalOwnerId: collection.personalOwnerId,
-            }
-          : null,
-        inPersonalTree: personalOwnerOf(data.ctx, row.collectionId) !== null,
-        sections: await sectionsOf(db, row),
-      };
-      return c.json(detail);
+      return c.json(await detailOf(data, row));
     })
+    .get("/:id/template-upgrade", zValidate("param", idParam), async (c) => {
+      const data = await access(c);
+      const row = await viewableDocument(db, data, c.req.valid("param").id);
+      requireDocEdit(data, row);
+      return c.json(await upgradePreview(db, row, await requireNewer(row)));
+    })
+    .post(
+      "/:id/template-upgrade",
+      zValidate("param", idParam),
+      zValidate("json", upgradeTemplateRequest),
+      async (c) => {
+        const data = await access(c);
+        const row = await viewableDocument(db, data, c.req.valid("param").id);
+        requireDocEdit(data, row);
+        requireNotApproved(row);
+        const { current, target } = await requireNewer(row);
+        if (target.id !== c.req.valid("json").templateId) {
+          throw new AppError("conflict", 409, "The template changed; review the upgrade again");
+        }
+        // A running draft writes sections by key: it must not interleave with the upgrade.
+        const release = locks.acquire(row.id);
+        try {
+          await applyUpgrade(db, row, target);
+        } finally {
+          release();
+        }
+        await audit(c, {
+          action: "document.template_upgrade",
+          targetType: "document",
+          targetId: row.id,
+          metadata: {
+            from: { templateId: current.id, version: current.version },
+            to: { templateId: target.id, version: target.version },
+          },
+        });
+        const upgraded = await viewableDocument(db, data, row.id);
+        return c.json(await detailOf(data, upgraded));
+      },
+    )
     .patch(
       "/:id",
       zValidate("param", idParam),

@@ -100,3 +100,56 @@ test("an admin creates a blank TSD template and new TSDs can use it", async ({ b
   await expect(page.getByRole("textbox", { name: "Runbook", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Outline" })).toContainText("0 of 1 complete");
 });
+
+test("a document upgrades to the template's newer version without losing content", async ({
+  browser,
+}) => {
+  const page = await signIn(browser, ADMIN);
+  await page.goto("/admin/templates");
+  await familyAction(page, "Product Requirements Document", "Duplicate…");
+  await page.getByLabel("Name").fill("Upgrade PRD");
+  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.getByRole("button", { name: "Publish v1" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v1 · Published");
+
+  await page.getByRole("button", { name: "+ New", exact: true }).click();
+  const create = page.getByRole("dialog", { name: "New document" });
+  await create.getByLabel("Template").selectOption({ label: "Upgrade PRD · v1" });
+  await create.getByLabel("Title").fill("Refunds on v1");
+  await create.getByRole("button", { name: "Create" }).click();
+  const risks = page.getByRole("textbox", { name: "Risks & Mitigations", exact: true });
+  await risks.click();
+  await page.keyboard.type("Refund fraud.");
+  await expect(page.getByRole("status").filter({ hasText: /Sav/ })).toHaveText(/Saved/);
+  const documentUrl = page.url();
+
+  // v2 drops Risks & Mitigations and adds Rollout Plan.
+  await page.goto("/admin/templates");
+  await familyAction(page, "Upgrade PRD", "New version");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v2 · Draft");
+  await page
+    .getByRole("group", { name: "Risks & Mitigations" })
+    .getByRole("button", { name: "Remove section" })
+    .click();
+  await page.getByRole("button", { name: "+ Add section" }).click();
+  const added = page.getByRole("group", { name: "New section" });
+  await added.getByLabel("Section title").fill("Rollout Plan");
+  await page.getByRole("group", { name: "Rollout Plan" }).getByLabel("Guidance").fill("Phases.");
+  await page.getByRole("button", { name: "Publish v2" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v2 · Published");
+
+  await page.goto(documentUrl);
+  await page.getByRole("button", { name: "Review upgrade" }).click();
+  const dialog = page.getByRole("dialog", { name: "Upgrade template" });
+  await expect(dialog).toContainText("v1 → v2");
+  await expect(dialog).toContainText("Rollout Plan");
+  await expect(dialog).toContainText("Risks & Mitigations · keeps its content");
+  await dialog.getByRole("button", { name: "Upgrade to v2" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect(page.getByRole("button", { name: "Review upgrade" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Rollout Plan", exact: true })).toBeVisible();
+  const retired = page.getByRole("region", { name: "Risks", exact: true });
+  await expect(retired).toContainText("Removed from template");
+  await expect(retired).toContainText("Refund fraud.");
+});

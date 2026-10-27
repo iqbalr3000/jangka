@@ -34,7 +34,6 @@ import { loadAccess } from "../services/access";
 import {
   documentContext,
   ensureThread,
-  GenerationLocks,
   loadState,
   type ResolvedLlm,
   resolveLlm,
@@ -81,9 +80,15 @@ async function relay(
   return { text, usage: { inputTokens: 0, outputTokens: 0 }, error: null };
 }
 
-export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter }: RouteDeps) {
-  const locks = new GenerationLocks();
-
+export function assistantRoutes({
+  db,
+  config,
+  llm,
+  logger,
+  diagrams,
+  llmLimiter,
+  locks,
+}: RouteDeps) {
   /** LLM-written diagrams are rendered and, when rejected, fixed before anyone sees them. */
   function withRenderedDiagrams(
     doc: DocNode,
@@ -287,7 +292,7 @@ export function assistantRoutes({ db, config, llm, logger, diagrams, llmLimiter 
         throw new AppError("invalid_source", 409, "This document has no source you can view");
       }
       const { template } = await documentContext(db, doc, data);
-      const current = await sectionsOf(db, doc);
+      const current = (await sectionsOf(db, doc)).filter((s) => !s.retired);
       const known = new Set(current.map((s) => s.key));
       for (const key of requested ?? []) {
         if (!known.has(key)) throw new AppError("not_found", 404, `Unknown section: ${key}`);

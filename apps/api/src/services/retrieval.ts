@@ -1,5 +1,6 @@
 import { type Database, documentSections, documents, templates } from "@jangka/db";
 import type { ChatReference } from "@jangka/shared/assistant";
+import { retiredSectionTitle } from "@jangka/templates";
 import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import type { AccessData } from "./access";
 import { definitionOf } from "./templates";
@@ -70,7 +71,8 @@ export async function retrieveSections(
     title: row.title,
     docType: row.docType,
     sectionKey: row.sectionKey,
-    sectionTitle: titles.get(`${row.templateId}:${row.sectionKey}`) ?? row.sectionKey,
+    sectionTitle:
+      titles.get(`${row.templateId}:${row.sectionKey}`) ?? retiredSectionTitle(row.sectionKey),
     markdown:
       row.markdown.length > CLIP_CHARS
         ? `${row.markdown.slice(0, CLIP_CHARS)}… (truncated)`

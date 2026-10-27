@@ -19,7 +19,7 @@ import {
   type Section,
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
-import { UPSTREAM_DOC_TYPE } from "@jangka/templates";
+import { retiredSectionTitle, UPSTREAM_DOC_TYPE } from "@jangka/templates";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AccessData, isHidden, resolveDocLevel } from "./access";
 import { indexRequirements } from "./requirements";
@@ -125,9 +125,19 @@ function completenessOf(content: DocNode): Completeness {
 
 export async function summaries(db: Db, rows: DocumentRow[]): Promise<DocumentSummary[]> {
   if (rows.length === 0) return [];
+  // Retired sections don't count towards completeness: only the template's keys do.
+  const templateRows = await db
+    .select()
+    .from(templates)
+    .where(inArray(templates.id, [...new Set(rows.map((r) => r.templateId))]));
+  const templateKeys = new Map(
+    templateRows.map((t) => [t.id, new Set(definitionOf(t).sections.map((s) => s.key))]),
+  );
+  const templateOf = new Map(rows.map((r) => [r.id, r.templateId]));
   const sections = await db
     .select({
       documentId: documentSections.documentId,
+      sectionKey: documentSections.sectionKey,
       completeness: documentSections.completeness,
     })
     .from(documentSections)
@@ -140,6 +150,8 @@ export async function summaries(db: Db, rows: DocumentRow[]): Promise<DocumentSu
     .orderBy(asc(documentSections.position));
   const byDoc = new Map<string, Completeness[]>();
   for (const s of sections) {
+    const keys = templateKeys.get(templateOf.get(s.documentId) ?? "");
+    if (!keys?.has(s.sectionKey)) continue;
     const list = byDoc.get(s.documentId) ?? [];
     list.push(s.completeness);
     byDoc.set(s.documentId, list);
@@ -174,8 +186,16 @@ export async function documentsIn(db: Db, collectionId: string | null): Promise<
   return summaries(db, rows);
 }
 
-/** Sections in template order, merged with the template's titles and flags. */
+/**
+ * Sections in template order, merged with the template's titles and flags. Retired sections
+ * (keys the template no longer has) follow while they have content; empty ones are left out.
+ */
 export async function sectionsOf(db: Db, row: DocumentRow): Promise<Section[]> {
+  return (await allSections(db, row)).filter((s) => !s.retired || s.completeness !== "empty");
+}
+
+/** Every section row, empty retired ones included (a save may have just emptied one). */
+async function allSections(db: Db, row: DocumentRow): Promise<Section[]> {
   const [template] = await db.select().from(templates).where(eq(templates.id, row.templateId));
   if (!template) throw new Error("document template missing");
   const meta = new Map(definitionOf(template).sections.map((s) => [s.key, s]));
@@ -199,7 +219,7 @@ function sectionView(
 ): Section {
   return {
     key: section.sectionKey,
-    title: meta?.title ?? section.sectionKey,
+    title: meta?.title ?? retiredSectionTitle(section.sectionKey),
     required: meta?.required ?? false,
     expectsDiagram: meta?.expectsDiagram ?? null,
     position: section.position,
@@ -209,6 +229,7 @@ function sectionView(
     updatedAt: section.updatedAt.toISOString(),
     updatedBy:
       section.updatedBy && updatedByName ? { id: section.updatedBy, name: updatedByName } : null,
+    retired: meta === undefined,
   };
 }
 
@@ -337,7 +358,7 @@ export async function saveSection(
 }
 
 export async function sectionByKey(db: Db, row: DocumentRow, key: string): Promise<Section> {
-  const section = (await sectionsOf(db, row)).find((s) => s.key === key);
+  const section = (await allSections(db, row)).find((s) => s.key === key);
   if (!section) throw new AppError("not_found", 404, "Section not found");
   return section;
 }

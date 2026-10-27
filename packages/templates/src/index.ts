@@ -32,6 +32,12 @@ export const templateSection = z.object({
 });
 export type TemplateSection = z.infer<typeof templateSection>;
 
+/** Title of a section whose key left the template (`open_questions` → "Open questions"). */
+export function retiredSectionTitle(key: string): string {
+  const words = key.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** A section being edited: guidance may still be empty (required at publish). */
 export const templateDraftSection = templateSection.extend({ guidance: z.string() });
 

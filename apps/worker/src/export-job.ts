@@ -19,7 +19,7 @@ import {
   toHtml,
 } from "@jangka/export/render";
 import { docContent, isBlankDoc } from "@jangka/shared/document";
-import { templateDefinition } from "@jangka/templates";
+import { retiredSectionTitle, templateDefinition } from "@jangka/templates";
 import { asc, eq } from "drizzle-orm";
 
 const KIND_ORDER = ["business", "functional", "non_functional", "technical"] as const;
@@ -82,13 +82,13 @@ async function loadInput(
     .from(documentSections)
     .where(eq(documentSections.documentId, documentId))
     .orderBy(asc(documentSections.position));
-  const sections = sectionRows.map((section) => {
+  const sections = sectionRows.flatMap((section) => {
     const content = docContent.parse(section.content);
-    return {
-      title: titles.get(section.sectionKey) ?? section.sectionKey,
-      content,
-      empty: section.completeness === "empty" || isBlankDoc(content),
-    };
+    const empty = section.completeness === "empty" || isBlankDoc(content);
+    const title = titles.get(section.sectionKey);
+    // A retired section (its key left the template) is exported only while it has content.
+    if (title === undefined && empty) return [];
+    return [{ title: title ?? retiredSectionTitle(section.sectionKey), content, empty }];
   });
 
   // Sequential: a document has a handful of diagrams, and each render uses a browser context.

@@ -37,6 +37,7 @@ import { oidcRoutes } from "./routes/oidc";
 import { searchRoutes } from "./routes/search";
 import { setupRoutes } from "./routes/setup";
 import { traceRoutes } from "./routes/trace";
+import { GenerationLocks } from "./services/assistant";
 import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
@@ -144,7 +145,8 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", setupGate(setupState));
   app.use("/api/*", sessionMiddleware(db, config));
 
-  const routeDeps = { db, config, logger, llm, queue, diagrams, llmLimiter };
+  const locks = new GenerationLocks();
+  const routeDeps = { db, config, logger, llm, queue, diagrams, llmLimiter, locks };
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth/oidc", oidcRoutes(routeDeps));

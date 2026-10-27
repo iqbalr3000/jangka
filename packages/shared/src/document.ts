@@ -1,3 +1,4 @@
+import { requirementKinds } from "@jangka/templates";
 import { z } from "zod";
 
 /**
@@ -209,6 +210,8 @@ export const section = z.object({
   revision: z.number(),
   updatedAt: z.string(),
   updatedBy: userRef.nullable(),
+  /** Its key left the template in an upgrade; kept (while it has content) so no text is lost. */
+  retired: z.boolean(),
 });
 export type Section = z.infer<typeof section>;
 
@@ -231,8 +234,37 @@ export const documentDetail = z.object({
   /** Inside a personal collection: the UI shows "Personal" for its root. */
   inPersonalTree: z.boolean(),
   sections: z.array(section),
+  /** A newer version of the document's template family (editors only). */
+  templateUpgrade: z.object({ templateId: z.string(), version: z.number() }).nullable(),
 });
 export type DocumentDetail = z.infer<typeof documentDetail>;
+
+const templateVersionRef = z.object({
+  templateId: z.string(),
+  name: z.string(),
+  version: z.number(),
+});
+
+/** What upgrading to the newest template version changes; section content never does. */
+export const templateUpgradePreview = z.object({
+  from: templateVersionRef,
+  to: templateVersionRef,
+  added: z.array(z.object({ key: z.string(), title: z.string() })),
+  retired: z.array(z.object({ key: z.string(), title: z.string(), hasContent: z.boolean() })),
+  renamed: z.array(z.object({ key: z.string(), from: z.string(), to: z.string() })),
+  requirementChanges: z.array(
+    z.object({
+      key: z.string(),
+      title: z.string(),
+      from: z.enum(requirementKinds).nullable(),
+      to: z.enum(requirementKinds).nullable(),
+      requirementCount: z.number(),
+    }),
+  ),
+});
+export type TemplateUpgradePreview = z.infer<typeof templateUpgradePreview>;
+
+export const upgradeTemplateRequest = z.object({ templateId: z.uuid() });
 
 const title = z.string().trim().min(1, { error: "Required" }).max(200);
 

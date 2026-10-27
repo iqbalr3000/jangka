@@ -142,6 +142,8 @@ export function AssistantPanel({
   className,
 }: AssistantPanelProps) {
   const chat = useQuery(chatQuery(documentId));
+  // Retired sections aren't the assistant's: no coverage, no @mentions.
+  const templateSections = sections.filter((s) => !s.retired);
   const end = useRef<HTMLLIElement>(null);
   const messages = chat.data?.messages ?? [];
   const hasDrafted = messages.some((m) => m.kind === "draft");
@@ -189,7 +191,7 @@ export function AssistantPanel({
     !assistant.coverageUpdating;
 
   function send(message: string) {
-    const mention = parseMention(message, sections);
+    const mention = parseMention(message, templateSections);
     if (mention) onRevise(mention.key, mention.instruction);
     else assistant.sendChat(message);
   }
@@ -245,7 +247,7 @@ export function AssistantPanel({
             <CoverageChecklist
               key={hasDrafted ? "drafted" : "interview"}
               state={chat.data.state}
-              sections={sections}
+              sections={templateSections}
               defaultOpen={!hasDrafted}
               updating={assistant.coverageUpdating}
             />
@@ -314,7 +316,7 @@ export function AssistantPanel({
           )}
           {editable && (
             <ChatComposer
-              sections={sections}
+              sections={templateSections}
               value={composer}
               onChange={onComposerChange}
               running={assistant.running !== null}

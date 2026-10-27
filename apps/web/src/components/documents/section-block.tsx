@@ -71,7 +71,14 @@ export function SectionBlock(props: SectionBlockProps) {
         <h2 id={`${anchor}-title`} className="text-xl font-semibold tracking-[-0.01em]">
           {section.title}
         </h2>
-        {streaming !== undefined ? (
+        {section.retired ? (
+          <span
+            className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-muted-foreground"
+            title="This section isn't in the document's template anymore. Move or clear its content."
+          >
+            Removed from template
+          </span>
+        ) : streaming !== undefined ? (
           <span className="text-xs text-primary">Drafting…</span>
         ) : props.queued ? (
           <span className="text-xs text-muted-foreground">Queued</span>
@@ -104,7 +111,7 @@ export function SectionBlock(props: SectionBlockProps) {
         >
           History
         </button>
-        {props.canGenerate && !proposal && streaming === undefined && (
+        {props.canGenerate && !section.retired && !proposal && streaming === undefined && (
           <DropdownMenu>
             <DropdownMenuTrigger
               className="flex size-7 items-center justify-center rounded-sm text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-secondary focus-visible:opacity-100"

@@ -19,6 +19,7 @@ import { ExportToast } from "@/components/documents/export-toast";
 import { SectionBlock } from "@/components/documents/section-block";
 import type { SaveState } from "@/components/documents/section-editor";
 import { SectionOutline } from "@/components/documents/section-outline";
+import { TemplateUpgradeBanner } from "@/components/documents/template-upgrade-banner";
 import { ErrorBanner } from "@/components/error-banner";
 import { Button } from "@/components/ui/button";
 import {
@@ -361,6 +362,13 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
             You have view access.
           </div>
         )
+      )}
+      {editable && detail.templateUpgrade && (
+        <TemplateUpgradeBanner
+          documentId={detail.document.id}
+          version={detail.templateUpgrade.version}
+          busy={running}
+        />
       )}
       <div role="tablist" className="flex gap-4 border-b border-border px-4 text-[13px] lg:hidden">
         {panes.map((name) => (

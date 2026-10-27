@@ -1,5 +1,6 @@
 import { documentSections, documents, templates } from "@jangka/db";
 import { type SearchResult, SNIPPET_END, SNIPPET_START, searchQuery } from "@jangka/shared/search";
+import { retiredSectionTitle } from "@jangka/templates";
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireAuth } from "../lib/session";
@@ -142,7 +143,8 @@ export function searchRoutes({ db }: RouteDeps) {
         matchedIn: titleIds.has(row.id) ? "title" : "content",
         snippet: snippets.get(row.id) ?? null,
         sectionTitle: section
-          ? (sectionTitles.get(`${row.templateId}:${section.sectionKey}`) ?? section.sectionKey)
+          ? (sectionTitles.get(`${row.templateId}:${section.sectionKey}`) ??
+            retiredSectionTitle(section.sectionKey))
           : null,
         updatedAt: row.updatedAt.toISOString(),
       };

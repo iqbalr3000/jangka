@@ -138,7 +138,11 @@ async function sectionsWithTitles(db: Db, row: DocumentRow) {
   const titles = new Map(template.sections.map((s) => [s.key, s.title]));
   return {
     template,
-    sections: sections.map((s) => ({ ...s, title: titles.get(s.key) ?? s.key })),
+    // Retired sections (keys no longer in the template) stay out of the assistant's view.
+    sections: sections.flatMap((s) => {
+      const title = titles.get(s.key);
+      return title === undefined ? [] : [{ ...s, title }];
+    }),
   };
 }
 
