@@ -21,8 +21,9 @@ The product is the instrument for drawing precise specs before building.
 
 **Tagline.** _Precise specs for product & engineering teams._
 
-**Logo concept.** A drafting compass reduced to an inverted "V" with a pivot dot, which also reads as the
-"a" in the wordmark: `jΛngka`. Wordmark in lowercase, geometric sans. Icon works at 16 px (favicon) as the compass glyph alone.
+**Logo concept.** A drafting compass reduced to a round-stroked inverted "V" with a dot above the pivot. The "V"
+without its dot is the "a" in the wordmark: `jΛngka`. Wordmark in lowercase, Inter Bold. The app icon / favicon is
+the mark in a rounded tile. Sources: `docs/assets/` (SVG mark and icons, PNG lockups); served icons: `apps/web/public/`.
 
 **Voice.** Direct, short, technical. Prefer verbs over adjectives. Say what happened and what to do next.
 - ✅ "3 required sections still missing. Answer the questions or draft anyway."
@@ -126,7 +127,7 @@ Visual reference: `docs/design/Jangka Mockups.dc.html` (artboard 1c).
   240px sidebar, collapsible to 56px icons
 ```
 
-- Wordmark `jΛngka`: 19 px, weight 600, letter-spacing −0.03em, `Λ` in `--primary`.
+- Wordmark `jΛngka`: 19 px, weight 700, letter-spacing −0.045em, `Λ` (inline SVG) in `--primary`.
 - Sidebar: org block (initial, org name, host) on top; Home / Personal; `COLLECTIONS` header (mono, 11 px) with `+`;
   tree with document counts and `--border-strong` guide lines; active collection = surface bg + `--primary` inset left bar.
 - **Admin lives in the profile menu** (avatar ▾: name/email/role, Profile & preferences, Theme, Admin panel, Sign out),
