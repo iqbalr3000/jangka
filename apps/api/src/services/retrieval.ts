@@ -3,6 +3,7 @@ import type { ChatReference } from "@jangka/shared/assistant";
 import { retiredSectionTitle } from "@jangka/templates";
 import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import type { AccessData } from "./access";
+import { stemmedQuery } from "./search-query";
 import { definitionOf } from "./templates";
 import { viewableScope } from "./visibility";
 
@@ -27,10 +28,9 @@ export async function retrieveSections(
   data: AccessData,
   input: { query: string; excludeDocumentIds: string[]; limit?: number },
 ): Promise<RetrievedSection[]> {
-  const terms = searchTerms(input.query);
+  const tsquery = stemmedQuery(searchTerms(input.query), { join: "or", prefix: false });
   const scope = viewableScope(data);
-  if (terms.length === 0 || !scope) return [];
-  const tsquery = sql`to_tsquery('simple', ${terms.join(" | ")})`;
+  if (!tsquery || !scope) return [];
 
   const rows = await db
     .select({

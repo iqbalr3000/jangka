@@ -7,6 +7,7 @@ import { bossQueue, startQueue } from "@jangka/worker/jobs";
 import { createApp } from "./app";
 import { RateLimiter } from "./lib/rate-limit";
 import { createLogger } from "./logger";
+import { enableFuzzySearch } from "./services/search-query";
 import { ensureSetupToken, SetupState } from "./services/setup";
 import { ensureBuiltinTemplates } from "./services/templates";
 
@@ -53,6 +54,7 @@ async function startApi() {
   }
   await ensureBuiltinTemplates(db);
   await ensureSetupToken(db);
+  const searchFuzzy = await enableFuzzySearch(pool, logger);
 
   const app = createApp({
     db,
@@ -69,6 +71,7 @@ async function startApi() {
     loginLimiter: new RateLimiter(10, 15 * 60_000),
     queue: bossQueue(boss),
     webDistDir: env.NODE_ENV === "production" ? webDistDir : undefined,
+    searchFuzzy,
   });
 
   return serve({ fetch: app.fetch, port: env.PORT }, (info) => {

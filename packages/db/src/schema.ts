@@ -264,8 +264,11 @@ export const documentSections = pgTable(
     // TipTap JSON (source of truth); content_md is derived from it.
     content: jsonb("content").notNull(),
     contentMd: text("content_md").notNull().default(""),
-    // Full-text index for retrieval and search; `simple`: no language stemming.
-    search: tsvector("search").generatedAlwaysAs(sql`to_tsvector('simple', content_md)`),
+    // Full-text index for retrieval and search.
+    // `simple` keeps exact words (prefix typeahead); the stemmers match other forms of a word.
+    search: tsvector("search").generatedAlwaysAs(
+      sql`to_tsvector('simple', content_md) || to_tsvector('english', content_md) || to_tsvector('indonesian', content_md)`,
+    ),
     completeness: text("completeness", { enum: ["empty", "partial", "complete"] })
       .notNull()
       .default("empty"),

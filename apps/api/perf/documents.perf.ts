@@ -97,6 +97,11 @@ beforeAll(async () => {
       })}::jsonb,
       completeness = 'partial'
   `);
+  // A selective term for search: about 1% of documents mention an approval.
+  await db.execute(sql`
+    update document_sections set content_md = content_md || ' Refunds over $500 are approved by finance.'
+    where section_key = 'overview' and document_id in (select id from documents order by id limit ${DOCUMENTS / 100})
+  `);
   await db.execute(sql`analyze`);
 }, 600_000);
 
@@ -115,7 +120,17 @@ describe(`${DOCUMENTS} documents in ${COLLECTIONS} collections (member with a gr
         call(app, "GET", `/collections/${id}/documents`, { cookie: member }),
       ),
       await p95("document open", () => call(app, "GET", `/documents/${doc}`, { cookie: member })),
+      // A word found in ~1% of documents (another form of "approved"), as real searches are.
+      await p95("search (stemmed, selective)", () =>
+        call(app, "GET", "/search?q=approving", { cookie: member }),
+      ),
     ];
+    // Reported, not budgeted: every section shares the same paragraph, so this ranks all 60k+
+    // sections. The ranking query was as slow with the old simple-only vector (backlog: cap the
+    // candidates before ranking).
+    await p95("search (every section matches; info only)", () =>
+      call(app, "GET", "/search?q=refunding%20business", { cookie: member }),
+    );
     for (const value of results) expect(value).toBeLessThan(BUDGET_MS);
   }, 120_000);
 });

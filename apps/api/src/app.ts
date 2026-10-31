@@ -60,6 +60,8 @@ export type AppDeps = {
   diagrams?: DiagramChecker;
   /** Built SPA directory; set in production only (dev uses the Vite server). */
   webDistDir?: string;
+  /** `pg_trgm` is installed: titles match despite typos. */
+  searchFuzzy?: boolean;
 };
 
 // Generous for interactive use; stops a script or a stuck client from burning the org's API key.
@@ -148,7 +150,8 @@ export function createApp(deps: AppDeps) {
   app.use("/api/*", sessionMiddleware(db, config));
 
   const locks = new GenerationLocks();
-  const routeDeps = { db, config, logger, llm, queue, diagrams, llmLimiter, locks };
+  const searchFuzzy = deps.searchFuzzy ?? false;
+  const routeDeps = { db, config, logger, llm, queue, diagrams, llmLimiter, locks, searchFuzzy };
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth/oidc", oidcRoutes(routeDeps));

@@ -99,6 +99,13 @@
       "when": 1793457788477,
       "tag": "0013_collection_pagination",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793462165307,
+      "tag": "0014_search_stemming",
+      "breakpoints": true
     }
   ]
 }

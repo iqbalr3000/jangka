@@ -40,4 +40,6 @@ export type RouteDeps = {
   llmLimiter: RateLimiter;
   /** One assistant generation or template upgrade per document at a time. */
   locks: GenerationLocks;
+  /** `pg_trgm` is installed: titles match despite typos. */
+  searchFuzzy: boolean;
 };

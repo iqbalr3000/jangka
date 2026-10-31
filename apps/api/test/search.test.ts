@@ -3,8 +3,11 @@ import { truncateAll } from "@jangka/db/testing";
 import { type DocNode, documentSummary } from "@jangka/shared/document";
 import { SNIPPET_END, SNIPPET_START, searchResponse } from "@jangka/shared/search";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { prefixQuery } from "../src/routes/search";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { searchWords } from "../src/routes/search";
+import { loadAccess } from "../src/services/access";
+import { retrieveSections } from "../src/services/retrieval";
+import { enableFuzzySearch } from "../src/services/search-query";
 import {
   buildApp,
   call,
@@ -12,6 +15,7 @@ import {
   createUser,
   login,
   setupInstance,
+  silentLogger,
   type TestApp,
   testDatabase,
 } from "./helpers";
@@ -26,11 +30,11 @@ const text = (value: string): DocNode => ({
   content: [{ type: "paragraph", content: [{ type: "text", text: value }] }],
 });
 
-describe("prefixQuery", () => {
-  it("ANDs prefix terms and drops symbols and one-letter words", () => {
-    expect(prefixQuery("Refund wind")).toBe("refund:* & wind:*");
-    expect(prefixQuery("a & | ! (x)")).toBeNull();
-    expect(prefixQuery("go-live: 2026")).toBe("go:* & live:* & 2026:*");
+describe("searchWords", () => {
+  it("keeps words of 2+ letters or digits and drops symbols", () => {
+    expect(searchWords("Refund wind")).toEqual(["refund", "wind"]);
+    expect(searchWords("a & | ! (x)")).toEqual([]);
+    expect(searchWords("go-live: 2026")).toEqual(["go", "live", "2026"]);
   });
 });
 
@@ -169,5 +173,87 @@ describe("search", () => {
 
   it("requires a session", async () => {
     expect((await call(app, "GET", "/search?q=refund", { cookie: null })).status).toBe(401);
+  });
+});
+
+describe("word forms and typos", () => {
+  beforeAll(async () => {
+    expect(await enableFuzzySearch(pool, silentLogger)).toBe(true);
+  });
+
+  it("matches other forms of a word in English and Indonesian", async () => {
+    const english = await create(
+      admin,
+      { title: "Approvals", collectionId: product, docType: "prd" },
+      "Refunds are approved within one day.",
+    );
+    const indonesian = await create(
+      admin,
+      { title: "Persetujuan", collectionId: product, docType: "prd" },
+      "Pengembalian dana disetujui dalam satu hari.",
+    );
+    expect((await search("q=approving")).map((i) => i.id)).toEqual([english]);
+    expect((await search("q=refunding approve")).map((i) => i.id)).toEqual([english]);
+    expect((await search("q=menyetujui")).map((i) => i.id)).toEqual([indonesian]);
+    // Prefix typeahead still works, and every word must still match.
+    expect((await search("q=appro")).map((i) => i.id)).toContain(english);
+    expect(await search("q=approved payroll")).toEqual([]);
+  });
+
+  it("chat retrieval finds a stemmed form", async () => {
+    await create(
+      admin,
+      { title: "Refund policy", collectionId: product, docType: "prd" },
+      "Refunds are approved by finance.",
+    );
+    // The text says "approved"; only the English stem links it to "approving".
+    const [allUsers] = await db.select().from(groups).where(eq(groups.systemKey, "all_users"));
+    const withGroup = await loadAccess(db, {
+      userId: rinaId,
+      isAdmin: false,
+      groupIds: allUsers ? [allUsers.id] : [],
+    });
+    const found = await retrieveSections(db, withGroup, {
+      query: "who is approving refunds",
+      excludeDocumentIds: [],
+    });
+    expect(found.map((s) => s.title)).toEqual(["Refund policy"]);
+  });
+
+  it("tolerates typos in titles when pg_trgm is on, after exact and content matches", async () => {
+    const exact = await create(admin, {
+      title: "Refnd notes",
+      collectionId: product,
+      docType: "prd",
+    });
+    const typo = await create(admin, {
+      title: "Refund self-service",
+      collectionId: product,
+      docType: "prd",
+    });
+    const unrelated = await create(admin, {
+      title: "Payroll",
+      collectionId: product,
+      docType: "prd",
+    });
+
+    const fuzzy = buildApp(db, pool, { searchFuzzy: true }).app;
+    const res = await call(fuzzy, "GET", "/search?q=refnd", { cookie: rina });
+    const items = searchResponse.parse(await res.json()).items;
+    expect(items.map((i) => [i.id, i.matchedIn])).toEqual([
+      [exact, "title"],
+      [typo, "title"],
+    ]);
+    expect(items.map((i) => i.id)).not.toContain(unrelated);
+
+    // Off (e.g. pg_trgm not allowed): only the exact title matches.
+    expect((await search("q=refnd")).map((i) => i.id)).toEqual([exact]);
+  });
+
+  it("never returns a fuzzy match the user can't view", async () => {
+    await create(admin, { title: "Refund budget", collectionId: finance, docType: "prd" });
+    const fuzzy = buildApp(db, pool, { searchFuzzy: true }).app;
+    const res = await call(fuzzy, "GET", "/search?q=refnd", { cookie: rina });
+    expect(searchResponse.parse(await res.json()).items).toEqual([]);
   });
 });

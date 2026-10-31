@@ -58,6 +58,7 @@ export function buildApp(
     queue?: JobQueue;
     diagrams?: DiagramChecker;
     llmLimiter?: RateLimiter;
+    searchFuzzy?: boolean;
   } = {},
 ) {
   const setupState = new SetupState(db);
@@ -70,6 +71,7 @@ export function buildApp(
     queue,
     diagrams: options.diagrams ?? noDiagramVerdict,
     llmLimiter: options.llmLimiter,
+    searchFuzzy: options.searchFuzzy,
     config: {
       publicUrl: PUBLIC_URL,
       sessionTtlDays: 30,
