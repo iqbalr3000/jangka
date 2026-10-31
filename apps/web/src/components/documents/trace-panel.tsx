@@ -3,6 +3,7 @@ import type { RequirementView } from "@jangka/shared/trace";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { z } from "zod";
 import { ErrorBanner } from "@/components/error-banner";
 import { LoadingRows } from "@/components/loading-rows";
@@ -48,19 +49,28 @@ function Restricted() {
 
 function Requirement({
   requirement,
+  focused,
   onReviewed,
 }: {
   requirement: RequirementView;
+  /** Opened from a chip: scrolled into view and briefly highlighted. */
+  focused: boolean;
   /** Editors only. */
   onReviewed?: () => void;
 }) {
+  const row = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focused]);
   const linked = requirement.upstream.filter((u) => u.status !== "restricted");
   const restricted = requirement.upstream.some((u) => u.status === "restricted");
   return (
     <li
+      ref={row}
       className={cn(
         "flex flex-col gap-1 border-b border-border py-2 last:border-0",
         requirement.needsReview && "-mx-2 border-l-2 border-l-status-partial px-2",
+        focused && "req-focus",
       )}
     >
       <div className="flex items-start gap-2">
@@ -149,11 +159,14 @@ export function TracePanel({
   documentId,
   title,
   editable,
+  focus,
 }: {
   documentId: string;
   title: string;
   /** Edit access on a document that isn't approved: may mark requirements reviewed. */
   editable: boolean;
+  /** A requirement opened from a chip; `at` re-triggers the highlight for the same code. */
+  focus: { code: string; at: number } | null;
 }) {
   const queryClient = useQueryClient();
   const trace = useQuery(traceQuery(documentId));
@@ -223,8 +236,9 @@ export function TracePanel({
                 .filter((r) => r.kind === kind)
                 .map((r) => (
                   <Requirement
-                    key={r.code}
+                    key={focus?.code === r.code ? `${r.code}:${focus.at}` : r.code}
                     requirement={r}
+                    focused={focus?.code === r.code}
                     onReviewed={editable ? () => reviewed.mutate(r.code) : undefined}
                   />
                 ))}

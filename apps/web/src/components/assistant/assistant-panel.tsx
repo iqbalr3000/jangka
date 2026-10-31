@@ -40,6 +40,8 @@ type AssistantPanelProps = {
   onComposerChange: (value: string) => void;
   /** `@Section instruction` messages revise that section instead of chatting. */
   onRevise: (key: string, instruction: string) => void;
+  /** A requirement opened from a chip, for the Trace tab. */
+  traceFocus: { code: string; at: number } | null;
   /** "Review updates" on the chat's update suggestions. */
   onReviewUpdates: (suggestions: InterviewState["suggestions"]) => void;
   /** Visibility per breakpoint, set by the document layout. */
@@ -139,6 +141,7 @@ export function AssistantPanel({
   onComposerChange,
   onRevise,
   onReviewUpdates,
+  traceFocus,
   className,
 }: AssistantPanelProps) {
   const chat = useQuery(chatQuery(documentId));
@@ -224,7 +227,12 @@ export function AssistantPanel({
         ))}
       </div>
       {tab === "trace" ? (
-        <TracePanel documentId={documentId} title={documentTitle} editable={editable} />
+        <TracePanel
+          documentId={documentId}
+          title={documentTitle}
+          editable={editable}
+          focus={traceFocus}
+        />
       ) : tab === "comments" ? (
         <CommentsPanel
           documentId={documentId}

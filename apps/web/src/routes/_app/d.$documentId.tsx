@@ -9,13 +9,14 @@ import {
 import type { ExportJob } from "@jangka/shared/export";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantPanel, type PanelTab, panelTabs } from "@/components/assistant/assistant-panel";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
 import { DocumentSkeleton } from "@/components/documents/document-skeleton";
 import { ExportDialog } from "@/components/documents/export-dialog";
 import { ExportToast } from "@/components/documents/export-toast";
+import { RequirementChipLayer } from "@/components/documents/requirement-chip-layer";
 import { SectionBlock } from "@/components/documents/section-block";
 import type { SaveState } from "@/components/documents/section-editor";
 import { SectionOutline } from "@/components/documents/section-outline";
@@ -38,6 +39,7 @@ import { errorMessage } from "@/lib/form-errors";
 import { isPlainKey } from "@/lib/keyboard";
 import { llmStatusQuery, timeAgo } from "@/lib/llm";
 import { usePersistentState } from "@/lib/persistent-state";
+import { chipIndex } from "@/lib/requirement-chips";
 import { commentsQuery } from "@/lib/review";
 import { traceQuery } from "@/lib/trace";
 import { type Assistant, useAssistant } from "@/lib/use-assistant";
@@ -111,6 +113,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [commentsSection, setCommentsSection] = useState("");
   const openComments = useQuery(commentsQuery(doc.id, "open")).data?.openCountBySection ?? {};
   const trace = useQuery(traceQuery(doc.id));
+  const chips = useMemo(() => chipIndex(trace.data), [trace.data]);
+  const [traceFocus, setTraceFocus] = useState<{ code: string; at: number } | null>(null);
   const hasRequirements = (trace.data?.requirements.length ?? 0) > 0;
   const canDraftFromSource = detail.source !== null && !("restricted" in detail.source);
   const llmStatus = useQuery(llmStatusQuery);
@@ -211,6 +215,16 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     setPanel("open");
     setPane("assistant");
   }
+
+  const openTrace = useCallback(
+    (code: string) => {
+      setTraceFocus({ code, at: Date.now() });
+      setPanelTab("trace");
+      setPanel("open");
+      setPane("assistant");
+    },
+    [setPanelTab, setPanel],
+  );
 
   function coverageOf(key: string) {
     return chat.data?.state?.sections.find((s) => s.key === key)?.coverage ?? "missing";
@@ -414,6 +428,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
               return (
                 <SectionBlock
                   key={`${section.key}:${generations[section.key] ?? 0}`}
+                  chips={chips}
                   documentId={doc.id}
                   section={section}
                   editable={editable && !locked}
@@ -447,7 +462,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
             })}
           </article>
         </main>
+        <RequirementChipLayer chips={chips} onOpen={openTrace} />
         <AssistantPanel
+          traceFocus={traceFocus}
           documentId={doc.id}
           documentTitle={doc.title}
           tab={panelTab}

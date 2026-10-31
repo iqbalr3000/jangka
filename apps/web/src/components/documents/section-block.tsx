@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { sectionAnchor } from "@/lib/documents";
+import type { ChipIndex } from "@/lib/requirement-chips";
 import type { Proposal } from "@/lib/use-assistant";
 import { cn } from "@/lib/utils";
 import { ReviseProposal } from "./revise-proposal";
@@ -44,6 +45,8 @@ type SectionBlockProps = {
   /** Open review threads on this section. */
   openComments: number;
   onComments: () => void;
+  /** Requirement codes to show as chips. */
+  chips: ChipIndex;
 };
 
 export function SectionBlock(props: SectionBlockProps) {
@@ -186,6 +189,7 @@ export function SectionBlock(props: SectionBlockProps) {
               onSaved={props.onSaved}
               onSaveState={props.onSaveState}
               seed={props.seed}
+              chips={props.chips}
             />
             {empty && props.canGenerate && (
               <button

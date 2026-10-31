@@ -14,6 +14,8 @@ import { DiagramFixContext, type FixDiagram, fixDiagram } from "@/lib/diagram-fi
 import { sectionExtensions } from "@/lib/editor-extensions";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
+import type { ChipIndex } from "@/lib/requirement-chips";
+import { requirementChipsKey } from "@/lib/requirement-chips-extension";
 import { BlockGutter } from "./block-gutter";
 import { FormatMenu } from "./format-menu";
 
@@ -31,6 +33,8 @@ type SectionEditorProps = {
   onSaveState: (key: string, state: SaveState) => void;
   /** Unsaved starting content (e.g. "Edit before accepting"); saved like a human edit. */
   seed?: DocNode;
+  /** Requirement codes to show as chips (from the document's trace). */
+  chips: ChipIndex;
 };
 
 /**
@@ -44,6 +48,7 @@ export function SectionEditor({
   onSaved,
   onSaveState,
   seed,
+  chips,
 }: SectionEditorProps) {
   const revision = useRef(section.revision);
   const pending = useRef<DocNode | null>(null);
@@ -136,6 +141,14 @@ export function SectionEditor({
     },
     onBlur: () => void flush(),
   });
+
+  // A meta-only transaction: the document doesn't change, so nothing is saved.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(
+      editor.state.tr.setMeta(requirementChipsKey, chips).setMeta("addToHistory", false),
+    );
+  }, [editor, chips]);
 
   // `false`: setEditable would otherwise emit an update and autosave unchanged content.
   useEffect(() => {

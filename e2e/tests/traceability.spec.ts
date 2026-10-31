@@ -81,6 +81,20 @@ test("BRD → PRD → TSD chain with linked requirements; restricted BRD for a m
   await openTrace(admin);
   await expect(fr.getByRole("link", { name: "TR-001" })).toBeVisible();
 
+  // Codes in the text are chips: hover explains, click opens the Trace tab on the requirement.
+  const frTable = admin.getByRole("textbox", { name: "Functional Requirements", exact: true });
+  const upstreamChip = frTable.locator('[data-req="BR-001"]').first();
+  await upstreamChip.hover();
+  await expect(admin.getByRole("tooltip")).toContainText("↑ BR-001");
+  await expect(admin.getByRole("tooltip")).toContainText("Refund BRD");
+  await panel(admin).getByRole("tab", { name: "Chat" }).click();
+  await frTable.locator('[data-req="FR-001"]').first().click();
+  await expect(panel(admin).getByRole("tab", { name: "Trace" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(fr).toBeInViewport();
+
   // The member sees the PRD but not the BRD it came from.
   const member = await signIn(browser, MEMBER);
   await member.goto(prdUrl);
@@ -91,4 +105,14 @@ test("BRD → PRD → TSD chain with linked requirements; restricted BRD for a m
   await expect(panel(member)).toContainText("Restricted document");
   await expect(panel(member)).not.toContainText("Refund BRD");
   await expect(panel(member).getByRole("link", { name: "BR-001" })).toHaveCount(0);
+  // The restricted upstream chip shows only the code already in the text: no requirement or title.
+  const memberChip = member
+    .getByRole("textbox", { name: "Functional Requirements", exact: true })
+    .locator('[data-req="BR-001"]')
+    .first();
+  await expect(memberChip).toHaveClass(/req-chip-restricted/);
+  await memberChip.hover();
+  const tooltip = member.getByRole("tooltip");
+  await expect(tooltip).toHaveText("↑ BR-001 Restricted document");
+  await expect(tooltip).not.toContainText("Refund BRD");
 });

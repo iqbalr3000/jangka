@@ -4,6 +4,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { MermaidBlockView } from "@/components/documents/mermaid-block-view";
+import { RequirementChips } from "./requirement-chips-extension";
 import { SlashCommand } from "./slash-command";
 
 /** Mermaid diagram as an atom node holding its source. */
@@ -53,6 +54,7 @@ export function sectionExtensions(placeholder: EmptyPlaceholder | null) {
     TableCell,
     MermaidBlock,
     SlashCommand,
+    RequirementChips,
     ...(placeholder
       ? [
           Placeholder.configure({
