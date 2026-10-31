@@ -21,6 +21,8 @@ export const setupRequest = z.object({
   adminName: nameSchema,
   adminEmail: emailSchema,
   password: passwordSchema,
+  /** Seed the linked example BRD → PRD → TSD. */
+  examples: z.boolean().default(true),
 });
 export type SetupRequest = z.infer<typeof setupRequest>;
 

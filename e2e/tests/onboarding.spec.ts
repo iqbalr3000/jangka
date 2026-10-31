@@ -23,6 +23,10 @@ test("setup, sign out and in, invite a member", async ({ page, browser }) => {
   await page.getByLabel("Setup token").fill(await setupToken());
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("Organization name").fill("Acme");
+  // On by default; the other specs expect an empty instance (examples: see templates.spec).
+  const examples = page.getByRole("checkbox", { name: /Add example documents/ });
+  await expect(examples).toBeChecked();
+  await examples.uncheck();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("Name").fill(ADMIN.name);
   await page.getByLabel("Email").fill(ADMIN.email);

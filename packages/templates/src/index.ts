@@ -107,3 +107,14 @@ export function sectionKeyFor(title: string, existing: Iterable<string>): string
 
 /** Seeded on boot; a published version never changes (documents pin it). */
 export const builtinTemplates: TemplateDefinition[] = [prdV1, prdV2, brdV1, tsdV1];
+
+export { type SampleDocument, sampleDocuments } from "./samples/refund-self-service";
+
+/** The newest built-in version of a document type (what new documents and samples use). */
+export function latestBuiltinTemplate(docType: DocType): TemplateDefinition {
+  const latest = builtinTemplates
+    .filter((t) => t.docType === docType)
+    .sort((a, b) => b.version - a.version)[0];
+  if (!latest) throw new Error(`no built-in ${docType} template`);
+  return latest;
+}

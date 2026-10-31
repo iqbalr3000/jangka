@@ -78,6 +78,7 @@ function SetupPage() {
     password: "",
     confirm: "",
   });
+  const [examples, setExamples] = useState(true);
 
   // Step 4 runs signed in as the new admin, so admin endpoints work.
   const llmProviders = useQuery({ ...llmProvidersQuery, enabled: step === 3 });
@@ -143,6 +144,7 @@ function SetupPage() {
           adminName: form.adminName,
           adminEmail: form.adminEmail,
           password: form.password,
+          examples,
         },
         schema: meResponse,
       }).catch((err: unknown) => {
@@ -221,6 +223,21 @@ function SetupPage() {
               onChange={update("orgName")}
               error={errors.orgName}
             />
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-primary"
+                checked={examples}
+                onChange={(event) => setExamples(event.target.checked)}
+              />
+              <span>
+                Add example documents
+                <span className="block text-xs text-muted-foreground">
+                  A linked BRD, PRD and TSD in an “Examples” collection everyone can view. Archive
+                  it any time.
+                </span>
+              </span>
+            </label>
             <div className="flex justify-between pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(0)}>
                 Back

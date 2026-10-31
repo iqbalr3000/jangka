@@ -153,3 +153,34 @@ test("a document upgrades to the template's newer version without losing content
   await expect(retired).toContainText("Removed from template");
   await expect(retired).toContainText("Refund fraud.");
 });
+
+test("an admin adds the example BRD → PRD → TSD from the command palette", async ({ browser }) => {
+  const page = await signIn(browser, ADMIN);
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  await palette.getByRole("combobox").fill("example");
+  await palette.getByRole("option", { name: "Add example documents" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Examples/);
+
+  const documents = page.getByRole("region", { name: "Documents" });
+  await expect(documents.getByRole("link")).toHaveCount(3);
+  await documents.getByRole("link").filter({ hasText: "TSD" }).click();
+  await page
+    .getByRole("complementary", { name: "Assistant" })
+    .getByRole("tab", { name: "Trace" })
+    .click();
+  const trace = page.getByRole("complementary", { name: "Assistant" });
+  await expect(trace).toContainText("TR-001");
+  await expect(trace).toContainText("FR-001");
+
+  // Other specs search and chat about refunds too: archive the examples so they don't match.
+  await page
+    .getByRole("link", { name: /^Examples/ })
+    .first()
+    .click();
+  const collectionId = new URL(page.url()).pathname.split("/").at(-1);
+  const archived = await page.request.post(`/api/v1/collections/${collectionId}/archive`, {
+    headers: { origin: new URL(page.url()).origin },
+  });
+  expect(archived.status()).toBe(204);
+});

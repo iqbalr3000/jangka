@@ -1,11 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
+import { z } from "zod";
 import { DocTypeBadge } from "@/components/documents/doc-type-badge";
 import { Snippet } from "@/components/snippet";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { adminLinks } from "@/lib/admin-links";
-import { collectionTreeQuery } from "@/lib/collections";
+import { apiFetch } from "@/lib/api";
+import { collectionsKey, collectionTreeQuery } from "@/lib/collections";
 import { errorMessage } from "@/lib/form-errors";
 import { MIN_SEARCH, searchQuery, useDebounced } from "@/lib/search";
 import { cn } from "@/lib/utils";
@@ -46,11 +48,27 @@ export function CommandPalette({
     enabled: open && q.length >= MIN_SEARCH,
   });
   const tree = useQuery({ ...collectionTreeQuery, enabled: open });
+  const queryClient = useQueryClient();
+  // Stays open until the server answers, so a failure shows here instead of vanishing.
+  const addExamples = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/samples", {
+        method: "POST",
+        schema: z.object({ collectionId: z.string() }),
+      }),
+    onSuccess: async ({ collectionId }) => {
+      await queryClient.invalidateQueries({ queryKey: collectionsKey });
+      onOpenChange(false);
+      await navigate({ to: "/c/$collectionId", params: { collectionId } });
+    },
+  });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the palette opens
   useEffect(() => {
     if (open) {
       setQuery("");
       setActive(0);
+      addExamples.reset();
     }
   }, [open]);
 
@@ -116,6 +134,16 @@ export function CommandPalette({
       },
     });
   }
+  if (isAdmin && matches("Add example documents")) {
+    items.push({
+      id: "action:examples",
+      group: "Actions",
+      label: addExamples.isPending ? "Adding example documents…" : "Add example documents",
+      run: () => {
+        if (!addExamples.isPending) addExamples.mutate();
+      },
+    });
+  }
   const ordered = GROUP_ORDER.flatMap((group) => items.filter((i) => i.group === group));
   const current = Math.min(active, Math.max(ordered.length - 1, 0));
 
@@ -160,9 +188,9 @@ export function CommandPalette({
           aria-label="Results"
           className="max-h-[420px] overflow-auto py-1.5"
         >
-          {documents.error && (
+          {(documents.error ?? addExamples.error) && (
             <p className="px-4 py-2 text-[13px] text-destructive">
-              {errorMessage(documents.error)}
+              {errorMessage(documents.error ?? addExamples.error)}
             </p>
           )}
           {q.length >= MIN_SEARCH && documents.isFetching && !documents.data && (

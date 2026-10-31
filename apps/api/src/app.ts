@@ -22,6 +22,7 @@ import { adminAuthRoutes } from "./routes/admin-auth";
 import { adminGroupRoutes } from "./routes/admin-groups";
 import { adminLlmRoutes } from "./routes/admin-llm";
 import { adminPermissionRoutes } from "./routes/admin-permissions";
+import { adminSampleRoutes } from "./routes/admin-samples";
 import { adminTemplateRoutes } from "./routes/admin-templates";
 import { adminUsageRoutes } from "./routes/admin-usage";
 import { adminUserRoutes } from "./routes/admin-users";
@@ -158,6 +159,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/admin/permissions", adminPermissionRoutes(routeDeps));
   app.route("/api/v1/admin", adminLlmRoutes(routeDeps));
   app.route("/api/v1/admin", adminUsageRoutes(routeDeps));
+  app.route("/api/v1/admin", adminSampleRoutes(routeDeps));
   app.route("/api/v1/admin", adminAuthRoutes(routeDeps));
   app.route("/api/v1/admin", adminAuditRoutes(routeDeps));
   app.route("/api/v1/admin", adminTemplateRoutes(routeDeps));

@@ -124,7 +124,12 @@ export async function captureSetupToken(db: Database): Promise<string> {
 export const ADMIN = { name: "Ada Admin", email: "ada@acme.co", password: "admin-password-123" };
 
 /** Runs the real setup flow and returns the admin's session cookie. */
-export async function setupInstance(app: TestApp, db: Database): Promise<string> {
+/** Completes setup as `ADMIN`; without the example documents unless asked, so suites start empty. */
+export async function setupInstance(
+  app: TestApp,
+  db: Database,
+  { examples = false }: { examples?: boolean } = {},
+): Promise<string> {
   // Boot seeds templates; tests truncate every table, so seed again.
   await ensureBuiltinTemplates(db);
   const token = await captureSetupToken(db);
@@ -135,6 +140,7 @@ export async function setupInstance(app: TestApp, db: Database): Promise<string>
       adminName: ADMIN.name,
       adminEmail: ADMIN.email,
       password: ADMIN.password,
+      examples,
     },
   });
   const cookie = sessionCookie(res);

@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { diagramRenders, documentExports, requirements } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { diagramHash } from "@jangka/export/render";
+import { sampleDocuments } from "@jangka/templates";
 import { eq } from "drizzle-orm";
 import JSZip from "jszip";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +34,19 @@ describe("diagram render", () => {
     const [row] = await db.select().from(diagramRenders);
     expect(row?.sourceHash).toBe(diagramHash(VALID));
     expect(row?.error).toBeNull();
+  });
+
+  it("renders every diagram in the sample documents", async () => {
+    const sources = sampleDocuments.flatMap((sample) =>
+      Object.values(sample.sections).flatMap((markdown) =>
+        [...markdown.matchAll(/```mermaid\n([\s\S]*?)\n```/g)].map((m) => m[1] ?? ""),
+      ),
+    );
+    expect(sources).toHaveLength(5);
+    for (const [i, source] of sources.entries()) {
+      const result = await renderer.renderDiagram(source, `sample-${i}`);
+      expect("error" in result ? result.error : "ok", source).toBe("ok");
+    }
   });
 
   it("caches the error of a broken diagram and never renders it twice", async () => {

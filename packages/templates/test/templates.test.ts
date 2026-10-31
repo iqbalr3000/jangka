@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   builtinTemplates,
   customTemplateDefinition,
+  latestBuiltinTemplate,
   REQUIREMENT_PREFIX,
+  sampleDocuments,
   sectionKeyFor,
   type TemplateDefinition,
   templateDefinition,
@@ -159,5 +161,54 @@ describe("custom templates", () => {
     expect(sectionKeyFor("2026 plan", [])).toBe("s_2026_plan");
     expect(sectionKeyFor("!!!", [])).toBe("section");
     expect(/^[a-z][a-z0-9_]*$/.test(sectionKeyFor("2026 plan", []))).toBe(true);
+  });
+});
+
+describe("sample documents", () => {
+  const codes = (markdown: string, prefix: string) =>
+    [...markdown.matchAll(new RegExp(`\\b${prefix}-\\d{3}\\b`, "g"))].map((m) => m[0]);
+
+  it("fill every section of the latest built-in template, and nothing else", () => {
+    for (const sample of sampleDocuments) {
+      const template = latestBuiltinTemplate(sample.docType);
+      expect(Object.keys(sample.sections).sort()).toEqual(
+        template.sections.map((s) => s.key).sort(),
+      );
+      for (const [key, markdown] of Object.entries(sample.sections)) {
+        expect(markdown.trim(), `${sample.docType}.${key}`).not.toBe("");
+      }
+    }
+  });
+
+  it("write requirement sections as ID tables, and diagrams where the template expects one", () => {
+    for (const sample of sampleDocuments) {
+      for (const section of latestBuiltinTemplate(sample.docType).sections) {
+        const markdown = sample.sections[section.key] ?? "";
+        if (section.requirementKind) expect(markdown).toMatch(/^\| ID \| Requirement \| Priority/);
+        if (section.expectsDiagram) expect(markdown).toContain("```mermaid");
+      }
+    }
+  });
+
+  it("cite only requirements that exist upstream (BRD → PRD → TSD)", () => {
+    const [brd, prd, tsd] = sampleDocuments;
+    if (!brd || !prd || !tsd) throw new Error("samples missing");
+    const business = new Set(codes(brd.sections.business_requirements ?? "", "BR"));
+    const product = new Set([
+      ...codes(prd.sections.functional_requirements ?? "", "FR"),
+      ...codes(prd.sections.non_functional_requirements ?? "", "NFR"),
+    ]);
+    const prdCites = codes(
+      `${prd.sections.functional_requirements}${prd.sections.non_functional_requirements}`,
+      "BR",
+    );
+    const tsdCites = [
+      ...codes(tsd.sections.technical_requirements ?? "", "FR"),
+      ...codes(tsd.sections.technical_requirements ?? "", "NFR"),
+    ];
+    expect(prdCites.length).toBeGreaterThan(0);
+    expect(prdCites.every((c) => business.has(c))).toBe(true);
+    expect(tsdCites.length).toBeGreaterThan(0);
+    expect(tsdCites.every((c) => product.has(c))).toBe(true);
   });
 });

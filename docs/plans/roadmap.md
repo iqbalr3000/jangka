@@ -30,7 +30,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
 | Template import / export | Feature | Share templates between instances or keep them in a repo as JSON; out of scope in `custom-templates` |
-| Sample document after setup | Feature | A filled example PRD so a fresh install shows the end result; supports the demo / launch goal (PRD §3) |
 
 ## Completed work
 
@@ -64,3 +63,4 @@ Cutoff: 2026-10-31
 - **Phase 4: template-upgrade** ([spec](spec-template-upgrade.md)) — documents move to the newest published version of their template family from a banner with a preview (added / retired / renamed sections, requirement changes); content never changes, dropped sections stay as retired rows ("Removed from template", hidden once empty) outside completeness, drafting, LLM context and the requirements index; generation lock shared via `RouteDeps`.
 - **Phase 4: llm-usage** ([spec](spec-llm-usage.md)) — `llm_usage` records every LLM pipeline run (structured calls and retries included, via `ChatRequest.onUsage`) with user, document, model and operation, backfilled from chat messages; Admin → Usage with period totals, stacked daily input/output bars and breakdowns by model, user, operation and top documents.
 - **Phase 4: collection-pagination** ([spec](spec-collection-pagination.md)) — `GET /collections/:id/documents` with a keyset cursor on `(updated_at, id)` and a partial index; `/items` no longer carries documents; Load more with the total in the list heading; 5,000 documents in one collection: p95 144 → 9.8 ms.
+- **Phase 4: sample-documents** ([spec](spec-sample-documents.md)) — a linked "Refund self-service" BRD → PRD → TSD (requirement tables citing upstream codes, five Mermaid diagrams) seeded into an Examples collection everyone can view; setup checkbox (on by default, failures don't block setup) and an admin ⌘K action (`POST /admin/samples`).
