@@ -1,5 +1,5 @@
 import type { CollectionDetail, CollectionSummary } from "@jangka/shared/access";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Folder, MoreHorizontal } from "lucide-react";
 import { Fragment, useState } from "react";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
 import {
+  collectionDocumentsQuery,
   collectionLabel,
   collectionsKey,
   describeAccess,
@@ -47,6 +48,9 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
   });
 
   const { collection, access, children, breadcrumbs, archivedAt } = detail;
+  const documents = useInfiniteQuery(collectionDocumentsQuery(collection?.id ?? "root"));
+  const documentRows = documents.data?.pages.flatMap((page) => page.items) ?? [];
+  const total = documents.data?.pages[0]?.total ?? 0;
   const title = collection ? collectionLabel(collection, userId) : ROOT_NAME;
   const canEdit = access.level === "edit";
   const isPersonalRoot = collection?.personalOwnerId != null;
@@ -167,8 +171,25 @@ export function CollectionView({ detail, userId }: CollectionViewProps) {
         </section>
       )}
 
-      {detail.documents.length > 0 ? (
-        <DocumentTable documents={detail.documents} />
+      {documents.error && <ErrorBanner>{errorMessage(documents.error)}</ErrorBanner>}
+      {documents.isPending ? null : documentRows.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className={headerClass}>DOCUMENTS · {total.toLocaleString()}</span>
+          <DocumentTable documents={documentRows} />
+          {documents.hasNextPage && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-center"
+              disabled={documents.isFetchingNextPage}
+              onClick={() => void documents.fetchNextPage()}
+            >
+              {documents.isFetchingNextPage
+                ? "Loading…"
+                : `Load more (${(total - documentRows.length).toLocaleString()} left)`}
+            </Button>
+          )}
+        </div>
       ) : (
         <section
           aria-label="Documents"

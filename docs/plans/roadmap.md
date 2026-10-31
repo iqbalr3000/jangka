@@ -29,14 +29,12 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
-| LLM usage page | Feature | [spec](spec-llm-usage.md) — every provider call in `llm_usage`, Admin → Usage by model / user / operation / document |
-| Paginated collection items | Enhancement | `GET /collections/:id/items` returns every document (p95 144 ms at 5,000 in one collection); cursor pagination per the API convention |
 | Template import / export | Feature | Share templates between instances or keep them in a repo as JSON; out of scope in `custom-templates` |
 | Sample document after setup | Feature | A filled example PRD so a fresh install shows the end result; supports the demo / launch goal (PRD §3) |
 
 ## Completed work
 
-Cutoff: 2026-10-27
+Cutoff: 2026-10-31
 
 - **foundation** — monorepo, env validation, crypto util, Drizzle base, error shape, `audit()` no-op, Docker image + compose, SPA shell + design tokens.
 - **auth** — setup wizard (token + advisory lock), password login, rolling sessions, CSRF origin check, `/auth/me`, invite + password-reset links, admin users page, Playwright e2e.
@@ -64,3 +62,5 @@ Cutoff: 2026-10-27
 - **Phase 4: brand** — SVG mark and app icons (light / dark / alt), PNG logo lockups, favicon (SVG following the OS scheme, ICO, apple-touch-icon), wordmark Λ as inline SVG, README rewrite with logo, features, layout and docs index.
 - **Phase 4: chat-updates** ([spec](spec-chat-updates.md)) — the post-reply assessment suggests up to 3 sections with content that the chat adds facts to or contradicts; "This may change N sections" chip with Review updates / Dismiss; `POST /documents/:id/propose-updates` streams conversation-aware revisions as per-section diffs (`proposal_ready`), each suggestion cleared once its proposal is ready; facts-only revise prompt with the transcript.
 - **Phase 4: template-upgrade** ([spec](spec-template-upgrade.md)) — documents move to the newest published version of their template family from a banner with a preview (added / retired / renamed sections, requirement changes); content never changes, dropped sections stay as retired rows ("Removed from template", hidden once empty) outside completeness, drafting, LLM context and the requirements index; generation lock shared via `RouteDeps`.
+- **Phase 4: llm-usage** ([spec](spec-llm-usage.md)) — `llm_usage` records every LLM pipeline run (structured calls and retries included, via `ChatRequest.onUsage`) with user, document, model and operation, backfilled from chat messages; Admin → Usage with period totals, stacked daily input/output bars and breakdowns by model, user, operation and top documents.
+- **Phase 4: collection-pagination** ([spec](spec-collection-pagination.md)) — `GET /collections/:id/documents` with a keyset cursor on `(updated_at, id)` and a partial index; `/items` no longer carries documents; Load more with the total in the list heading; 5,000 documents in one collection: p95 144 → 9.8 ms.

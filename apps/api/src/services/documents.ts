@@ -20,7 +20,8 @@ import {
 } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
 import { retiredSectionTitle, UPSTREAM_DOC_TYPE } from "@jangka/templates";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
 import { type AccessData, isHidden, resolveDocLevel } from "./access";
 import { indexRequirements } from "./requirements";
 import { definitionOf } from "./templates";
@@ -169,21 +170,60 @@ export async function summaries(db: Db, rows: DocumentRow[]): Promise<DocumentSu
   }));
 }
 
-/** Non-archived documents directly in a collection (`null` = root), newest first. */
-export async function documentsIn(db: Db, collectionId: string | null): Promise<DocumentSummary[]> {
+// The position of the last row on a page. `at` is Postgres' own text for updated_at: a JS Date
+// would drop the microseconds and break ties between rows saved in the same millisecond.
+const pageCursor = z.object({ at: z.string().min(1).max(64), id: z.uuid() });
+
+function encodeCursor(cursor: z.infer<typeof pageCursor>): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+}
+
+function decodeCursor(value: string): z.infer<typeof pageCursor> {
+  try {
+    return pageCursor.parse(JSON.parse(Buffer.from(value, "base64url").toString("utf8")));
+  } catch {
+    throw new AppError("validation_failed", 400, "Invalid cursor");
+  }
+}
+
+/** Non-archived documents directly in a collection (`null` = root), most recently updated first. */
+export async function documentsPage(
+  db: Db,
+  collectionId: string | null,
+  page: { cursor?: string; limit: number },
+): Promise<{ items: DocumentSummary[]; nextCursor: string | null; total: number }> {
+  const inCollection = and(
+    collectionId === null
+      ? isNull(documents.collectionId)
+      : eq(documents.collectionId, collectionId),
+    isNull(documents.archivedAt),
+  );
+  const after = page.cursor ? decodeCursor(page.cursor) : null;
   const rows = await db
-    .select()
+    .select({ document: documents, at: sql<string>`${documents.updatedAt}::text` })
     .from(documents)
     .where(
       and(
-        collectionId === null
-          ? isNull(documents.collectionId)
-          : eq(documents.collectionId, collectionId),
-        isNull(documents.archivedAt),
+        inCollection,
+        after
+          ? sql`(${documents.updatedAt}, ${documents.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`
+          : undefined,
       ),
     )
-    .orderBy(desc(documents.updatedAt));
-  return summaries(db, rows);
+    .orderBy(desc(documents.updatedAt), desc(documents.id))
+    .limit(page.limit + 1);
+  const [counted] = await db.select({ n: count() }).from(documents).where(inCollection);
+  const shown = rows.slice(0, page.limit);
+  const last = shown.at(-1);
+  return {
+    items: await summaries(
+      db,
+      shown.map((r) => r.document),
+    ),
+    nextCursor:
+      rows.length > page.limit && last ? encodeCursor({ at: last.at, id: last.document.id }) : null,
+    total: counted?.n ?? 0,
+  };
 }
 
 /**

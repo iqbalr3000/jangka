@@ -46,9 +46,21 @@ export const collectionDetail = z.object({
   breadcrumbs: z.array(z.object({ id: z.string(), name: z.string() })),
   access: accessView,
   children: z.array(collectionSummary),
-  documents: z.array(documentSummary),
 });
 export type CollectionDetail = z.infer<typeof collectionDetail>;
+
+export const collectionDocumentsQuery = z.object({
+  cursor: z.string().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+/** Most recently updated first; `total` counts every non-archived document in the collection. */
+export const collectionDocumentList = z.object({
+  items: z.array(documentSummary),
+  nextCursor: z.string().nullable(),
+  total: z.number(),
+});
+export type CollectionDocumentList = z.infer<typeof collectionDocumentList>;
 
 export const archivedCollectionList = z.object({
   items: z.array(collectionSummary.extend({ archivedAt: z.string() })),

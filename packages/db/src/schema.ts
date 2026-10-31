@@ -242,6 +242,10 @@ export const documents = pgTable(
   },
   (t) => [
     index("documents_collection_id_idx").on(t.collectionId),
+    // Collection lists page through this order (keyset on updated_at, id).
+    index("documents_collection_updated_idx")
+      .on(t.collectionId, t.updatedAt.desc(), t.id.desc())
+      .where(sql`${t.archivedAt} is null`),
     index("documents_source_document_id_idx").on(t.sourceDocumentId),
     check("documents_doc_type", sql`${t.docType} in ('brd', 'prd', 'tsd')`),
     check("documents_status", sql`${t.status} in ('draft', 'in_review', 'approved')`),

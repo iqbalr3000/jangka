@@ -3,10 +3,11 @@ import {
   archivedCollectionList,
   type CollectionSummary,
   collectionDetail,
+  collectionDocumentList,
   collectionList,
   type Level,
 } from "@jangka/shared/access";
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 
 /** Prefix for every collection query; invalidate it after any collection or grant change. */
@@ -21,6 +22,19 @@ export const collectionItemsQuery = (id: string) =>
   queryOptions({
     queryKey: [...collectionsKey, "items", id],
     queryFn: () => apiFetch(`/collections/${id}/items`, { schema: collectionDetail }),
+  });
+
+/** A collection's documents, 50 per page, most recently updated first. */
+export const collectionDocumentsQuery = (id: string) =>
+  infiniteQueryOptions({
+    queryKey: [...collectionsKey, "documents", id],
+    queryFn: ({ pageParam }) =>
+      apiFetch(
+        `/collections/${id}/documents${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`,
+        { schema: collectionDocumentList },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor,
   });
 
 export const personalCollectionQuery = queryOptions({

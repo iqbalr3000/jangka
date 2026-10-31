@@ -1,7 +1,8 @@
-import { collectionGrants, collections, type Database, documents } from "@jangka/db";
+import { collectionGrants, collections, documents } from "@jangka/db";
 import { can, isSelfOrDescendant, personalOwnerOf, resolveLevel } from "@jangka/permissions";
 import {
   type CollectionDetail,
+  collectionDocumentsQuery,
   createCollectionRequest,
   updateCollectionRequest,
 } from "@jangka/shared/access";
@@ -26,19 +27,14 @@ import {
   viewableRow,
   visibleTree,
 } from "../services/access";
-import { documentsIn, summaries } from "../services/documents";
+import { documentsPage, summaries } from "../services/documents";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
 const itemsParam = z.object({ id: z.union([z.literal("root"), z.uuid()]) });
 
-async function detail(
-  db: Database,
-  data: AccessData,
-  row: CollectionRow | null,
-): Promise<CollectionDetail> {
+function detail(data: AccessData, row: CollectionRow | null): CollectionDetail {
   if (row === null) {
-    const rootViewable = resolveLevel(data.ctx, null) !== "none";
     return {
       collection: null,
       archivedAt: null,
@@ -48,7 +44,6 @@ async function detail(
       children: visibleTree(data).filter(
         (item) => item.parentId === null && item.personalOwnerId === null,
       ),
-      documents: rootViewable ? await documentsIn(db, null) : [],
     };
   }
 
@@ -78,7 +73,6 @@ async function detail(
     breadcrumbs,
     access: accessView(data, row.id),
     children,
-    documents: await documentsIn(db, row.id),
   };
 }
 
@@ -115,7 +109,7 @@ export function collectionRoutes({ db }: RouteDeps) {
       const data = await access(c);
       const row = [...data.rows.values()].find((r) => r.personalOwnerId === data.ctx.userId);
       if (!row) throw new AppError("not_found", 404, "Personal collection not found");
-      return c.json(await detail(db, data, row));
+      return c.json(detail(data, row));
     })
     .get("/archived", async (c) => {
       const data = await access(c);
@@ -139,11 +133,28 @@ export function collectionRoutes({ db }: RouteDeps) {
       });
       return c.json({ items, documents: await summaries(db, editable) });
     })
+    .get(
+      "/:id/documents",
+      zValidate("param", itemsParam),
+      zValidate("query", collectionDocumentsQuery),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const data = await access(c);
+        if (id === "root") {
+          if (resolveLevel(data.ctx, null) === "none") {
+            return c.json({ items: [], nextCursor: null, total: 0 });
+          }
+          return c.json(await documentsPage(db, null, c.req.valid("query")));
+        }
+        const row = viewableRow(data, id);
+        return c.json(await documentsPage(db, row.id, c.req.valid("query")));
+      },
+    )
     .get("/:id/items", zValidate("param", itemsParam), async (c) => {
       const { id } = c.req.valid("param");
       const data = await access(c);
-      if (id === "root") return c.json(await detail(db, data, null));
-      return c.json(await detail(db, data, viewableRow(data, id)));
+      if (id === "root") return c.json(detail(data, null));
+      return c.json(detail(data, viewableRow(data, id)));
     })
     .post("/", zValidate("json", createCollectionRequest), async (c) => {
       const { name, parentId } = c.req.valid("json");

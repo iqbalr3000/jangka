@@ -1,0 +1,1 @@
+CREATE INDEX "documents_collection_updated_idx" ON "documents" USING btree ("collection_id","updated_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "documents"."archived_at" is null;

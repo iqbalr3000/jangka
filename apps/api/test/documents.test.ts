@@ -1,6 +1,6 @@
 import { collections, groups, sectionVersions } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
-import { collectionDetail, collectionList, collectionSummary } from "@jangka/shared/access";
+import { collectionDocumentList, collectionList, collectionSummary } from "@jangka/shared/access";
 import {
   type DocNode,
   documentDetail,
@@ -70,6 +70,12 @@ async function createDoc(collectionId: string | null, cookie = adminCookie, titl
   });
   expect(res.status).toBe(201);
   return documentSummary.parse(await res.json());
+}
+
+async function documentsOf(collectionId: string, cookie = adminCookie, query = "") {
+  const res = await call(app, "GET", `/collections/${collectionId}/documents${query}`, { cookie });
+  expect(res.status).toBe(200);
+  return collectionDocumentList.parse(await res.json());
 }
 
 async function detail(id: string, cookie = adminCookie) {
@@ -287,12 +293,7 @@ describe("moving and archiving", () => {
     const platform = await createCollection("Platform");
     const doc = await createDoc(platform);
     await call(app, "POST", `/documents/${doc.id}/archive`, { cookie: adminCookie });
-    let items = collectionDetail.parse(
-      await (
-        await call(app, "GET", `/collections/${platform}/items`, { cookie: adminCookie })
-      ).json(),
-    );
-    expect(items.documents).toHaveLength(0);
+    expect((await documentsOf(platform)).items).toHaveLength(0);
     const archived = await (
       await call(app, "GET", "/collections/archived", { cookie: adminCookie })
     ).json();
@@ -304,12 +305,7 @@ describe("moving and archiving", () => {
     ).toBe(409);
     await call(app, "POST", `/collections/${platform}/restore`, { cookie: adminCookie });
     await call(app, "POST", `/documents/${doc.id}/restore`, { cookie: adminCookie });
-    items = collectionDetail.parse(
-      await (
-        await call(app, "GET", `/collections/${platform}/items`, { cookie: adminCookie })
-      ).json(),
-    );
-    expect(items.documents.map((d) => d.id)).toEqual([doc.id]);
+    expect((await documentsOf(platform)).items.map((d) => d.id)).toEqual([doc.id]);
   });
 
   it("renames", async () => {
@@ -322,27 +318,80 @@ describe("moving and archiving", () => {
   });
 });
 
+describe("collection document pages", () => {
+  it("pages through every document once, most recently updated first", async () => {
+    const platform = await createCollection("Platform");
+    const created: string[] = [];
+    for (let i = 0; i < 5; i++)
+      created.push((await createDoc(platform, adminCookie, `Doc ${i}`)).id);
+    // Ties on updated_at are broken by id.
+    await db.execute(
+      sql`update documents set updated_at = '2026-10-01T10:00:00.123456Z' where id in (${sql.join(
+        created.slice(0, 3).map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})`,
+    );
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await documentsOf(
+        platform,
+        adminCookie,
+        `?limit=2${cursor ? `&cursor=${cursor}` : ""}`,
+      );
+      expect(page.total).toBe(5);
+      expect(page.items.length).toBeLessThanOrEqual(2);
+      seen.push(...page.items.map((d) => d.id));
+      cursor = page.nextCursor;
+      pages++;
+    } while (cursor);
+
+    expect(pages).toBe(3);
+    expect(new Set(seen).size).toBe(5);
+    // The two untouched documents were updated later than the three pinned to October 1.
+    expect(seen.slice(0, 2).sort()).toEqual(created.slice(3).sort());
+    expect(seen.slice(2)).toEqual([...created.slice(0, 3)].sort().reverse());
+  });
+
+  it("defaults to 50 and rejects bad limits and cursors", async () => {
+    const platform = await createCollection("Platform");
+    await createDoc(platform);
+    expect((await documentsOf(platform)).nextCursor).toBeNull();
+    for (const query of ["?limit=0", "?limit=201", "?cursor=not-a-cursor"]) {
+      const res = await call(app, "GET", `/collections/${platform}/documents${query}`, {
+        cookie: adminCookie,
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("collection details no longer carry the documents", async () => {
+    const res = await call(app, "GET", "/collections/root/items", { cookie: adminCookie });
+    expect(await res.json()).not.toHaveProperty("documents");
+  });
+});
+
 describe("collections list documents", () => {
   it("shows documents and counts only to users who can view them", async () => {
     const platform = await createCollection("Platform");
     await createDoc(platform);
     await createDoc(null);
 
-    const rinaRoot = collectionDetail.parse(
-      await (await call(app, "GET", "/collections/root/items", { cookie: rinaCookie })).json(),
-    );
-    expect(rinaRoot.documents).toHaveLength(0);
+    expect(await documentsOf("root", rinaCookie)).toEqual({
+      items: [],
+      nextCursor: null,
+      total: 0,
+    });
     expect(
-      (await call(app, "GET", `/collections/${platform}/items`, { cookie: rinaCookie })).status,
+      (await call(app, "GET", `/collections/${platform}/documents`, { cookie: rinaCookie })).status,
     ).toBe(404);
 
     await grant(platform, "view");
-    const items = collectionDetail.parse(
-      await (
-        await call(app, "GET", `/collections/${platform}/items`, { cookie: rinaCookie })
-      ).json(),
-    );
-    expect(items.documents.map((d) => d.title)).toEqual(["Refunds"]);
+    expect((await documentsOf(platform, rinaCookie)).items.map((d) => d.title)).toEqual([
+      "Refunds",
+    ]);
     const tree = collectionList.parse(
       await (await call(app, "GET", "/collections", { cookie: rinaCookie })).json(),
     );

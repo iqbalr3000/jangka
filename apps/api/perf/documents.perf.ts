@@ -108,8 +108,11 @@ describe(`${DOCUMENTS} documents in ${COLLECTIONS} collections (member with a gr
       await p95("collection tree with counts", () =>
         call(app, "GET", "/collections", { cookie: member }),
       ),
-      await p95(`collection items (${DOCUMENTS / COLLECTIONS} docs)`, () =>
+      await p95("collection details", () =>
         call(app, "GET", `/collections/${id}/items`, { cookie: member }),
+      ),
+      await p95(`first page of ${DOCUMENTS / COLLECTIONS} documents`, () =>
+        call(app, "GET", `/collections/${id}/documents`, { cookie: member }),
       ),
       await p95("document open", () => call(app, "GET", `/documents/${doc}`, { cookie: member })),
     ];
