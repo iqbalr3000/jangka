@@ -74,6 +74,19 @@ describe("gemini streamText", () => {
 });
 
 describe("gemini generateObject", () => {
+  it("reports the usage of each response", async () => {
+    const schema = z.object({ title: z.string() });
+    stub.handle(() => ({
+      json: response(JSON.stringify({ title: "PRD" }), {
+        promptTokenCount: 40,
+        candidatesTokenCount: 9,
+      }),
+    }));
+    const usage: unknown[] = [];
+    await provider().generateObject({ ...req, onUsage: (u) => usage.push(u) }, schema);
+    expect(usage).toEqual([{ inputTokens: 40, outputTokens: 9 }]);
+  });
+
   it("requests JSON with a schema stripped of unsupported keywords", async () => {
     const schema = z.object({ title: z.string() });
     stub.handle(() => ({ json: response(JSON.stringify({ title: "PRD" })) }));

@@ -23,6 +23,7 @@ import { Route as AppAdminAuditRouteImport } from './routes/_app/admin/audit'
 import { Route as AppAdminAuthRouteImport } from './routes/_app/admin/auth'
 import { Route as AppAdminLlmRouteImport } from './routes/_app/admin/llm'
 import { Route as AppAdminPermissionsRouteImport } from './routes/_app/admin/permissions'
+import { Route as AppAdminUsageRouteImport } from './routes/_app/admin/usage'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppCCollectionIdRouteImport } from './routes/_app/c.$collectionId'
 import { Route as AppDDocumentIdRouteImport } from './routes/_app/d.$documentId'
@@ -100,6 +101,11 @@ const AppAdminPermissionsRoute = AppAdminPermissionsRouteImport.update({
   path: '/permissions',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminUsageRoute = AppAdminUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/admin/auth': typeof AppAdminAuthRoute
   '/admin/llm': typeof AppAdminLlmRoute
   '/admin/permissions': typeof AppAdminPermissionsRoute
+  '/admin/usage': typeof AppAdminUsageRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/c/$collectionId': typeof AppCCollectionIdRoute
   '/d/$documentId': typeof AppDDocumentIdRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/admin/auth': typeof AppAdminAuthRoute
   '/admin/llm': typeof AppAdminLlmRoute
   '/admin/permissions': typeof AppAdminPermissionsRoute
+  '/admin/usage': typeof AppAdminUsageRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/c/$collectionId': typeof AppCCollectionIdRoute
   '/d/$documentId': typeof AppDDocumentIdRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_app/admin/auth': typeof AppAdminAuthRoute
   '/_app/admin/llm': typeof AppAdminLlmRoute
   '/_app/admin/permissions': typeof AppAdminPermissionsRoute
+  '/_app/admin/usage': typeof AppAdminUsageRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/c/$collectionId': typeof AppCCollectionIdRoute
   '/_app/d/$documentId': typeof AppDDocumentIdRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/admin/auth'
     | '/admin/llm'
     | '/admin/permissions'
+    | '/admin/usage'
     | '/admin/users'
     | '/c/$collectionId'
     | '/d/$documentId'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/admin/auth'
     | '/admin/llm'
     | '/admin/permissions'
+    | '/admin/usage'
     | '/admin/users'
     | '/c/$collectionId'
     | '/d/$documentId'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/_app/admin/auth'
     | '/_app/admin/llm'
     | '/_app/admin/permissions'
+    | '/_app/admin/usage'
     | '/_app/admin/users'
     | '/_app/c/$collectionId'
     | '/_app/d/$documentId'
@@ -380,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminPermissionsRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/usage': {
+      id: '/_app/admin/usage'
+      path: '/usage'
+      fullPath: '/admin/usage'
+      preLoaderRoute: typeof AppAdminUsageRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/users': {
       id: '/_app/admin/users'
       path: '/users'
@@ -437,6 +456,7 @@ interface AppAdminRouteChildren {
   AppAdminAuthRoute: typeof AppAdminAuthRoute
   AppAdminLlmRoute: typeof AppAdminLlmRoute
   AppAdminPermissionsRoute: typeof AppAdminPermissionsRoute
+  AppAdminUsageRoute: typeof AppAdminUsageRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppAdminGroupsGroupIdRoute: typeof AppAdminGroupsGroupIdRoute
@@ -450,6 +470,7 @@ const AppAdminRouteChildren: AppAdminRouteChildren = {
   AppAdminAuthRoute: AppAdminAuthRoute,
   AppAdminLlmRoute: AppAdminLlmRoute,
   AppAdminPermissionsRoute: AppAdminPermissionsRoute,
+  AppAdminUsageRoute: AppAdminUsageRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAdminGroupsGroupIdRoute: AppAdminGroupsGroupIdRoute,

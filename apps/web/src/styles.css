@@ -31,6 +31,9 @@
   --danger: #b91c1c;
   --diff-add: #dcfce7;
   --diff-del: #fee2e2;
+  /* Usage chart: input / output tokens (validated pair, dataviz skill). */
+  --chart-input: #1d4ed8;
+  --chart-output: #93a9ec;
 
   color-scheme: light;
 }
@@ -54,6 +57,8 @@
   --danger: #f87171;
   --diff-add: #13301f;
   --diff-del: #3a1618;
+  --chart-input: #6290f5;
+  --chart-output: #3a5da8;
   color-scheme: dark;
 }
 
@@ -77,6 +82,8 @@
     --danger: #f87171;
     --diff-add: #13301f;
     --diff-del: #3a1618;
+    --chart-input: #6290f5;
+    --chart-output: #3a5da8;
     color-scheme: dark;
   }
 }
@@ -109,6 +116,8 @@
   --color-status-complete: var(--status-complete);
   --color-diff-add: var(--diff-add);
   --color-diff-del: var(--diff-del);
+  --color-chart-input: var(--chart-input);
+  --color-chart-output: var(--chart-output);
 }
 
 @theme {

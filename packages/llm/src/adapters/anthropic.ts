@@ -52,6 +52,10 @@ export function anthropicProvider(config: ProviderConfig): LLMProvider {
         },
         { signal },
       );
+      req.onUsage?.({
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      });
       const block = message.content.find((b) => b.type === "tool_use");
       return block?.type === "tool_use" ? block.input : undefined;
     } catch (error) {

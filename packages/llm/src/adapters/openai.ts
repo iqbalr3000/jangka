@@ -56,6 +56,15 @@ export function openAICompatibleProvider(config: ProviderConfig): LLMProvider {
         : { max_tokens: req.maxTokens })),
   });
 
+  function reportUsage(
+    req: ChatRequest,
+    usage: { prompt_tokens: number; completion_tokens: number } | undefined,
+  ) {
+    if (usage) {
+      req.onUsage?.({ inputTokens: usage.prompt_tokens, outputTokens: usage.completion_tokens });
+    }
+  }
+
   async function objectAttempt(req: ChatRequest, schema: JsonSchema, signal?: AbortSignal) {
     try {
       const completion = await client.chat.completions.create(
@@ -68,6 +77,7 @@ export function openAICompatibleProvider(config: ProviderConfig): LLMProvider {
         },
         { signal },
       );
+      reportUsage(req, completion.usage);
       return stripNullOptionals(parseJson(completion.choices[0]?.message.content ?? ""), schema);
     } catch (error) {
       // Some OpenRouter models reject response_format: fall back to the schema in the prompt.
@@ -80,6 +90,7 @@ export function openAICompatibleProvider(config: ProviderConfig): LLMProvider {
       const completion = await client.chat.completions.create(base({ ...req, system }), {
         signal,
       });
+      reportUsage(req, completion.usage);
       return extractJson(completion.choices[0]?.message.content ?? "");
     } catch (error) {
       throw toLLMError(error, signal, classify);

@@ -29,7 +29,10 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
-| Upgrade documents to a newer template version | Feature | [spec](spec-template-upgrade.md) — banner + preview, same family, retired sections kept |
+| LLM usage page | Feature | [spec](spec-llm-usage.md) — every provider call in `llm_usage`, Admin → Usage by model / user / operation / document |
+| Paginated collection items | Enhancement | `GET /collections/:id/items` returns every document (p95 144 ms at 5,000 in one collection); cursor pagination per the API convention |
+| Template import / export | Feature | Share templates between instances or keep them in a repo as JSON; out of scope in `custom-templates` |
+| Sample document after setup | Feature | A filled example PRD so a fresh install shows the end result; supports the demo / launch goal (PRD §3) |
 
 ## Completed work
 
@@ -60,3 +63,4 @@ Cutoff: 2026-10-27
 - **Phase 4: editor & chat polish** ([spec](spec-editor-chat-polish.md)) — composer free at `reply_done` (coverage runs unlocked, stale coverage dropped), smooth typing reveal and thinking state, Notion-like block gutter (`+`, `⋮⋮` menu), bubble formatting menu, `/` slash commands, no forced trailing paragraph.
 - **Phase 4: brand** — SVG mark and app icons (light / dark / alt), PNG logo lockups, favicon (SVG following the OS scheme, ICO, apple-touch-icon), wordmark Λ as inline SVG, README rewrite with logo, features, layout and docs index.
 - **Phase 4: chat-updates** ([spec](spec-chat-updates.md)) — the post-reply assessment suggests up to 3 sections with content that the chat adds facts to or contradicts; "This may change N sections" chip with Review updates / Dismiss; `POST /documents/:id/propose-updates` streams conversation-aware revisions as per-section diffs (`proposal_ready`), each suggestion cleared once its proposal is ready; facts-only revise prompt with the transcript.
+- **Phase 4: template-upgrade** ([spec](spec-template-upgrade.md)) — documents move to the newest published version of their template family from a banner with a preview (added / retired / renamed sections, requirement changes); content never changes, dropped sections stay as retired rows ("Removed from template", hidden once empty) outside completeness, drafting, LLM context and the requirements index; generation lock shared via `RouteDeps`.

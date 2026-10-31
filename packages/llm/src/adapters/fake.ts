@@ -114,9 +114,10 @@ export function fakeProvider(config: ProviderConfig): LLMProvider {
 
     generateObject(req, schema, signal) {
       return generateWithRetry(
-        async (_req, jsonSchema) => {
+        async (attemptReq, jsonSchema) => {
           checkKey(config);
           if (signal?.aborted) throw new LLMError("aborted");
+          attemptReq.onUsage?.({ inputTokens: attemptReq.messages.length * 10, outputTokens: 20 });
           return queued.length > 0 ? queued.shift() : sampleFromSchema(jsonSchema);
         },
         req,

@@ -54,6 +54,7 @@ import {
 } from "../services/documents";
 import { callProvider } from "../services/llm-providers";
 import { retrieveSections } from "../services/retrieval";
+import { type LlmOperation, recordUsage, usageMeter } from "../services/usage";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
@@ -89,12 +90,36 @@ export function assistantRoutes({
   llmLimiter,
   locks,
 }: RouteDeps) {
+  type Owner = { userId: string; documentId: string; resolved: ResolvedLlm };
+
+  /** Records a run's tokens; usage is cost control, so a failed write never breaks the run. */
+  async function track(owner: Owner, operation: LlmOperation, usage: Usage): Promise<void> {
+    await recordUsage(db, { ...owner, operation, usage }).catch((error: unknown) =>
+      logger.error({ err: error, documentId: owner.documentId }, "llm usage not recorded"),
+    );
+  }
+
   /** LLM-written diagrams are rendered and, when rejected, fixed before anyone sees them. */
-  function withRenderedDiagrams(
+  async function withRenderedDiagrams(
+    doc: DocNode,
+    owner: Owner,
+    section: TemplateSection,
+    signal: AbortSignal,
+  ): Promise<DocNode> {
+    const meter = usageMeter();
+    try {
+      return await renderDiagrams(doc, owner.resolved, section, signal, meter.onUsage);
+    } finally {
+      await track(owner, "diagram_fix", meter.total);
+    }
+  }
+
+  function renderDiagrams(
     doc: DocNode,
     resolved: ResolvedLlm,
     section: TemplateSection,
     signal: AbortSignal,
+    onUsage: (usage: Usage) => void,
   ): Promise<DocNode> {
     return ensureDiagrams(
       doc,
@@ -102,7 +127,7 @@ export function assistantRoutes({
         checker: diagrams,
         fix: (source, error) =>
           fixDiagram(
-            { provider: resolved.provider, model: resolved.model },
+            { provider: resolved.provider, model: resolved.model, onUsage },
             { source, error, expectsDiagram: section.expectsDiagram },
             signal,
           ),
@@ -239,10 +264,12 @@ export function assistantRoutes({
         const references = related.map(({ markdown: _markdown, ...reference }) => reference);
         if (references.length > 0) await send({ type: "references", items: references });
 
+        const owner = { userId: auth.user.id, documentId: doc.id, resolved };
         const result = await relay(
           interview(common, { doc: { ...context, related }, transcript }, signal),
           (delta) => send({ type: "text", delta }),
         );
+        await track(owner, "chat", result.usage);
         const interrupted = result.error !== null;
         await saveAssistantMessage(threadId, {
           id: messageId,
@@ -261,10 +288,11 @@ export function assistantRoutes({
         await send({ type: "reply_done", messageId });
         unlock();
 
+        const coverageMeter = usageMeter();
         try {
           const transcriptNow = transcriptOf(await threadMessages(db, doc.id));
           const state = await assessCoverage(
-            common,
+            { ...common, onUsage: coverageMeter.onUsage },
             { doc: context, transcript: transcriptNow, suggest: true },
             signal,
           );
@@ -280,6 +308,8 @@ export function assistantRoutes({
           } else {
             throw error;
           }
+        } finally {
+          await track(owner, "coverage", coverageMeter.total);
         }
         await send({ type: "done", usage: result.usage });
       });
@@ -334,11 +364,17 @@ export function assistantRoutes({
         const drafted: string[] = [];
         const skipped: string[] = [];
         let stopped = false;
+        const owner = { userId: auth.user.id, documentId: doc.id, resolved };
 
         if (fromSource) {
           const { context } = await documentContext(db, doc, data);
+          const coverageMeter = usageMeter();
           try {
-            const assessed = await assessCoverage(common, { doc: context, transcript }, signal);
+            const assessed = await assessCoverage(
+              { ...common, onUsage: coverageMeter.onUsage },
+              { doc: context, transcript },
+              signal,
+            );
             await saveState(db, doc.id, assessed);
             await send({ type: "coverage", state: assessed });
             coverage = new Map(assessed.sections.map((s) => [s.key, s]));
@@ -346,6 +382,8 @@ export function assistantRoutes({
             if (!(error instanceof LLMError)) throw error;
             await send(providerError(resolved, error, logger));
             return;
+          } finally {
+            await track(owner, "coverage", coverageMeter.total);
           }
         }
 
@@ -372,6 +410,7 @@ export function assistantRoutes({
           );
           usage.inputTokens += result.usage.inputTokens;
           usage.outputTokens += result.usage.outputTokens;
+          await track(owner, "draft", result.usage);
           if (result.error) {
             // The section in progress is discarded; finished ones stay.
             await send(providerError(resolved, result.error, logger));
@@ -381,15 +420,17 @@ export function assistantRoutes({
 
           const content = await withRenderedDiagrams(
             fromMarkdown(result.text),
-            resolved,
+            owner,
             section,
             signal,
           );
+          const checkMeter = usageMeter();
           const check = await checkSection(
-            common,
+            { ...common, onUsage: checkMeter.onUsage },
             { section, markdown: result.text },
             signal,
           ).catch(() => ({ completeness: "partial" as const, note: "" }));
+          await track(owner, "check", checkMeter.total);
           if (signal.aborted) {
             stopped = true;
             break;
@@ -459,6 +500,7 @@ export function assistantRoutes({
           await send({ type: "message_start", messageId });
           const { context } = await documentContext(db, doc, data);
           const current = context.sections.find((s) => s.key === key)?.markdown ?? "";
+          const owner = { userId: auth.user.id, documentId: doc.id, resolved };
           const result = await relay(
             reviseSection(
               { provider: resolved.provider, model: resolved.model },
@@ -467,6 +509,7 @@ export function assistantRoutes({
             ),
             (delta) => send({ type: "text", delta, sectionKey: key }),
           );
+          await track(owner, "revise", result.usage);
           await saveAssistantMessage(threadId, {
             id: messageId,
             kind: "revise",
@@ -482,7 +525,7 @@ export function assistantRoutes({
             return;
           }
           const proposed = fromMarkdown(result.text);
-          const rendered = await withRenderedDiagrams(proposed, resolved, section, signal);
+          const rendered = await withRenderedDiagrams(proposed, owner, section, signal);
           if (rendered !== proposed) {
             await send({ type: "proposal", sectionKey: key, markdown: toMarkdown(rendered) });
           }
@@ -533,6 +576,7 @@ export function assistantRoutes({
           const transcript = transcriptOf(await threadMessages(db, doc.id));
           const common = { provider: resolved.provider, model: resolved.model };
           const usage = { inputTokens: 0, outputTokens: 0 };
+          const owner = { userId: auth.user.id, documentId: doc.id, resolved };
 
           for (const section of targets) {
             const result = await relay(
@@ -551,6 +595,7 @@ export function assistantRoutes({
             );
             usage.inputTokens += result.usage.inputTokens;
             usage.outputTokens += result.usage.outputTokens;
+            await track(owner, "propose", result.usage);
             if (result.error) {
               await saveAssistantMessage(threadId, {
                 id: messageId,
@@ -565,7 +610,7 @@ export function assistantRoutes({
             }
             const rendered = await withRenderedDiagrams(
               fromMarkdown(result.text),
-              resolved,
+              owner,
               section,
               signal,
             );
@@ -622,7 +667,7 @@ export function assistantRoutes({
       zValidate("json", fixDiagramRequest),
       async (c) => {
         const { id, key } = c.req.valid("param");
-        const { doc, resolved, data } = await prepare(c, id);
+        const { auth, doc, resolved, data } = await prepare(c, id);
         requireNotApproved(doc);
         const { template } = await documentContext(db, doc, data);
         const section = template.sections.find((s) => s.key === key);
@@ -637,18 +682,27 @@ export function assistantRoutes({
         // The editor saves the returned source like any edit, so nothing is written here.
         const signal = c.req.raw.signal;
         let { source, error } = c.req.valid("json");
-        for (let attempt = 0; attempt < MAX_DIAGRAM_FIXES; attempt++) {
-          source = await callProvider(logger, resolved.kind, () =>
-            fixDiagram(
-              { provider: resolved.provider, model: resolved.model },
-              { source, error, expectsDiagram: section.expectsDiagram },
-              signal,
-            ),
+        const meter = usageMeter();
+        try {
+          for (let attempt = 0; attempt < MAX_DIAGRAM_FIXES; attempt++) {
+            source = await callProvider(logger, resolved.kind, () =>
+              fixDiagram(
+                { provider: resolved.provider, model: resolved.model, onUsage: meter.onUsage },
+                { source, error, expectsDiagram: section.expectsDiagram },
+                signal,
+              ),
+            );
+            const check = await diagrams.check(source, signal);
+            // No verdict (worker down): the editor renders it and shows any error itself.
+            if (check === null || "ok" in check) return c.json({ source });
+            error = check.error;
+          }
+        } finally {
+          await track(
+            { userId: auth.user.id, documentId: doc.id, resolved },
+            "diagram_fix",
+            meter.total,
           );
-          const check = await diagrams.check(source, signal);
-          // No verdict (worker down): the editor renders it and shows any error itself.
-          if (check === null || "ok" in check) return c.json({ source });
-          error = check.error;
         }
         throw new AppError(
           "diagram_unfixed",

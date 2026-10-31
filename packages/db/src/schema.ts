@@ -480,6 +480,40 @@ export const documentExports = pgTable(
   ],
 );
 
+export const LLM_OPERATIONS = [
+  "chat",
+  "coverage",
+  "draft",
+  "check",
+  "revise",
+  "propose",
+  "diagram_fix",
+] as const;
+
+/** One row per LLM pipeline run (structured retries summed in), for the Usage page. */
+export const llmUsage = pgTable(
+  "llm_usage",
+  {
+    id: id(),
+    // Null for backfilled rows whose author couldn't be determined.
+    userId: uuid("user_id").references(() => users.id),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    providerKind: text("provider_kind").notNull(),
+    model: text("model").notNull(),
+    operation: text("operation", { enum: LLM_OPERATIONS }).notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("llm_usage_created_at_idx").on(t.createdAt),
+    check(
+      "llm_usage_operation",
+      sql`${t.operation} in ('chat', 'coverage', 'draft', 'check', 'revise', 'propose', 'diagram_fix')`,
+    ),
+  ],
+);
+
 /** Append-only: a trigger rejects UPDATE and DELETE. */
 export const auditLogs = pgTable(
   "audit_logs",

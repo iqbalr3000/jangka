@@ -80,3 +80,47 @@ export const llmSettings = z.union([
 export type LLMSettings = z.infer<typeof llmSettings>;
 
 export const llmStatus = z.object({ configured: z.boolean() });
+
+export const usagePeriod = z.enum(["7d", "30d", "month", "last_month"]);
+export type UsagePeriod = z.infer<typeof usagePeriod>;
+export const usageQuery = z.object({ period: usagePeriod.default("30d") });
+
+export const llmOperation = z.enum([
+  "chat",
+  "coverage",
+  "draft",
+  "check",
+  "revise",
+  "propose",
+  "diagram_fix",
+]);
+export type LlmOperation = z.infer<typeof llmOperation>;
+
+const tokens = z.object({
+  requests: z.number(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+});
+
+/** Token usage over a period, for Admin → Usage. */
+export const usageReport = z.object({
+  from: z.string(),
+  to: z.string(),
+  totals: tokens,
+  /** One entry per UTC day in the period, zero-filled. */
+  daily: z.array(z.object({ date: z.string(), inputTokens: z.number(), outputTokens: z.number() })),
+  byModel: z.array(tokens.extend({ providerKind, model: z.string() })),
+  byUser: z.array(
+    tokens.extend({ user: z.object({ id: z.string(), name: z.string() }).nullable() }),
+  ),
+  byOperation: z.array(tokens.extend({ operation: llmOperation })),
+  /** `document` is null when it's gone or in another user's personal collection. */
+  topDocuments: z.array(
+    tokens.extend({
+      document: z
+        .object({ id: z.string(), title: z.string(), docType: z.enum(["brd", "prd", "tsd"]) })
+        .nullable(),
+    }),
+  ),
+});
+export type UsageReport = z.infer<typeof usageReport>;

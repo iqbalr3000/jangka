@@ -21,6 +21,8 @@ export type ChatRequest = {
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  /** Structured output: called once per provider response, retries included. */
+  onUsage?: (usage: Usage) => void;
 };
 
 export type ModelInfo = { id: string; label: string; contextWindow?: number };

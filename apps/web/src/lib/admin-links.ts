@@ -1,4 +1,5 @@
 import {
+  ChartColumn,
   KeyRound,
   LayoutTemplate,
   type LucideIcon,
@@ -16,6 +17,7 @@ export const adminLinks: readonly { to: string; label: string; icon: LucideIcon 
   { to: "/admin/permissions", label: "Permissions", icon: ShieldCheck },
   { to: "/admin/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/admin/llm", label: "LLM providers", icon: Sparkles },
+  { to: "/admin/usage", label: "Usage", icon: ChartColumn },
   { to: "/admin/auth", label: "Authentication", icon: KeyRound },
   { to: "/admin/audit", label: "Audit log", icon: ScrollText },
 ];

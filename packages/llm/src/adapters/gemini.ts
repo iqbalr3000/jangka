@@ -53,6 +53,10 @@ export function geminiProvider(config: ProviderConfig): LLMProvider {
           responseJsonSchema: toGeminiSchema(schema),
         },
       });
+      req.onUsage?.({
+        inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+      });
       return parseJson(response.text ?? "");
     } catch (error) {
       throw toLLMError(error, signal, classify);

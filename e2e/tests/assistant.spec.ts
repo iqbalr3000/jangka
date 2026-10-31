@@ -122,3 +122,20 @@ test("the chat suggests updates to drafted sections; review one, dismiss another
   await expect(panel(page)).toContainText("Proposed updates to Open Questions");
   await expect(suggestions).toHaveCount(0);
 });
+
+test("Admin → Usage counts the assistant's calls", async ({ browser }) => {
+  const page = await signIn(browser, ADMIN);
+  await page.getByRole("button", { name: "+ New", exact: true }).click();
+  await page.getByLabel("Title").fill("Usage check");
+  await page.getByRole("button", { name: "Create" }).click();
+  await send(page, "Refunds take 7 days.");
+  await expect(panel(page)).toContainText("COVERAGE 12/12");
+
+  await page.goto("/admin/usage");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Usage");
+  await expect(page.getByRole("region", { name: "By model" })).toContainText("fake-small");
+  const operations = page.getByRole("region", { name: "By operation" });
+  await expect(operations).toContainText("Chat replies");
+  await expect(operations).toContainText("Coverage assessment");
+  await expect(page.getByRole("region", { name: "Top documents" })).toContainText("Usage check");
+});

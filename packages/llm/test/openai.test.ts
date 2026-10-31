@@ -24,8 +24,9 @@ function chunk(content: string | null, usage?: object) {
   };
 }
 
-function completion(content: string) {
+function completion(content: string, usage?: object) {
   return {
+    ...(usage && { usage }),
     id: "c1",
     object: "chat.completion",
     created: 1,
@@ -107,6 +108,19 @@ describe("openai generateObject", () => {
       required: ["title", "note"],
       additionalProperties: false,
     });
+  });
+
+  it("reports the usage of each response", async () => {
+    stub.handle(() => ({
+      json: completion(JSON.stringify({ title: "PRD", note: null }), {
+        prompt_tokens: 30,
+        completion_tokens: 7,
+        total_tokens: 37,
+      }),
+    }));
+    const usage: unknown[] = [];
+    await provider().generateObject({ ...req, onUsage: (u) => usage.push(u) }, schema);
+    expect(usage).toEqual([{ inputTokens: 30, outputTokens: 7 }]);
   });
 
   it("retries when the content isn't valid JSON", async () => {

@@ -2,7 +2,7 @@ import { coverageLevel, type InterviewState } from "@jangka/shared/assistant";
 import { MAX_MERMAID_CHARS } from "@jangka/shared/document";
 import type { TemplateDefinition, TemplateSection } from "@jangka/templates";
 import { z } from "zod";
-import type { LLMProvider, StreamEvent } from "../types";
+import type { LLMProvider, StreamEvent, Usage } from "../types";
 import {
   checkSystem,
   coverageSystem,
@@ -139,7 +139,13 @@ export function normalizeCoverage(
   return { sections, openQuestions: result.openQuestions, readyToDraft, suggestions };
 }
 
-type Common = { provider: LLMProvider; model: string; contextWindow?: number };
+type Common = {
+  provider: LLMProvider;
+  model: string;
+  contextWindow?: number;
+  /** Token usage of structured calls (streams report theirs in the `done` event). */
+  onUsage?: (usage: Usage) => void;
+};
 
 export function interview(
   { provider, model, contextWindow }: Common,
@@ -158,7 +164,7 @@ export function interview(
 
 /** `suggest`: also name sections with content that the conversation changes (chat turns only). */
 export async function assessCoverage(
-  { provider, model, contextWindow }: Common,
+  { provider, model, contextWindow, onUsage }: Common,
   input: { doc: DocumentContext; transcript: Turn[]; suggest?: boolean },
   signal?: AbortSignal,
 ): Promise<InterviewState> {
@@ -172,6 +178,7 @@ export async function assessCoverage(
   const result = await provider.generateObject(
     {
       model,
+      onUsage,
       system: coverageSystem(fitted.doc, contentKeys.length > 0),
       messages: [
         {
@@ -211,13 +218,14 @@ export const sectionCheck = z.object({
 });
 
 export function checkSection(
-  { provider, model }: Common,
+  { provider, model, onUsage }: Common,
   input: { section: TemplateSection; markdown: string },
   signal?: AbortSignal,
 ): Promise<z.infer<typeof sectionCheck>> {
   return provider.generateObject(
     {
       model,
+      onUsage,
       system: checkSystem(input.section),
       messages: [{ role: "user", content: input.markdown }],
     },
@@ -264,13 +272,14 @@ export const fixedDiagram = z.object({
 
 /** One LLM attempt at fixing a diagram the renderer rejected; the caller re-renders it. */
 export async function fixDiagram(
-  { provider, model }: Common,
+  { provider, model, onUsage }: Common,
   input: { source: string; error: string; expectsDiagram?: string },
   signal?: AbortSignal,
 ): Promise<string> {
   const result = await provider.generateObject(
     {
       model,
+      onUsage,
       system: fixDiagramSystem(input.expectsDiagram),
       messages: [{ role: "user", content: fixDiagramMessage(input.source, input.error) }],
     },

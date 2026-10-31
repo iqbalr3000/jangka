@@ -176,10 +176,15 @@ describe("anthropic generateObject", () => {
       const input = call === 1 ? { title: 42 } : { title: "ok", tags: [] };
       return { json: message([{ type: "tool_use", id: "t", name: "respond", input }]) };
     });
-    await expect(provider().generateObject(req, schema)).resolves.toEqual({
-      title: "ok",
-      tags: [],
-    });
+    const usage: unknown[] = [];
+    await expect(
+      provider().generateObject({ ...req, onUsage: (u) => usage.push(u) }, schema),
+    ).resolves.toEqual({ title: "ok", tags: [] });
+    // Every attempt costs tokens, the rejected one included.
+    expect(usage).toEqual([
+      { inputTokens: 12, outputTokens: 5 },
+      { inputTokens: 12, outputTokens: 5 },
+    ]);
     const retry = stub.requests[1]?.body as { messages: { role: string; content: string }[] };
     expect(retry.messages.at(-1)?.content).toContain("does not match the required schema");
   });
