@@ -184,3 +184,39 @@ test("an admin adds the example BRD → PRD → TSD from the command palette", a
   });
   expect(archived.status()).toBe(204);
 });
+
+test("an admin exports a template and imports the file under a new name", async ({ browser }) => {
+  const page = await signIn(browser, ADMIN);
+  await page.goto("/admin/templates");
+  const downloading = page.waitForEvent("download");
+  await familyAction(page, "Technical Specification Document", "Export");
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe(
+    "technical-specification-document-v1.jangka-template.json",
+  );
+  const path = await download.path();
+
+  await page.getByLabel("Template file").setInputFiles(path);
+  const dialog = page.getByRole("dialog", { name: "Import template" });
+  await expect(dialog).toContainText("TSD template · 13 sections");
+  // The file's name is taken: the server says so on the field.
+  await dialog.getByRole("button", { name: "Import" }).click();
+  await expect(dialog).toContainText("exists");
+  await dialog.getByLabel("Name").fill("Imported TSD");
+  await dialog.getByRole("button", { name: "Import" }).click();
+
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Imported TSD");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("v1 · Draft");
+  await expect(page.getByText("13 sections")).toBeVisible();
+
+  // Not a template: explained in the dialog, nothing sent.
+  await page.goto("/admin/templates");
+  await page.getByLabel("Template file").setInputFiles({
+    name: "notes.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"hello":"world"}'),
+  });
+  await expect(page.getByRole("dialog", { name: "Import template" })).toContainText(
+    "Not a Jangka template file",
+  );
+});

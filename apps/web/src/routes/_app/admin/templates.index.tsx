@@ -2,8 +2,9 @@ import { type TemplateFamily, templateDetail } from "@jangka/shared/templates";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MoreHorizontal } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { z } from "zod";
+import { ImportTemplateDialog } from "@/components/admin/import-template-dialog";
 import { NewTemplateDialog } from "@/components/admin/new-template-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { FormField } from "@/components/form-field";
@@ -26,7 +27,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
-import { templateFamiliesQuery, templatesKey } from "@/lib/templates";
+import {
+  type PickedFile,
+  readTemplateFile,
+  templateExportUrl,
+  templateFamiliesQuery,
+  templatesKey,
+} from "@/lib/templates";
 import { docTypeLabels } from "@/lib/trace";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +56,8 @@ function TemplatesPage() {
   const [duplicating, setDuplicating] = useState<TemplateFamily | null>(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [picked, setPicked] = useState<{ file: PickedFile; key: number } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: templatesKey });
   const openEditor = (templateId: string) =>
@@ -114,6 +123,22 @@ function TemplatesPage() {
             documents keep the version they were created with.
           </p>
         </div>
+        <Button size="sm" variant="outline" onClick={() => fileInput.current?.click()}>
+          Import…
+        </Button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".json,application/json"
+          aria-label="Template file"
+          className="hidden"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            // Reset so picking the same file again still fires a change.
+            event.target.value = "";
+            if (file) setPicked({ file: await readTemplateFile(file), key: Date.now() });
+          }}
+        />
         <Button size="sm" onClick={() => setCreating(true)}>
           New template
         </Button>
@@ -151,6 +176,19 @@ function TemplatesPage() {
           </section>
         );
       })}
+
+      {picked && (
+        <ImportTemplateDialog
+          key={picked.key}
+          picked={picked.file}
+          onClose={() => setPicked(null)}
+          onImported={async (templateId) => {
+            setPicked(null);
+            await invalidate();
+            await openEditor(templateId);
+          }}
+        />
+      )}
 
       <NewTemplateDialog
         open={creating}
@@ -259,6 +297,15 @@ function FamilyRow({
           <DropdownMenuItem disabled={!published} onSelect={onDuplicate}>
             Duplicate…
           </DropdownMenuItem>
+          {published ? (
+            <DropdownMenuItem asChild>
+              <a href={templateExportUrl(published)} download>
+                Export
+              </a>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem disabled>Export</DropdownMenuItem>
+          )}
           {!family.isBuiltin && (
             <DropdownMenuItem
               disabled={!published || draftId !== null}

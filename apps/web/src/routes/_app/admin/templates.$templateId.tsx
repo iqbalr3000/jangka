@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
 import { sectionErrors } from "@/lib/template-errors";
-import { templateDetailQuery, templatesKey } from "@/lib/templates";
+import { templateDetailQuery, templateExportUrl, templatesKey } from "@/lib/templates";
 import { docTypeLabels } from "@/lib/trace";
 
 export const Route = createFileRoute("/_app/admin/templates/$templateId")({
@@ -207,6 +207,11 @@ function TemplateEditor({ template }: { template: TemplateDetail }) {
             </span>
           </h1>
         </div>
+        <Button variant="ghost" size="sm" asChild>
+          <a href={templateExportUrl(template.id)} download title="Export this version as a file">
+            Export
+          </a>
+        </Button>
         {!readOnly && (
           <>
             <Button

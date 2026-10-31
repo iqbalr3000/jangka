@@ -2,7 +2,7 @@ import { z } from "zod";
 import { brdV1 } from "./brd";
 import { prdV1 } from "./prd";
 import { prdV2 } from "./prd-v2";
-import { REQUIREMENT_KINDS_BY_TYPE, requirementKinds } from "./requirements";
+import { REQUIREMENT_KINDS_BY_TYPE, type RequirementKind, requirementKinds } from "./requirements";
 import { tsdV1 } from "./tsd";
 
 export {
@@ -64,7 +64,10 @@ export type TemplateDefinition = z.infer<typeof templateDefinition>;
  * Rules custom templates must follow (built-ins do too): at most one section per requirement
  * kind, and only the kinds the document type supports.
  */
-export const customTemplateDefinition = templateDefinition.superRefine((template, ctx) => {
+function requirementKindRules(
+  template: { docType: DocType; sections: { requirementKind?: RequirementKind }[] },
+  ctx: z.RefinementCtx,
+): void {
   const allowed: readonly string[] = REQUIREMENT_KINDS_BY_TYPE[template.docType];
   const seen = new Set<string>();
   template.sections.forEach((section, index) => {
@@ -85,7 +88,13 @@ export const customTemplateDefinition = templateDefinition.superRefine((template
     }
     seen.add(kind);
   });
-});
+}
+
+export const customTemplateDefinition = templateDefinition.superRefine(requirementKindRules);
+
+/** The same rules for a draft (sections may be missing or lack guidance), e.g. an imported file. */
+export const customTemplateDraftDefinition =
+  templateDraftDefinition.superRefine(requirementKindRules);
 
 /** A stable key from a title (`Risks & Mitigations` → `risks_mitigations`), suffixed on clashes. */
 export function sectionKeyFor(title: string, existing: Iterable<string>): string {

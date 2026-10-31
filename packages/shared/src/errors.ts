@@ -29,6 +29,7 @@ export const errorCodes = [
   "invalid_template",
   "document_approved",
   "open_comments",
+  "payload_too_large",
 ] as const;
 
 export type ErrorCode = (typeof errorCodes)[number];

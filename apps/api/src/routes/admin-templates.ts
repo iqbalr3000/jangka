@@ -3,19 +3,24 @@ import { AppError } from "@jangka/shared/errors";
 import {
   createTemplateRequest,
   duplicateTemplateRequest,
+  importTemplateRequest,
   saveTemplateDraftRequest,
   setDefaultTemplateRequest,
+  TEMPLATE_FILE_FORMAT,
   type TemplateDetail,
   type TemplateFamily,
+  type TemplateFile,
 } from "@jangka/shared/templates";
 import {
   customTemplateDefinition,
+  customTemplateDraftDefinition,
   sectionKeyFor,
   type TemplateDefinition,
   templateDraftDefinition,
 } from "@jangka/templates";
 import { and, count, desc, eq, isNotNull, isNull, max } from "drizzle-orm";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { audit } from "../lib/audit";
 import { requireAdmin } from "../lib/session";
@@ -188,6 +193,65 @@ export function adminTemplateRoutes({ db }: RouteDeps) {
         ];
       });
       return c.json({ items });
+    })
+    .post(
+      "/templates/import",
+      bodyLimit({
+        maxSize: 256 * 1024,
+        onError: () => {
+          throw new AppError("payload_too_large", 413, "Template files are limited to 256 KB");
+        },
+      }),
+      zValidate("json", importTemplateRequest),
+      async (c) => {
+        const auth = requireAdmin(c);
+        const { name, file } = c.req.valid("json");
+        const parsed = customTemplateDraftDefinition.safeParse({
+          docType: file.docType,
+          name,
+          version: 1,
+          sections: file.sections,
+        });
+        if (!parsed.success) {
+          throw new AppError(
+            "invalid_template",
+            400,
+            "This template file isn't valid",
+            parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+          );
+        }
+        await assertNameFree(file.docType, name);
+        const row = await insertDraft({
+          docType: file.docType,
+          sections: parsed.data.sections,
+          name,
+          version: 1,
+          userId: auth.user.id,
+        });
+        await audit(c, {
+          action: "template.import",
+          targetType: "template",
+          targetId: row.id,
+          metadata: { docType: file.docType, name, sections: parsed.data.sections.length },
+        });
+        return c.json(await detail(row), 201);
+      },
+    )
+    .get("/templates/:id/export", zValidate("param", idParam), async (c) => {
+      const row = await findTemplate(c.req.valid("param").id);
+      const file: TemplateFile = {
+        format: TEMPLATE_FILE_FORMAT,
+        formatVersion: 1,
+        docType: row.docType,
+        name: row.name,
+        sections: templateDraftDefinition.parse(row.definition).sections,
+      };
+      const slug = sectionKeyFor(row.name, []).replaceAll("_", "-");
+      c.header(
+        "Content-Disposition",
+        `attachment; filename="${slug}-v${row.version}.jangka-template.json"`,
+      );
+      return c.json(file);
     })
     .get("/templates/:id", zValidate("param", idParam), async (c) =>
       c.json(await detail(await findTemplate(c.req.valid("param").id))),

@@ -66,3 +66,17 @@ export const setDefaultTemplateRequest = z.object({
   /** Family name; null = back to the built-in. */
   name: templateName.nullable(),
 });
+
+export const TEMPLATE_FILE_FORMAT = "jangka-template";
+
+/** A template version as a portable file: no ids, users or instance details. */
+export const templateFile = z.object({
+  format: z.literal(TEMPLATE_FILE_FORMAT, { error: "Not a Jangka template file" }),
+  formatVersion: z.literal(1, { error: "This template file needs a newer version of Jangka" }),
+  docType: docTypeSchema,
+  name: templateName,
+  sections: z.array(templateDraftSection).max(60),
+});
+export type TemplateFile = z.infer<typeof templateFile>;
+
+export const importTemplateRequest = z.object({ name: templateName, file: templateFile });

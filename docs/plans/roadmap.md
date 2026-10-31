@@ -29,7 +29,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 | Inline requirement chips in the editor | Feature | Deferred in `traceability` (DESIGN §6.6) |
 | Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
 | Search stemming / fuzzy matching | Feature | Deferred in `search` |
-| Template import / export | Feature | Share templates between instances or keep them in a repo as JSON; out of scope in `custom-templates` |
 
 ## Completed work
 
@@ -64,3 +63,4 @@ Cutoff: 2026-10-31
 - **Phase 4: llm-usage** ([spec](spec-llm-usage.md)) — `llm_usage` records every LLM pipeline run (structured calls and retries included, via `ChatRequest.onUsage`) with user, document, model and operation, backfilled from chat messages; Admin → Usage with period totals, stacked daily input/output bars and breakdowns by model, user, operation and top documents.
 - **Phase 4: collection-pagination** ([spec](spec-collection-pagination.md)) — `GET /collections/:id/documents` with a keyset cursor on `(updated_at, id)` and a partial index; `/items` no longer carries documents; Load more with the total in the list heading; 5,000 documents in one collection: p95 144 → 9.8 ms.
 - **Phase 4: sample-documents** ([spec](spec-sample-documents.md)) — a linked "Refund self-service" BRD → PRD → TSD (requirement tables citing upstream codes, five Mermaid diagrams) seeded into an Examples collection everyone can view; setup checkbox (on by default, failures don't block setup) and an admin ⌘K action (`POST /admin/samples`).
+- **Phase 4: template-transfer** ([spec](spec-template-transfer.md)) — export any template version as a `jangka-template` JSON file (no ids or instance data); import validates it server-side (256 KB limit, requirement-kind rules) and creates a draft v1 of a new family; Import… dialog with an editable name, Export in the row menu and the editor.

@@ -1,7 +1,7 @@
 import { auditLogs, documents, templates } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { documentDetail, documentSummary, templateList } from "@jangka/shared/document";
-import { templateDetail, templateFamilyList } from "@jangka/shared/templates";
+import { templateDetail, templateFamilyList, templateFile } from "@jangka/shared/templates";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -233,6 +233,86 @@ describe("create template", () => {
     const rina = await login(app, "rina@acme.co", "rina-password-123");
     const res = await req("POST", "/admin/templates", { docType: "prd", name: "X" }, rina);
     expect(res.status).toBe(403);
+  });
+});
+
+describe("export and import", () => {
+  async function exported(id: string) {
+    const res = await req("GET", `/admin/templates/${id}/export`);
+    expect(res.status).toBe(200);
+    return {
+      disposition: res.headers.get("content-disposition"),
+      file: templateFile.parse(await res.json()),
+    };
+  }
+
+  it("round-trips a template into a new draft with the same sections", async () => {
+    const draft = await duplicate("Acme PRD");
+    await saveDraft(draft.id, { sections: [...draft.sections, extraSection] });
+    const { disposition, file } = await exported(draft.id);
+    expect(disposition).toBe('attachment; filename="acme-prd-v1.jangka-template.json"');
+    expect(file).toMatchObject({ format: "jangka-template", formatVersion: 1, docType: "prd" });
+    expect(JSON.stringify(file)).not.toContain(draft.id);
+
+    const res = await req("POST", "/admin/templates/import", { name: "Imported PRD", file });
+    expect(res.status).toBe(201);
+    const imported = templateDetail.parse(await res.json());
+    expect(imported).toMatchObject({ name: "Imported PRD", version: 1, published: false });
+    expect(imported.sections).toEqual(file.sections);
+
+    const [logged] = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, "template.import"));
+    expect(logged?.targetId).toBe(imported.id);
+  });
+
+  it("exports built-ins too", async () => {
+    const { file } = await exported(builtinPrdId);
+    expect(file.name).toBe("Product Requirements Document");
+    expect(file.sections.length).toBeGreaterThan(0);
+  });
+
+  it("rejects files that aren't valid templates", async () => {
+    const { file } = await exported(builtinPrdId);
+    const first = file.sections[0];
+    if (!first) throw new Error("no sections");
+    const cases: unknown[] = [
+      { ...file, format: "something-else" },
+      { ...file, formatVersion: 2 },
+      { ...file, docType: "brd" }, // PRD requirement kinds aren't allowed in a BRD
+      { ...file, sections: [first, first] },
+      { ...file, sections: [{ ...first, key: "Bad Key" }] },
+    ];
+    for (const bad of cases) {
+      const res = await req("POST", "/admin/templates/import", { name: "Bad", file: bad });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("refuses a taken name and oversized files", async () => {
+    const { file } = await exported(builtinPrdId);
+    const taken = await req("POST", "/admin/templates/import", {
+      name: "Product Requirements Document",
+      file,
+    });
+    expect(taken.status).toBe(409);
+
+    const huge = { ...file, sections: [{ ...file.sections[0], guidance: "x".repeat(300_000) }] };
+    const res = await req("POST", "/admin/templates/import", { name: "Huge", file: huge });
+    expect(res.status).toBe(413);
+  });
+
+  it("is admin only", async () => {
+    await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
+    const rina = await login(app, "rina@acme.co", "rina-password-123");
+    expect(
+      (await req("GET", `/admin/templates/${builtinPrdId}/export`, undefined, rina)).status,
+    ).toBe(403);
+    const { file } = await exported(builtinPrdId);
+    expect((await req("POST", "/admin/templates/import", { name: "X", file }, rina)).status).toBe(
+      403,
+    );
   });
 });
 
