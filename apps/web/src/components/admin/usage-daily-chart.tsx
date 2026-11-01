@@ -102,25 +102,28 @@ export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
           <span key={i}>{d ? dayLabel(d.date) : ""}</span>
         ))}
       </div>
-      <table className="sr-only">
-        <caption>Tokens per day</caption>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Input tokens</th>
-            <th>Output tokens</th>
-          </tr>
-        </thead>
-        <tbody>
-          {daily.map((d) => (
-            <tr key={d.date}>
-              <td>{dayLabel(d.date)}</td>
-              <td>{d.inputTokens}</td>
-              <td>{d.outputTokens}</td>
+      {/* sr-only goes on a wrapper: a table grows to fit its rows and ignores overflow, so it would add scroll height. */}
+      <div className="sr-only">
+        <table>
+          <caption>Tokens per day</caption>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Input tokens</th>
+              <th>Output tokens</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {daily.map((d) => (
+              <tr key={d.date}>
+                <td>{dayLabel(d.date)}</td>
+                <td>{d.inputTokens}</td>
+                <td>{d.outputTokens}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }
