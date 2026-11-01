@@ -1,8 +1,6 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jangka-logo-dark.png">
-    <img src="docs/assets/jangka-logo-light.png" alt="Jangka — Precise specs for product & engineering teams." width="440">
-  </picture>
+  <img src="docs/assets/jangka-logo-light.png#gh-light-mode-only" alt="Jangka — Precise specs for product & engineering teams." width="440">
+  <img src="docs/assets/jangka-logo-dark.png#gh-dark-mode-only" alt="Jangka — Precise specs for product & engineering teams." width="440">
 </p>
 
 <p align="center">
