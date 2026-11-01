@@ -106,6 +106,10 @@ export function commentRoutes({ db, logger }: RouteDeps) {
           editedAt: row.editedAt?.toISOString() ?? null,
           createdAt: row.createdAt.toISOString(),
           canEdit: row.authorId === auth.user.id && row.deletedAt === null,
+          anchor:
+            row.quote === null
+              ? null
+              : { quote: row.quote, prefix: row.quotePrefix ?? "", suffix: row.quoteSuffix ?? "" },
         });
 
         const editor = canEditDocument(data, document);
@@ -134,7 +138,10 @@ export function commentRoutes({ db, logger }: RouteDeps) {
       async (c) => {
         const { auth, data } = await context(c);
         const document = await commentableDocument(data, c.req.valid("param").id);
-        const { sectionKey, parentId, body } = c.req.valid("json");
+        const { sectionKey, parentId, body, anchor } = c.req.valid("json");
+        if (parentId && anchor) {
+          throw new AppError("validation_failed", 400, "Replies can't point at text");
+        }
         const [section] = await db
           .select({ id: documentSections.id })
           .from(documentSections)
@@ -162,6 +169,9 @@ export function commentRoutes({ db, logger }: RouteDeps) {
             parentId: parentId ?? null,
             authorId: auth.user.id,
             body,
+            quote: anchor?.quote ?? null,
+            quotePrefix: anchor?.prefix ?? null,
+            quoteSuffix: anchor?.suffix ?? null,
           })
           .returning();
         if (!row) throw new Error("comment not created");
@@ -169,7 +179,12 @@ export function commentRoutes({ db, logger }: RouteDeps) {
           action: "comment.create",
           targetType: "document",
           targetId: document.id,
-          metadata: { commentId: row.id, section: sectionKey, reply: parentId !== undefined },
+          metadata: {
+            commentId: row.id,
+            section: sectionKey,
+            reply: parentId !== undefined,
+            ...(anchor ? { anchored: true } : {}),
+          },
         });
         await notify(db, logger, { document, actorId: auth.user.id }, await commentEvents(db, row));
         return c.json({ id: row.id }, 201);

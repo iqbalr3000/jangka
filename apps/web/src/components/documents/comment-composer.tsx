@@ -44,6 +44,7 @@ type CommentComposerProps = {
   pending: boolean;
   onSubmit: (body: string) => void;
   onCancel?: () => void;
+  autoFocus?: boolean;
 };
 
 /** Comment box; `@` suggests people who can view the document. */
@@ -55,6 +56,7 @@ export function CommentComposer({
   pending,
   onSubmit,
   onCancel,
+  autoFocus = false,
 }: CommentComposerProps) {
   const [start] = useState(() => editable(initial));
   const [text, setText] = useState(start.text);
@@ -140,6 +142,8 @@ export function CommentComposer({
       <div className="relative">
         <textarea
           ref={ref}
+          // biome-ignore lint/a11y/noAutofocus: opened on purpose from "Comment" on selected words
+          autoFocus={autoFocus}
           aria-label={placeholder}
           placeholder={placeholder}
           rows={2}

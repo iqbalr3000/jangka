@@ -1,7 +1,15 @@
 import { NodeSelection } from "@tiptap/pm/state";
 import { type Editor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { Bold, ChevronDown, Code, Italic, Link2, type LucideIcon } from "lucide-react";
+import {
+  Bold,
+  ChevronDown,
+  Code,
+  Italic,
+  Link2,
+  type LucideIcon,
+  MessageSquare,
+} from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   type BlockType,
@@ -43,7 +51,7 @@ function MenuButton({
 }
 
 /** Formatting for the selected text, floating above it. */
-export function FormatMenu({ editor }: { editor: Editor }) {
+export function FormatMenu({ editor, onComment }: { editor: Editor; onComment: () => void }) {
   const [mode, setMode] = useState<"buttons" | "types" | "link">("buttons");
   const [href, setHref] = useState("");
   const [linkError, setLinkError] = useState(false);
@@ -195,6 +203,16 @@ export function FormatMenu({ editor }: { editor: Editor }) {
             onClick={() => chain().toggleCode().run()}
           />
           <MenuButton label="Link" icon={Link2} active={state.link} onClick={openLink} />
+          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onComment}
+            className="flex h-7 items-center gap-1 rounded-sm px-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <MessageSquare className="size-3.5" aria-hidden />
+            Comment
+          </button>
         </div>
       )}
     </BubbleMenu>

@@ -26,7 +26,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Text-anchored comments | Feature | Deferred in `review`; next up |
 | Search ranking when most sections match | Enhancement | Found by `test:perf` (search-stemming): a query matching all ~60k sections ranks every one (endpoint p95 ≈ 1.2 s; the ranking query alone ≈ 0.65 s, and ≈ 0.8 s with the old `simple`-only vector, so it predates stemming). Cap candidates before `ts_rank` |
 | Usage chart tooltip clipping | Fix | The daily usage chart tooltip is cut off at the right edge |
 | Sample documents coverage | Fix | Example documents show "COVERAGE 0/12"; seed coverage that matches their content |
@@ -70,3 +69,4 @@ Cutoff: 2026-11-01
 - **Phase 4: search-stemming** ([spec](spec-search-stemming.md)) — `document_sections.search` combines simple, English and Indonesian lexemes (migration 0014); search and chat retrieval match each word as a prefix or either stem via a shared `stemmedQuery`; typo-tolerant titles with `pg_trgm`, enabled at boot when allowed; perf check budgets a selective search (p95 ≈ 116 ms on 5,000 documents).
 - **Phase 4: notifications** ([spec](spec-notifications.md)) — in-app notifications (migration 0015) for @mentions, replies, resolved threads and status changes, filtered by view access at creation and on read, ids only with excerpts read fresh, 90-day purge on list load; top-bar bell with polled unread count and a panel that lands on the thread; `@` suggestions in the comment composer limited to people who can view the document, mentions rendered as chips.
 - **Phase 4: assigned-reviewers** ([spec](spec-assigned-reviewers.md)) — editors assign reviewers who can view the document (migration 0016); reviewers approve or request changes while in review, and approval waits for every active reviewer with access (`409 pending_reviews`); back to draft clears verdicts; `review_requested` / `review_verdict` notifications; header avatars with a manage popover and verdict buttons; sidebar Reviews page with a count.
+- **Phase 4: text-anchored-comments** ([spec](spec-text-anchored-comments.md)) — root comments can point at selected words via a quote with prefix/suffix context (migration 0017), no change to section content; Comment in the formatting menu and a read-only bubble; open threads highlight their words, clicking opens the thread; detached quotes show "Original text changed".

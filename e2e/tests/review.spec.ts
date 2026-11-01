@@ -163,3 +163,67 @@ test("an assigned reviewer approves before the document can be approved", async 
   await admin.getByRole("menuitem", { name: "Approve" }).click();
   await expect(admin.getByText(/Approved by Ada Admin/)).toBeVisible();
 });
+
+/** Selects `words` inside a section's editor, the way a mouse drag would. */
+async function selectWords(page: Page, section: string, words: string) {
+  const editor = page.getByRole("textbox", { name: section, exact: true });
+  await editor.evaluate((root, text) => {
+    const doc = root.ownerDocument;
+    // NodeFilter.SHOW_TEXT
+    const walker = doc.createTreeWalker(root, 4);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = node.textContent?.indexOf(text) ?? -1;
+      if (at === -1) continue;
+      const range = doc.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + text.length);
+      const selection = doc.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return;
+    }
+    throw new Error(`"${text}" not found`);
+  }, words);
+}
+
+test("a viewer comments on selected words, highlighted until resolved", async ({ browser }) => {
+  const admin = await signIn(browser, ADMIN);
+  await admin.getByRole("button", { name: "+ New", exact: true }).click();
+  const dialog = admin.getByRole("dialog", { name: "New document" });
+  await dialog.getByLabel("Title").fill("Anchor flow");
+  await dialog.getByLabel("Collection").selectOption({ label: "Platform" });
+  await dialog.getByRole("button", { name: "Create" }).click();
+  const overview = admin.getByRole("textbox", { name: "Overview", exact: true });
+  await overview.click();
+  await admin.keyboard.type("Refunds are allowed within 14 days of purchase.");
+  await expect(saveStatus(admin)).toHaveText(/Saved/);
+  const documentUrl = admin.url();
+
+  const member = await signIn(browser, MEMBER);
+  await member.goto(documentUrl);
+  await expect(member.getByText("You have view access.")).toBeVisible();
+  await selectWords(member, "Overview", "14 days");
+  await member.getByRole("button", { name: "Comment", exact: true }).first().click();
+  await expect(panel(member)).toContainText("Commenting on 14 days");
+  await panel(member).getByLabel("Comment on Overview").fill("Is 14 days enough?");
+  await panel(member).getByRole("button", { name: "Comment", exact: true }).click();
+  const thread = panel(member).getByRole("listitem", { name: "Thread on Overview" });
+  await expect(thread.locator("blockquote")).toHaveText("14 days");
+  await expect(panel(member)).not.toContainText("Commenting on");
+
+  await admin.reload();
+  const highlight = admin.locator(".comment-anchor");
+  await expect(highlight).toHaveText("14 days");
+  await highlight.click();
+  const adminThread = panel(admin).getByRole("listitem", { name: "Thread on Overview" });
+  await expect(adminThread).toContainText("Is 14 days enough?");
+  await adminThread.getByRole("button", { name: "Resolve" }).click();
+  await expect(highlight).toHaveCount(0);
+
+  await overview.click();
+  await admin.keyboard.press("ControlOrMeta+a");
+  await admin.keyboard.type("Refunds are allowed within two weeks.");
+  await expect(saveStatus(admin)).toHaveText(/Saved/);
+  await panel(admin).getByLabel("Resolved").check();
+  await expect(adminThread).toContainText("Original text changed");
+});

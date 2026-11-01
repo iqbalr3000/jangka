@@ -412,3 +412,10 @@
     background: color-mix(in srgb, var(--primary) 10%, transparent);
   }
 }
+
+/* Words an open comment thread points at. */
+.comment-anchor {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--status-partial) 14%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--status-partial) 60%, transparent);
+}

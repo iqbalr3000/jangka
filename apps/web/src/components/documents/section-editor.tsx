@@ -5,10 +5,12 @@ import {
   type Section,
   section as sectionSchema,
 } from "@jangka/shared/document";
+import type { CommentAnchor } from "@jangka/shared/review";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
+import { type AnchoredThreads, commentAnchorsKey } from "@/lib/comment-anchors-extension";
 import { useConnection } from "@/lib/connection";
 import { DiagramFixContext, type FixDiagram, fixDiagram } from "@/lib/diagram-fix";
 import { sectionExtensions } from "@/lib/editor-extensions";
@@ -16,7 +18,9 @@ import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
 import type { ChipIndex } from "@/lib/requirement-chips";
 import { requirementChipsKey } from "@/lib/requirement-chips-extension";
+import { anchorFor, flatten } from "@/lib/text-anchor";
 import { BlockGutter } from "./block-gutter";
+import { CommentBubble } from "./comment-bubble";
 import { FormatMenu } from "./format-menu";
 
 const AUTOSAVE_MS = 1500;
@@ -35,6 +39,10 @@ type SectionEditorProps = {
   seed?: DocNode;
   /** Requirement codes to show as chips (from the document's trace). */
   chips: ChipIndex;
+  /** Open threads pointing at words in this section. */
+  anchors: AnchoredThreads;
+  /** "Comment" on selected words. */
+  onCommentOnText: (anchor: CommentAnchor) => void;
 };
 
 /**
@@ -49,6 +57,8 @@ export function SectionEditor({
   onSaveState,
   seed,
   chips,
+  anchors,
+  onCommentOnText,
 }: SectionEditorProps) {
   const revision = useRef(section.revision);
   const pending = useRef<DocNode | null>(null);
@@ -149,6 +159,19 @@ export function SectionEditor({
       editor.state.tr.setMeta(requirementChipsKey, chips).setMeta("addToHistory", false),
     );
   }, [editor, chips]);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(
+      editor.state.tr.setMeta(commentAnchorsKey, anchors).setMeta("addToHistory", false),
+    );
+  }, [editor, anchors]);
+
+  const commentOnSelection = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const anchor = anchorFor(flatten(editor.state.doc), from, to);
+    if (anchor) onCommentOnText(anchor);
+  }, [editor, onCommentOnText]);
 
   // `false`: setEditable would otherwise emit an update and autosave unchanged content.
   useEffect(() => {
@@ -243,7 +266,8 @@ export function SectionEditor({
           <EditorContent editor={editor} />
         </DiagramFixContext>
         {editable && editor && frame && <BlockGutter editor={editor} container={frame} />}
-        {editable && editor && <FormatMenu editor={editor} />}
+        {editable && editor && <FormatMenu editor={editor} onComment={commentOnSelection} />}
+        {!editable && editor && <CommentBubble editor={editor} onComment={commentOnSelection} />}
         {editable && (
           <div
             aria-hidden

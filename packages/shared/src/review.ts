@@ -5,6 +5,17 @@ const userRef = z.object({ id: z.string(), name: z.string() });
 const sectionKey = z.string().regex(/^[a-z][a-z0-9_]*$/);
 const body = z.string().trim().min(1, { error: "Write a comment" }).max(4000);
 
+export const QUOTE_MAX = 500;
+export const QUOTE_CONTEXT = 32;
+
+/** The words a root comment is about, with context to tell repeated phrases apart. */
+export const commentAnchor = z.object({
+  quote: z.string().min(1).max(QUOTE_MAX),
+  prefix: z.string().max(QUOTE_CONTEXT),
+  suffix: z.string().max(QUOTE_CONTEXT),
+});
+export type CommentAnchor = z.infer<typeof commentAnchor>;
+
 export const commentView = z.object({
   id: z.string(),
   sectionKey: z.string(),
@@ -17,6 +28,7 @@ export const commentView = z.object({
   createdAt: z.string(),
   /** The viewer wrote it (may edit or delete it). */
   canEdit: z.boolean(),
+  anchor: commentAnchor.nullable(),
 });
 export type CommentView = z.infer<typeof commentView>;
 
@@ -44,6 +56,8 @@ export const createCommentRequest = z.object({
   /** A root comment of the same section; omitted = a new thread. */
   parentId: z.uuid().optional(),
   body,
+  /** Roots only. */
+  anchor: commentAnchor.optional(),
 });
 export const updateCommentRequest = z.object({ body });
 

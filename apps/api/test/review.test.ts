@@ -235,3 +235,39 @@ describe("status workflow", () => {
     expect((await put(1)).status).toBe(200);
   });
 });
+
+describe("text anchors", () => {
+  const anchor = { quote: "refund window", prefix: "The ", suffix: " is 14 days" };
+
+  it("stores an anchor on a root comment and keeps it through edits", async () => {
+    const root = await commentId({ sectionKey: "overview", body: "Too short?", anchor }, rina);
+    await commentId({ sectionKey: "overview", parentId: root, body: "Agreed" });
+    const edited = await call(app, "PATCH", `/comments/${root}`, {
+      cookie: rina,
+      body: { body: "Too short? 30 days" },
+    });
+    expect(edited.status).toBe(204);
+    const [thread] = (await threads()).threads;
+    expect(thread?.root).toMatchObject({ body: "Too short? 30 days", anchor });
+    expect(thread?.replies[0]?.anchor).toBeNull();
+  });
+
+  it("refuses anchors on replies and over-long quotes", async () => {
+    const root = await commentId({ sectionKey: "overview", body: "Plain" });
+    expect((await threads()).threads[0]?.root.anchor).toBeNull();
+    const reply = await comment({ sectionKey: "overview", parentId: root, body: "x", anchor });
+    expect(reply.status).toBe(400);
+    const long = await comment({
+      sectionKey: "overview",
+      body: "x",
+      anchor: { ...anchor, quote: "a".repeat(501) },
+    });
+    expect(long.status).toBe(400);
+    const wideContext = await comment({
+      sectionKey: "overview",
+      body: "x",
+      anchor: { ...anchor, prefix: "a".repeat(33) },
+    });
+    expect(wideContext.status).toBe(400);
+  });
+});

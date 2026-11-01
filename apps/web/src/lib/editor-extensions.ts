@@ -4,6 +4,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { MermaidBlockView } from "@/components/documents/mermaid-block-view";
+import { CommentAnchors } from "./comment-anchors-extension";
 import { RequirementChips } from "./requirement-chips-extension";
 import { SlashCommand } from "./slash-command";
 
@@ -55,6 +56,7 @@ export function sectionExtensions(placeholder: EmptyPlaceholder | null) {
     MermaidBlock,
     SlashCommand,
     RequirementChips,
+    CommentAnchors,
     ...(placeholder
       ? [
           Placeholder.configure({

@@ -1,5 +1,6 @@
 import { toMarkdown } from "@jangka/export";
 import type { DocNode, Section } from "@jangka/shared/document";
+import type { CommentAnchor } from "@jangka/shared/review";
 import { MoreHorizontal } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import type { AnchoredThreads } from "@/lib/comment-anchors-extension";
 import { sectionAnchor } from "@/lib/documents";
 import type { ChipIndex } from "@/lib/requirement-chips";
 import type { Proposal } from "@/lib/use-assistant";
@@ -47,6 +49,8 @@ type SectionBlockProps = {
   onComments: () => void;
   /** Requirement codes to show as chips. */
   chips: ChipIndex;
+  anchors: AnchoredThreads;
+  onCommentOnText: (anchor: CommentAnchor) => void;
 };
 
 export function SectionBlock(props: SectionBlockProps) {
@@ -190,6 +194,8 @@ export function SectionBlock(props: SectionBlockProps) {
               onSaveState={props.onSaveState}
               seed={props.seed}
               chips={props.chips}
+              anchors={props.anchors}
+              onCommentOnText={props.onCommentOnText}
             />
             {empty && props.canGenerate && (
               <button

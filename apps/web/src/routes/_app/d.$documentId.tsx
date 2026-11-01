@@ -7,6 +7,7 @@ import {
   section as sectionSchema,
 } from "@jangka/shared/document";
 import type { ExportJob } from "@jangka/shared/export";
+import type { CommentAnchor } from "@jangka/shared/review";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { ApiError, apiFetch } from "@/lib/api";
 import { chatQuery } from "@/lib/assistant";
+import { NO_ANCHORS } from "@/lib/comment-anchors-extension";
 import { applySavedSection, documentQuery, sectionAnchor } from "@/lib/documents";
 import { createExport } from "@/lib/exports";
 import { errorMessage } from "@/lib/form-errors";
@@ -120,7 +122,22 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const [commentFocus, setCommentFocus] = useState<{ thread: string; at: number } | null>(null);
   const linked = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const openComments = useQuery(commentsQuery(doc.id, "open")).data?.openCountBySection ?? {};
+  const openThreads = useQuery(commentsQuery(doc.id, "open")).data;
+  const openComments = openThreads?.openCountBySection ?? {};
+  // Per section, the open threads that point at words (highlighted in its editor).
+  const anchors = useMemo(() => {
+    const bySection = new Map<string, { thread: string; anchor: CommentAnchor }[]>();
+    for (const thread of openThreads?.threads ?? []) {
+      const { anchor, sectionKey, id } = thread.root;
+      if (!anchor || thread.resolvedAt) continue;
+      bySection.set(sectionKey, [...(bySection.get(sectionKey) ?? []), { thread: id, anchor }]);
+    }
+    return bySection;
+  }, [openThreads]);
+  const [pendingAnchor, setPendingAnchor] = useState<{
+    sectionKey: string;
+    anchor: CommentAnchor;
+  } | null>(null);
   const trace = useQuery(traceQuery(doc.id));
   const chips = useMemo(() => chipIndex(trace.data), [trace.data]);
   const [traceFocus, setTraceFocus] = useState<{ code: string; at: number } | null>(null);
@@ -234,6 +251,23 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     setPane("assistant");
     void navigate({ search: {}, replace: true });
   }, [linked.comments, linked.thread, navigate, setPanel, setPanelTab]);
+
+  // A highlighted quote opens its thread.
+  useEffect(() => {
+    function click(event: MouseEvent) {
+      const target = event.target instanceof Element ? event.target : null;
+      const thread = target?.closest<HTMLElement>(".comment-anchor[data-thread]")?.dataset.thread;
+      const found = openThreads?.threads.find((t) => t.root.id === thread);
+      if (!found) return;
+      setCommentsSection(found.root.sectionKey);
+      setCommentFocus({ thread: found.root.id, at: Date.now() });
+      setPanelTab("comments");
+      setPanel("open");
+      setPane("assistant");
+    }
+    document.addEventListener("click", click);
+    return () => document.removeEventListener("click", click);
+  }, [openThreads, setPanel, setPanelTab]);
 
   const openTrace = useCallback(
     (code: string) => {
@@ -472,6 +506,12 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
                     setCommentsSection(section.key);
                     showPanel("comments");
                   }}
+                  anchors={anchors.get(section.key) ?? NO_ANCHORS}
+                  onCommentOnText={(anchor) => {
+                    setPendingAnchor({ sectionKey: section.key, anchor });
+                    setCommentsSection(section.key);
+                    showPanel("comments");
+                  }}
                   onHistory={() => {
                     setHistoryKey(section.key);
                     showPanel("history");
@@ -494,6 +534,8 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           commentsKey={commentsSection}
           onCommentsKeyChange={setCommentsSection}
           commentFocus={commentFocus}
+          pendingAnchor={pendingAnchor}
+          onPendingAnchorChange={setPendingAnchor}
           sections={detail.sections}
           assistant={assistant}
           editable={editable}

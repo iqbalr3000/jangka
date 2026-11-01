@@ -562,6 +562,10 @@ export const comments = pgTable(
     deletedAt: tz("deleted_at"),
     resolvedAt: tz("resolved_at"),
     resolvedBy: uuid("resolved_by").references(() => users.id),
+    // Text anchor of a root comment: the selected words and a little context on each side.
+    quote: text("quote"),
+    quotePrefix: text("quote_prefix"),
+    quoteSuffix: text("quote_suffix"),
     createdAt: createdAt(),
   },
   (t) => [

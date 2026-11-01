@@ -1,5 +1,6 @@
 import type { ChatMessage, InterviewState } from "@jangka/shared/assistant";
 import type { Section } from "@jangka/shared/document";
+import type { CommentAnchor } from "@jangka/shared/review";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
@@ -44,6 +45,9 @@ type AssistantPanelProps = {
   traceFocus: { code: string; at: number } | null;
   /** A thread opened from a notification, for the Comments tab. */
   commentFocus: { thread: string; at: number } | null;
+  /** Words picked with "Comment", waiting for the new thread. */
+  pendingAnchor: { sectionKey: string; anchor: CommentAnchor } | null;
+  onPendingAnchorChange: (pending: { sectionKey: string; anchor: CommentAnchor } | null) => void;
   /** "Review updates" on the chat's update suggestions. */
   onReviewUpdates: (suggestions: InterviewState["suggestions"]) => void;
   /** Visibility per breakpoint, set by the document layout. */
@@ -135,6 +139,8 @@ export function AssistantPanel({
   commentsKey,
   onCommentsKeyChange,
   commentFocus,
+  pendingAnchor,
+  onPendingAnchorChange,
   sections,
   assistant,
   editable,
@@ -243,6 +249,8 @@ export function AssistantPanel({
           sectionKey={commentsKey}
           onSectionChange={onCommentsKeyChange}
           focus={commentFocus}
+          pendingAnchor={pendingAnchor}
+          onPendingAnchorChange={onPendingAnchorChange}
         />
       ) : tab === "history" ? (
         <HistoryPanel

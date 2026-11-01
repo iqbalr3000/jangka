@@ -1,7 +1,8 @@
 import type { Section } from "@jangka/shared/document";
-import type { CommentThread, CommentView } from "@jangka/shared/review";
+import type { CommentAnchor, CommentThread, CommentView } from "@jangka/shared/review";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CommentBody } from "@/components/documents/comment-body";
@@ -12,6 +13,8 @@ import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
 import { commentsKey, commentsQuery } from "@/lib/review";
+import { sectionText } from "@/lib/section-text";
+import { findAnchor } from "@/lib/text-anchor";
 import { cn } from "@/lib/utils";
 
 type CommentsPanelProps = {
@@ -22,9 +25,38 @@ type CommentsPanelProps = {
   onSectionChange: (key: string) => void;
   /** A thread opened from a notification: shown, scrolled to and highlighted. */
   focus: { thread: string; at: number } | null;
+  pendingAnchor: { sectionKey: string; anchor: CommentAnchor } | null;
+  onPendingAnchorChange: (pending: { sectionKey: string; anchor: CommentAnchor } | null) => void;
 };
 
 const ALL = "";
+
+function Quote({
+  quote,
+  detached = false,
+  inline = false,
+}: {
+  quote: string;
+  detached?: boolean;
+  inline?: boolean;
+}) {
+  if (inline) return <q className="text-foreground italic">{quote}</q>;
+  return (
+    <figure className="flex flex-col gap-0.5">
+      <blockquote
+        className={cn(
+          "line-clamp-3 border-l-2 border-status-partial pl-2 text-xs whitespace-pre-wrap text-muted-foreground",
+          detached && "border-border line-through decoration-muted-foreground/50",
+        )}
+      >
+        {quote}
+      </blockquote>
+      {detached && (
+        <figcaption className="text-[11px] text-muted-foreground">Original text changed</figcaption>
+      )}
+    </figure>
+  );
+}
 
 type CommentActions = {
   documentId: string;
@@ -128,6 +160,8 @@ export function CommentsPanel({
   sectionKey,
   onSectionChange,
   focus,
+  pendingAnchor,
+  onPendingAnchorChange,
 }: CommentsPanelProps) {
   const queryClient = useQueryClient();
   const [showResolved, setShowResolved] = useState(false);
@@ -139,6 +173,16 @@ export function CommentsPanel({
   const list = useQuery(commentsQuery(documentId, showResolved ? "all" : "open"));
   const titles = new Map(sections.map((s) => [s.key, s.title]));
   const target = sectionKey || sections[0]?.key || "";
+  const anchor = pendingAnchor?.sectionKey === target ? pendingAnchor.anchor : null;
+  // Saved content of each section, flattened once, to tell whether a quote is still there.
+  const texts = useMemo(
+    () => new Map(sections.map((s) => [s.key, sectionText(s.content)])),
+    [sections],
+  );
+  const attached = (key: string, quoted: CommentAnchor) => {
+    const flat = texts.get(key);
+    return !flat || findAnchor(flat.text, quoted) !== null;
+  };
 
   const run = useMutation({
     mutationFn: (request: { path: string; method: string; body?: unknown }) =>
@@ -253,6 +297,12 @@ export function CommentsPanel({
                 {titles.get(thread.root.sectionKey) ?? thread.root.sectionKey}
               </span>
             )}
+            {thread.root.anchor && (
+              <Quote
+                quote={thread.root.anchor.quote}
+                detached={!attached(thread.root.sectionKey, thread.root.anchor)}
+              />
+            )}
             <Comment comment={thread.root} thread={thread} actions={actions} />
             {thread.replies.length > 0 && (
               <ol className="flex flex-col gap-2 border-l-2 border-border pl-3">
@@ -302,18 +352,37 @@ export function CommentsPanel({
       />
       {target && (
         <div className="border-t border-border px-4 py-3">
+          {anchor && (
+            <div className="mb-2 flex items-start gap-2">
+              <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                Commenting on <Quote quote={anchor.quote} inline />
+              </span>
+              <button
+                type="button"
+                aria-label="Comment on the whole section"
+                onClick={() => onPendingAnchorChange(null)}
+                className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </div>
+          )}
           <CommentComposer
-            key={`${target}:${round}`}
+            key={`${target}:${round}:${anchor?.quote ?? ""}`}
+            autoFocus={anchor !== null}
             documentId={documentId}
             placeholder={`Comment on ${titles.get(target) ?? target}`}
             submitLabel="Comment"
             pending={run.isPending}
             onSubmit={(body) =>
-              run.mutate({
-                path: `/documents/${documentId}/comments`,
-                method: "POST",
-                body: { sectionKey: target, body },
-              })
+              run.mutate(
+                {
+                  path: `/documents/${documentId}/comments`,
+                  method: "POST",
+                  body: { sectionKey: target, body, ...(anchor ? { anchor } : {}) },
+                },
+                { onSuccess: () => onPendingAnchorChange(null) },
+              )
             }
           />
         </div>
