@@ -30,7 +30,9 @@ beforeEach(async () => {
   const [prd] = await db
     .select()
     .from(templates)
-    .where(and(eq(templates.docType, "prd"), eq(templates.version, 2)));
+    .where(
+      and(eq(templates.docType, "prd"), eq(templates.version, 2), eq(templates.isBuiltin, true)),
+    );
   builtinPrdId = prd?.id ?? "";
 });
 

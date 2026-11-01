@@ -91,7 +91,9 @@ beforeEach(async () => {
   const [builtin] = await db
     .select()
     .from(templates)
-    .where(and(eq(templates.docType, "prd"), eq(templates.version, 2)));
+    .where(
+      and(eq(templates.docType, "prd"), eq(templates.version, 2), eq(templates.isBuiltin, true)),
+    );
   const copy = await req("POST", `/admin/templates/${builtin?.id}/duplicate`, { name: "Acme PRD" });
   v1 = templateDetail.parse(await copy.json()).id;
   expect((await req("POST", `/admin/templates/${v1}/publish`)).status).toBe(200);
@@ -322,7 +324,9 @@ describe("template upgrade", () => {
     const [builtinV1] = await db
       .select()
       .from(templates)
-      .where(and(eq(templates.docType, "prd"), eq(templates.version, 1)));
+      .where(
+        and(eq(templates.docType, "prd"), eq(templates.version, 1), eq(templates.isBuiltin, true)),
+      );
     const created = await req("POST", "/documents", {
       title: "Old PRD",
       collectionId: null,
