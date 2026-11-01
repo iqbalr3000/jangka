@@ -1,5 +1,5 @@
 import { type DocumentSummary, documentSummary, type Section } from "@jangka/shared/document";
-import { STATUS_TRANSITIONS } from "@jangka/shared/review";
+import { pendingReviewsDetails, STATUS_TRANSITIONS } from "@jangka/shared/review";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { z } from "zod";
@@ -23,6 +23,7 @@ import { collectionsKey } from "@/lib/collections";
 import { documentQuery } from "@/lib/documents";
 import { errorMessage } from "@/lib/form-errors";
 import { statusLabels, transitionLabels } from "@/lib/review";
+import { myReviewsKey } from "@/lib/reviewers";
 import { cn } from "@/lib/utils";
 
 type Status = DocumentSummary["status"];
@@ -43,11 +44,22 @@ const tone: Record<Status, string> = {
 
 const openCommentsDetails = z.object({ sections: z.array(z.string()) });
 
-/** Section keys with open threads when the server refused an approval; null for other errors. */
-function blockingSections(error: unknown): string[] | null {
-  if (!(error instanceof ApiError) || error.code !== "open_comments") return null;
-  const parsed = openCommentsDetails.safeParse(error.details);
-  return parsed.success ? parsed.data.sections : [];
+type Blocker =
+  | { kind: "comments"; sections: string[] }
+  | { kind: "reviews"; reviewers: { id: string; name: string }[] };
+
+/** Why the server refused an approval; null for other errors. */
+function blockerOf(error: unknown): Blocker | null {
+  if (!(error instanceof ApiError)) return null;
+  if (error.code === "open_comments") {
+    const parsed = openCommentsDetails.safeParse(error.details);
+    return { kind: "comments", sections: parsed.success ? parsed.data.sections : [] };
+  }
+  if (error.code === "pending_reviews") {
+    const parsed = pendingReviewsDetails.safeParse(error.details);
+    return { kind: "reviews", reviewers: parsed.success ? parsed.data.reviewers : [] };
+  }
+  return null;
 }
 
 /** Editors move the document through review; others see a badge. */
@@ -63,6 +75,7 @@ export function StatusMenu({ document, editable, sections, onShowComments }: Sta
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: documentQuery(document.id).queryKey });
       await queryClient.invalidateQueries({ queryKey: collectionsKey });
+      await queryClient.invalidateQueries({ queryKey: myReviewsKey });
     },
   });
   const badge = cn(
@@ -73,7 +86,7 @@ export function StatusMenu({ document, editable, sections, onShowComments }: Sta
   if (!editable) return <span className={badge}>{statusLabels[document.status]}</span>;
   const next: readonly Status[] = STATUS_TRANSITIONS[document.status];
   const labels: Partial<Record<Status, string>> = transitionLabels[document.status];
-  const blocking = blockingSections(change.error);
+  const blocker = blockerOf(change.error);
   const titles = new Map(sections.map((s) => [s.key, s.title]));
   const close = () => change.reset();
 
@@ -104,20 +117,29 @@ export function StatusMenu({ document, editable, sections, onShowComments }: Sta
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle>
-              {blocking ? "Resolve comments before approving" : "Couldn't change the status"}
+              {blocker?.kind === "comments"
+                ? "Resolve comments before approving"
+                : blocker?.kind === "reviews"
+                  ? "Waiting for reviewers"
+                  : "Couldn't change the status"}
             </DialogTitle>
             <DialogDescription>
-              {blocking
+              {blocker?.kind === "comments"
                 ? "These sections still have open review threads:"
-                : errorMessage(change.error)}
+                : blocker?.kind === "reviews"
+                  ? "Every reviewer has to approve first. Still to approve:"
+                  : errorMessage(change.error)}
             </DialogDescription>
           </DialogHeader>
-          {blocking && blocking.length > 0 && (
+          {blocker && (
             <ul className="flex flex-col gap-1 text-sm">
-              {blocking.map((key) => (
-                <li key={key} className="flex items-center gap-2">
+              {(blocker.kind === "comments"
+                ? blocker.sections.map((key) => ({ id: key, label: titles.get(key) ?? key }))
+                : blocker.reviewers.map((r) => ({ id: r.id, label: r.name }))
+              ).map((item) => (
+                <li key={item.id} className="flex items-center gap-2">
                   <span className="size-1.5 rounded-full bg-status-partial" aria-hidden />
-                  {titles.get(key) ?? key}
+                  {item.label}
                 </li>
               ))}
             </ul>
@@ -126,11 +148,11 @@ export function StatusMenu({ document, editable, sections, onShowComments }: Sta
             <Button variant="ghost" onClick={close}>
               Close
             </Button>
-            {blocking && (
+            {blocker?.kind === "comments" && (
               <Button
                 onClick={() => {
                   close();
-                  onShowComments(blocking[0] ?? "");
+                  onShowComments(blocker.sections[0] ?? "");
                 }}
               >
                 Show comments

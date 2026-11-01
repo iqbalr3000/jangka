@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { documentStatus } from "./document";
+import { docTypeSchema, documentStatus } from "./document";
 
 const userRef = z.object({ id: z.string(), name: z.string() });
 const sectionKey = z.string().regex(/^[a-z][a-z0-9_]*$/);
@@ -58,3 +58,41 @@ export const STATUS_TRANSITIONS = {
   z.infer<typeof documentStatus>,
   readonly z.infer<typeof documentStatus>[]
 >;
+
+export const reviewVerdict = z.enum(["approved", "changes_requested"]);
+export type ReviewVerdict = z.infer<typeof reviewVerdict>;
+
+export const reviewerView = z.object({
+  user: userRef,
+  verdict: reviewVerdict.nullable(),
+  decidedAt: z.string().nullable(),
+  /** Active and still able to view: their verdict gates approval. */
+  counted: z.boolean(),
+});
+export type ReviewerView = z.infer<typeof reviewerView>;
+
+export const reviewerList = z.object({
+  items: z.array(reviewerView),
+  /** The viewer may assign and remove reviewers. */
+  canManage: z.boolean(),
+  /** The viewer is a reviewer of this document. */
+  isReviewer: z.boolean(),
+});
+export type ReviewerList = z.infer<typeof reviewerList>;
+
+export const setVerdictRequest = z.object({ verdict: reviewVerdict });
+
+export const myReview = z.object({
+  id: z.string(),
+  title: z.string(),
+  docType: docTypeSchema,
+  collectionName: z.string(),
+  myVerdict: reviewVerdict.nullable(),
+  /** When it entered review. */
+  requestedAt: z.string().nullable(),
+});
+export type MyReview = z.infer<typeof myReview>;
+export const myReviewList = z.object({ items: z.array(myReview) });
+
+/** `409 pending_reviews` details. */
+export const pendingReviewsDetails = z.object({ reviewers: z.array(userRef) });

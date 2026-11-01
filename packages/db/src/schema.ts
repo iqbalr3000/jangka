@@ -570,7 +570,14 @@ export const comments = pgTable(
   ],
 );
 
-export const NOTIFICATION_KINDS = ["mention", "reply", "resolved", "status"] as const;
+export const NOTIFICATION_KINDS = [
+  "mention",
+  "reply",
+  "resolved",
+  "status",
+  "review_requested",
+  "review_verdict",
+] as const;
 
 /** In-app notifications. Ids only: titles and excerpts are read fresh, behind an access check. */
 export const notifications = pgTable(
@@ -587,7 +594,7 @@ export const notifications = pgTable(
     sectionKey: text("section_key"),
     commentId: uuid("comment_id").references(() => comments.id, { onDelete: "set null" }),
     actorId: uuid("actor_id").references(() => users.id),
-    // The new status, for `status` notifications.
+    // The new status for `status`; the verdict for `review_verdict`.
     status: text("status"),
     readAt: tz("read_at"),
     createdAt: createdAt(),
@@ -596,6 +603,37 @@ export const notifications = pgTable(
     // UUIDv7 ids are time-ordered: the list pages by id.
     index("notifications_recipient_id_idx").on(t.recipientId, t.id.desc()),
     index("notifications_unread_idx").on(t.recipientId).where(sql`${t.readAt} is null`),
-    check("notifications_kind", sql`${t.kind} in ('mention', 'reply', 'resolved', 'status')`),
+    check(
+      "notifications_kind",
+      sql`${t.kind} in ('mention', 'reply', 'resolved', 'status', 'review_requested', 'review_verdict')`,
+    ),
+  ],
+);
+
+/** Assigned reviewers and their verdict for the current review round. */
+export const documentReviewers = pgTable(
+  "document_reviewers",
+  {
+    id: id(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    assignedBy: uuid("assigned_by")
+      .notNull()
+      .references(() => users.id),
+    verdict: text("verdict", { enum: ["approved", "changes_requested"] }),
+    decidedAt: tz("decided_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("document_reviewers_document_user").on(t.documentId, t.userId),
+    index("document_reviewers_user_id_idx").on(t.userId),
+    check(
+      "document_reviewers_verdict",
+      sql`${t.verdict} is null or ${t.verdict} in ('approved', 'changes_requested')`,
+    ),
   ],
 );

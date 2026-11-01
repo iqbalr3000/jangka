@@ -1,5 +1,6 @@
 import { comments, documents, notifications, templates, users } from "@jangka/db";
 import { can, resolveLevel } from "@jangka/permissions";
+import { documentStatus } from "@jangka/shared/document";
 import { AppError } from "@jangka/shared/errors";
 import {
   markReadRequest,
@@ -8,6 +9,7 @@ import {
   notificationQuery,
   plainBody,
 } from "@jangka/shared/notifications";
+import { reviewVerdict } from "@jangka/shared/review";
 import { retiredSectionTitle } from "@jangka/templates";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { type Context, Hono } from "hono";
@@ -112,7 +114,9 @@ export function notificationRoutes({ db }: RouteDeps) {
 
       const items: NotificationView[] = rows.map(({ notification: n, document: d }) => {
         const comment = n.commentId ? commentById.get(n.commentId) : undefined;
-        const status = z.enum(["draft", "in_review", "approved"]).safeParse(n.status);
+        // One column: the new status for `status`, the verdict for `review_verdict`.
+        const status = documentStatus.safeParse(n.kind === "status" ? n.status : null);
+        const verdict = reviewVerdict.safeParse(n.kind === "review_verdict" ? n.status : null);
         return {
           id: n.id,
           kind: n.kind,
@@ -126,6 +130,7 @@ export function notificationRoutes({ db }: RouteDeps) {
           actor: (n.actorId && actors.get(n.actorId)) || null,
           excerpt: comment && !comment.deletedAt ? excerpt(comment.body) : null,
           status: status.success ? status.data : null,
+          verdict: verdict.success ? verdict.data : null,
           read: n.readAt !== null,
           createdAt: n.createdAt.toISOString(),
         };

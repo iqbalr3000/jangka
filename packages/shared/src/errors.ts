@@ -29,6 +29,7 @@ export const errorCodes = [
   "invalid_template",
   "document_approved",
   "open_comments",
+  "pending_reviews",
   "payload_too_large",
 ] as const;
 

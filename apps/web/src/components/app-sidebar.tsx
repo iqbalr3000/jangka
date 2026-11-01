@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardList,
   House,
   type LucideIcon,
   Plus,
@@ -14,6 +15,8 @@ import { useState } from "react";
 import { adminLinks } from "@/lib/admin-links";
 import { collectionTreeQuery, ROOT_NAME } from "@/lib/collections";
 import { modKeyLabel } from "@/lib/keyboard";
+import { badgeCount } from "@/lib/notifications";
+import { myReviewsQuery } from "@/lib/reviewers";
 import { cn } from "@/lib/utils";
 import { CollectionTree } from "./collection-tree";
 import {
@@ -50,6 +53,7 @@ function NavIcon({ icon: Icon }: { icon: LucideIcon }) {
 
 function DocumentsNav({ collapsed }: { collapsed: boolean }) {
   const tree = useQuery(collectionTreeQuery);
+  const pending = useQuery(myReviewsQuery).data?.items.length ?? 0;
   const [creating, setCreating] = useState<CollectionNameTarget | null>(null);
 
   return (
@@ -67,6 +71,24 @@ function DocumentsNav({ collapsed }: { collapsed: boolean }) {
         <Link to="/personal" className={navItemClass} title={collapsed ? "Personal" : undefined}>
           <NavIcon icon={UserRound} />
           {!collapsed && "Personal"}
+        </Link>
+        <Link
+          to="/reviews"
+          className={navItemClass}
+          title={collapsed ? `Reviews${pending ? ` (${pending})` : ""}` : undefined}
+          aria-label={pending ? `Reviews, ${pending} waiting` : "Reviews"}
+        >
+          <NavIcon icon={ClipboardList} />
+          {!collapsed && (
+            <>
+              <span className="flex-1">Reviews</span>
+              {pending > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-[11px] leading-[18px] font-semibold text-primary-foreground">
+                  {badgeCount(pending)}
+                </span>
+              )}
+            </>
+          )}
         </Link>
       </div>
       {!collapsed && (

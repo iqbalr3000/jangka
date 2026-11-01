@@ -29,6 +29,7 @@ import { modKeyLabel } from "@/lib/keyboard";
 import { timeAgo } from "@/lib/llm";
 import { DocTypeBadge } from "./doc-type-badge";
 import { MoveDocumentDialog } from "./move-document-dialog";
+import { ReviewersControl } from "./reviewers-control";
 import { SourceChip } from "./source-chip";
 import { StatusMenu } from "./status-menu";
 
@@ -157,6 +158,7 @@ export function DocumentHeader({
         className="min-w-0 flex-1 truncate rounded-sm bg-transparent px-1 py-0.5 text-[15px] font-semibold outline-none hover:bg-secondary focus:bg-secondary read-only:hover:bg-transparent"
       />
       {detail.source && <SourceChip source={detail.source} />}
+      <ReviewersControl document={doc} userId={userId} />
       <StatusMenu
         document={doc}
         editable={editable}

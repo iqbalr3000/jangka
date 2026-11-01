@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppArchivedRouteImport } from './routes/_app/archived'
 import { Route as AppPersonalRouteImport } from './routes/_app/personal'
+import { Route as AppReviewsRouteImport } from './routes/_app/reviews'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
@@ -64,6 +65,11 @@ const AppArchivedRoute = AppArchivedRouteImport.update({
 const AppPersonalRoute = AppPersonalRouteImport.update({
   id: '/personal',
   path: '/personal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReviewsRoute = AppReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSearchRoute = AppSearchRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AppAdminRouteWithChildren
   '/archived': typeof AppArchivedRoute
   '/personal': typeof AppPersonalRoute
+  '/reviews': typeof AppReviewsRoute
   '/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/audit': typeof AppAdminAuditRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/archived': typeof AppArchivedRoute
   '/personal': typeof AppPersonalRoute
+  '/reviews': typeof AppReviewsRoute
   '/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/archived': typeof AppArchivedRoute
   '/_app/personal': typeof AppPersonalRoute
+  '/_app/reviews': typeof AppReviewsRoute
   '/_app/search': typeof AppSearchRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/archived'
     | '/personal'
+    | '/reviews'
     | '/search'
     | '/invite/$token'
     | '/admin/audit'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/archived'
     | '/personal'
+    | '/reviews'
     | '/search'
     | '/invite/$token'
     | '/'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/_app/admin'
     | '/_app/archived'
     | '/_app/personal'
+    | '/_app/reviews'
     | '/_app/search'
     | '/invite/$token'
     | '/_app/'
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/personal'
       fullPath: '/personal'
       preLoaderRoute: typeof AppPersonalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reviews': {
+      id: '/_app/reviews'
+      path: '/reviews'
+      fullPath: '/reviews'
+      preLoaderRoute: typeof AppReviewsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/search': {
@@ -487,6 +506,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRouteWithChildren
   AppArchivedRoute: typeof AppArchivedRoute
   AppPersonalRoute: typeof AppPersonalRoute
+  AppReviewsRoute: typeof AppReviewsRoute
   AppSearchRoute: typeof AppSearchRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCCollectionIdRoute: typeof AppCCollectionIdRoute
@@ -497,6 +517,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRouteWithChildren,
   AppArchivedRoute: AppArchivedRoute,
   AppPersonalRoute: AppPersonalRoute,
+  AppReviewsRoute: AppReviewsRoute,
   AppSearchRoute: AppSearchRoute,
   AppIndexRoute: AppIndexRoute,
   AppCCollectionIdRoute: AppCCollectionIdRoute,

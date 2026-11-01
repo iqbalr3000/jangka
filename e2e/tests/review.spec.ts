@@ -115,3 +115,51 @@ test("an @mention notifies the member, who lands on the comment", async ({ brows
       .getByRole("img", { name: "Unread" }),
   ).toHaveCount(0);
 });
+
+test("an assigned reviewer approves before the document can be approved", async ({ browser }) => {
+  const admin = await signIn(browser, ADMIN);
+  await admin.getByRole("button", { name: "+ New", exact: true }).click();
+  const dialog = admin.getByRole("dialog", { name: "New document" });
+  await dialog.getByLabel("Title").fill("Reviewer flow");
+  await dialog.getByLabel("Collection").selectOption({ label: "Platform" });
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await expect(admin.getByLabel("Document title")).toHaveValue("Reviewer flow");
+
+  await admin.getByRole("button", { name: "Add reviewers" }).click();
+  const popover = admin.getByRole("dialog", { name: "Reviewers" });
+  await popover.getByLabel("Add reviewer").fill("ri");
+  await popover.getByRole("button", { name: /Rina/ }).click();
+  await expect(popover.getByRole("list", { name: "Assigned reviewers" })).toContainText(
+    "RinaPending",
+  );
+  await admin.keyboard.press("Escape");
+
+  await admin.getByRole("button", { name: "Status: Draft" }).click();
+  await admin.getByRole("menuitem", { name: "Request review" }).click();
+  await admin.getByRole("button", { name: "Status: In review" }).click();
+  await admin.getByRole("menuitem", { name: "Approve" }).click();
+  const blocked = admin.getByRole("dialog", { name: "Waiting for reviewers" });
+  await expect(blocked).toContainText("Rina");
+  await admin.keyboard.press("Escape");
+  await expect(blocked).toHaveCount(0);
+
+  const member = await signIn(browser, MEMBER);
+  await expect(member.getByRole("link", { name: "Reviews, 1 waiting" })).toBeVisible();
+  await member.getByRole("link", { name: "Reviews, 1 waiting" }).click();
+  await member
+    .getByRole("region", { name: "Waiting for my review" })
+    .getByRole("link", { name: "Reviewer flow" })
+    .click();
+  await member.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(member.getByRole("button", { name: "Approve", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(member.getByRole("link", { name: "Reviews", exact: true })).toBeVisible();
+
+  await admin.reload();
+  await expect(admin.getByRole("button", { name: "Reviewers: Rina (Approved)" })).toBeVisible();
+  await admin.getByRole("button", { name: "Status: In review" }).click();
+  await admin.getByRole("menuitem", { name: "Approve" }).click();
+  await expect(admin.getByText(/Approved by Ada Admin/)).toBeVisible();
+});

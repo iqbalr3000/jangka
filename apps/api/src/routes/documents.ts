@@ -47,7 +47,8 @@ import {
   validSource,
   viewableDocument,
 } from "../services/documents";
-import { notify } from "../services/notifications";
+import { type NotificationEvent, notify } from "../services/notifications";
+import { clearVerdicts, pendingReviewers, reviewersOf } from "../services/reviewers";
 import { applyUpgrade, newerTemplate, upgradePreview } from "../services/template-upgrade";
 import { defaultTemplates, definitionOf, templateForNewDocument } from "../services/templates";
 import type { AppEnv, RouteDeps } from "../types";
@@ -352,6 +353,12 @@ export function documentRoutes({ db, locks, logger }: RouteDeps) {
               sections: open.map((o) => o.sectionKey),
             });
           }
+          const pending = await pendingReviewers(db, row);
+          if (pending.length > 0) {
+            throw new AppError("pending_reviews", 409, "Every reviewer has to approve first", {
+              reviewers: pending,
+            });
+          }
         }
         const [updated] = await db
           .update(documents)
@@ -365,11 +372,18 @@ export function documentRoutes({ db, locks, logger }: RouteDeps) {
           targetId: row.id,
           metadata: { from: row.status, to: status },
         });
-        if (row.createdBy) {
-          await notify(db, logger, { document: row, actorId: auth.user.id }, [
-            { recipientId: row.createdBy, kind: "status", status },
-          ]);
+        if (status === "draft") await clearVerdicts(db, row.id);
+        const events: NotificationEvent[] = [];
+        if (status === "in_review") {
+          const reviewers = await reviewersOf(db, row);
+          events.push(
+            ...reviewers.map(
+              (r): NotificationEvent => ({ recipientId: r.user.id, kind: "review_requested" }),
+            ),
+          );
         }
+        if (row.createdBy) events.push({ recipientId: row.createdBy, kind: "status", status });
+        await notify(db, logger, { document: row, actorId: auth.user.id }, events);
         return c.json(await summaryOf(updated));
       },
     )

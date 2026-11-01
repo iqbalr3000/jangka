@@ -37,6 +37,7 @@ import { inviteRoutes } from "./routes/invites";
 import { llmRoutes } from "./routes/llm";
 import { notificationRoutes } from "./routes/notifications";
 import { oidcRoutes } from "./routes/oidc";
+import { reviewerRoutes } from "./routes/reviewers";
 import { searchRoutes } from "./routes/search";
 import { setupRoutes } from "./routes/setup";
 import { traceRoutes } from "./routes/trace";
@@ -177,6 +178,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1", exportRoutes(routeDeps));
   app.route("/api/v1", commentRoutes(routeDeps));
   app.route("/api/v1", notificationRoutes(routeDeps));
+  app.route("/api/v1", reviewerRoutes(routeDeps));
 
   if (webDistDir) {
     const indexHtml = readFileSync(path.join(webDistDir, "index.html"), "utf8");

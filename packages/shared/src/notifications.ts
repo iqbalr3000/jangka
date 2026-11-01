@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { documentRef, documentStatus } from "./document";
+import { reviewVerdict } from "./review";
 
-export const notificationKind = z.enum(["mention", "reply", "resolved", "status"]);
+export const notificationKind = z.enum([
+  "mention",
+  "reply",
+  "resolved",
+  "status",
+  "review_requested",
+  "review_verdict",
+]);
 export type NotificationKind = z.infer<typeof notificationKind>;
 
 export const notificationView = z.object({
@@ -17,6 +25,8 @@ export const notificationView = z.object({
   excerpt: z.string().nullable(),
   /** The new status, for `status`. */
   status: documentStatus.nullable(),
+  /** The reviewer's verdict, for `review_verdict`. */
+  verdict: reviewVerdict.nullable(),
   read: z.boolean(),
   createdAt: z.string(),
 });

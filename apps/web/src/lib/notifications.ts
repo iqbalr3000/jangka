@@ -38,18 +38,28 @@ export const mentionableQuery = (documentId: string, q: string) =>
     staleTime: 30_000,
   });
 
-/** "Ada mentioned you", "Ada moved it to In review". */
-export function notificationAction(n: NotificationView): string {
+/** "Ada mentioned you" + "in" (before the document title). */
+export function notificationAction(n: NotificationView): { action: string; preposition: string } {
   const who = n.actor?.name ?? "Someone";
   switch (n.kind) {
     case "mention":
-      return `${who} mentioned you`;
+      return { action: `${who} mentioned you`, preposition: "in" };
     case "reply":
-      return `${who} replied`;
+      return { action: `${who} replied`, preposition: "in" };
     case "resolved":
-      return `${who} resolved your comment`;
+      return { action: `${who} resolved your comment`, preposition: "in" };
     case "status":
-      return `${who} moved it to ${n.status ? statusLabels[n.status] : "another status"}`;
+      return {
+        action: `${who} moved it to ${n.status ? statusLabels[n.status] : "another status"}`,
+        preposition: "in",
+      };
+    case "review_requested":
+      return { action: `${who} requested your review`, preposition: "on" };
+    case "review_verdict":
+      return {
+        action: n.verdict === "approved" ? `${who} approved` : `${who} requested changes`,
+        preposition: "on",
+      };
   }
 }
 

@@ -16,19 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
+import { initials } from "@/lib/format";
 import { type Theme, themes, useTheme } from "@/lib/theme";
 import type { ShellUser } from "./shell-types";
 
 const themeLabels: Record<Theme, string> = { system: "System", light: "Light", dark: "Dark" };
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
 
 export function UserMenu({ user }: { user?: ShellUser }) {
   const [theme, setTheme] = useTheme();

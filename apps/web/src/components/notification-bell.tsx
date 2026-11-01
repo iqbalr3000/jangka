@@ -1,7 +1,16 @@
 import type { NotificationKind, NotificationView } from "@jangka/shared/notifications";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRightLeft, AtSign, Bell, CircleCheck, type LucideIcon, Reply } from "lucide-react";
+import {
+  ArrowRightLeft,
+  AtSign,
+  Bell,
+  CircleCheck,
+  ClipboardCheck,
+  ClipboardList,
+  type LucideIcon,
+  Reply,
+} from "lucide-react";
 import { Popover } from "radix-ui";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -25,6 +34,8 @@ const icons: Record<NotificationKind, LucideIcon> = {
   reply: Reply,
   resolved: CircleCheck,
   status: ArrowRightLeft,
+  review_requested: ClipboardList,
+  review_verdict: ClipboardCheck,
 };
 
 /** Top-bar bell: unread count (polled) and the notification list. */
@@ -120,6 +131,7 @@ export function NotificationBell() {
             )}
             {items.map((n) => {
               const Icon = icons[n.kind];
+              const { action, preposition } = notificationAction(n);
               return (
                 <li key={n.id} className="border-b border-border last:border-b-0">
                   <button
@@ -133,10 +145,10 @@ export function NotificationBell() {
                     <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="leading-snug">
-                        <span className="font-medium">{notificationAction(n)}</span>
-                        <span className="text-muted-foreground"> in </span>
+                        <span className="font-medium">{action}</span>
+                        <span className="text-muted-foreground"> {preposition} </span>
                         <span className="font-medium">{n.document.title}</span>
-                        {n.sectionTitle && n.kind !== "status" && (
+                        {n.sectionTitle && (
                           <span className="text-muted-foreground"> › {n.sectionTitle}</span>
                         )}
                       </span>
