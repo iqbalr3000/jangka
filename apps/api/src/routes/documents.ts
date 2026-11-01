@@ -169,7 +169,7 @@ export function documentRoutes({ db, locks, logger }: RouteDeps) {
 
   return new Hono<AppEnv>()
     .get("/", zValidate("query", listQuery), async (c) => {
-      // Picker list (e.g. source documents): viewable, not archived, newest first.
+      // Picker list (e.g. source documents).
       const { docType, q, limit } = c.req.valid("query");
       const data = await access(c);
       const scope = viewableScope(data);

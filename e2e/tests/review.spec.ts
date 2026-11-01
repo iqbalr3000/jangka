@@ -169,8 +169,7 @@ async function selectWords(page: Page, section: string, words: string) {
   const editor = page.getByRole("textbox", { name: section, exact: true });
   await editor.evaluate((root, text) => {
     const doc = root.ownerDocument;
-    // NodeFilter.SHOW_TEXT
-    const walker = doc.createTreeWalker(root, 4);
+    const walker = doc.createTreeWalker(root, 4); // NodeFilter.SHOW_TEXT
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const at = node.textContent?.indexOf(text) ?? -1;
       if (at === -1) continue;

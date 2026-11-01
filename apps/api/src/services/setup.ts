@@ -30,9 +30,8 @@ export class SetupState {
 }
 
 /**
- * Issues a fresh setup token on every boot until setup completes, so lost logs never lock the
- * admin out. Printing it is the one sanctioned exception to "never log the setup token": it goes
- * straight to stdout, not through the (redacting) logger.
+ * A fresh setup token on every boot until setup completes, so lost logs never lock the admin out.
+ * Printed straight to stdout (the one sanctioned exception to never logging it), not via the logger.
  */
 export async function ensureSetupToken(
   db: Database,

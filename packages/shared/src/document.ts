@@ -169,7 +169,6 @@ export type Completeness = z.infer<typeof completeness>;
 export const documentStatus = z.enum(["draft", "in_review", "approved"]);
 export const docTypeSchema = z.enum(["brd", "prd", "tsd"]);
 
-/** A published template version a document can be created from. */
 export const templateSummary = z.object({
   id: z.string(),
   docType: docTypeSchema,

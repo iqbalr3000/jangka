@@ -102,7 +102,6 @@ const tokens = z.object({
   outputTokens: z.number(),
 });
 
-/** Token usage over a period, for Admin → Usage. */
 export const usageReport = z.object({
   from: z.string(),
   to: z.string(),

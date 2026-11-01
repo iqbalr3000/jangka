@@ -87,9 +87,7 @@ export type ReviewerView = z.infer<typeof reviewerView>;
 
 export const reviewerList = z.object({
   items: z.array(reviewerView),
-  /** The viewer may assign and remove reviewers. */
   canManage: z.boolean(),
-  /** The viewer is a reviewer of this document. */
   isReviewer: z.boolean(),
 });
 export type ReviewerList = z.infer<typeof reviewerList>;

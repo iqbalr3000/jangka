@@ -23,9 +23,9 @@ export const templateSection = z.object({
   key: z.string().regex(/^[a-z][a-z0-9_]*$/),
   title: z.string().trim().min(1, { error: "Add a title" }),
   required: z.boolean(),
-  /** Instructions to the LLM for drafting this section. */
+  /** LLM drafting instructions. */
   guidance: z.string().trim().min(1, { error: "Write guidance for the assistant" }),
-  /** What the interview should ask the user about. */
+  /** What the interview asks about. */
   interviewHints: z.array(z.string().min(1)),
   requirementKind: z.enum(requirementKinds).optional(),
   expectsDiagram: z.enum(["flowchart", "sequence", "erd", "state"]).optional(),

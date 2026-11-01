@@ -134,8 +134,7 @@ export async function captureSetupToken(db: Database): Promise<string> {
 
 export const ADMIN = { name: "Ada Admin", email: "ada@acme.co", password: "admin-password-123" };
 
-/** Runs the real setup flow and returns the admin's session cookie. */
-/** Completes setup as `ADMIN`; without the example documents unless asked, so suites start empty. */
+/** Runs setup as `ADMIN` and returns its session cookie; no example documents unless asked. */
 export async function setupInstance(
   app: TestApp,
   db: Database,

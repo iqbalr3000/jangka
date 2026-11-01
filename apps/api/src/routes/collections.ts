@@ -197,8 +197,8 @@ export function collectionRoutes({ db }: RouteDeps) {
 
         await db.transaction(async (tx) => {
           if (moving && parentId !== null) {
-            // Moves are rare: one at a time, re-checked against committed rows, so two crossing
-            // moves (A into B, B into A) can't build a cycle that would hide both trees from everyone.
+            // Serialized and re-checked on committed rows: crossing moves (A into B, B into A)
+            // would build a cycle that hides both trees from everyone.
             await tx.execute(sql`select pg_advisory_xact_lock(hashtext('jangka.collection-move'))`);
             const { rows } = await tx.execute(sql`
               with recursive chain(id, parent_id) as (

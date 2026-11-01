@@ -48,7 +48,7 @@ import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
 
-/** A section holds at most 512 KB (MAX_SECTION_BYTES); its JSON envelope fits well within this. */
+/** Sections cap at 512 KB (MAX_SECTION_BYTES), leaving room for the JSON envelope. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export type AppDeps = {

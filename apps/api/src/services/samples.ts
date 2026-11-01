@@ -16,9 +16,8 @@ import { definitionOf, latestBuiltin } from "./templates";
 const NAME = "Examples";
 
 /**
- * Creates the linked sample BRD → PRD → TSD in a new root collection everyone can view. Content
- * goes in as the admin's own versions, so history, search and the requirements index behave as for
- * any written document.
+ * The linked sample BRD → PRD → TSD in a new collection everyone can view, saved as the admin's
+ * own versions so history, search and the requirements index treat it like any document.
  */
 export async function createSampleDocuments(
   db: Database,

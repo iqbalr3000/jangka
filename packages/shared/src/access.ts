@@ -6,7 +6,7 @@ export type Level = z.infer<typeof level>;
 
 const nameSchema = z.string().trim().min(1, { error: "Required" }).max(100);
 
-/** Display form of a permission reason: ids resolved to names the viewer may see. */
+/** Permission reason with ids resolved to names the viewer may see. */
 export const accessReasonView = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("admin") }),
   z.object({ kind: z.literal("owner") }),

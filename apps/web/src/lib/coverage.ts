@@ -8,9 +8,8 @@ const fromCompleteness: Record<Section["completeness"], CoverageLevel> = {
 };
 
 /**
- * The checklist rows: the interview's assessment, or before any chat, what the sections already
- * hold (an example or imported document is covered by its content). Display only: the draft
- * gate reads the stored assessment.
+ * The interview's assessment, or before any chat, the sections' completeness. Display only: the
+ * draft gate reads the stored assessment.
  */
 export function coverageItems(
   state: InterviewState | null,

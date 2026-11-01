@@ -3,9 +3,8 @@ import { inArray, isNull, or, type SQL } from "drizzle-orm";
 import { type AccessData, isHidden, resolveDocLevel } from "./access";
 
 /**
- * Documents the viewer may read, as an SQL condition: collections resolved with
- * `packages/permissions` (archived ones left out), plus the root when viewable. Applied in SQL so
- * unviewable documents are never ranked, counted or read. Undefined = nothing is viewable.
+ * Viewable documents as an SQL condition (archived collections left out), so unviewable ones are
+ * never ranked, counted or read. Undefined = nothing is viewable.
  */
 export function viewableScope(data: AccessData): SQL | undefined {
   const ids = [...data.rows.keys()].filter(

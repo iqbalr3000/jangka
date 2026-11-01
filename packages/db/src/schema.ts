@@ -310,7 +310,6 @@ export const sectionVersions = pgTable(
   ],
 );
 
-/** One shared thread per document. */
 export const chatThreads = pgTable("chat_threads", {
   id: id(),
   documentId: uuid("document_id")
@@ -359,7 +358,6 @@ export const interviewStates = pgTable("interview_states", {
   updatedAt: updatedAt(),
 });
 
-/** Configured at runtime by admins. */
 export const authProviders = pgTable(
   "auth_providers",
   {

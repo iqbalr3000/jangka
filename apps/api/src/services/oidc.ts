@@ -131,9 +131,8 @@ const idTokenClaims = z.object({
 });
 
 /**
- * Exchanges the code (checks state, PKCE and the ID token's nonce and signature) and returns
- * its claims. `callbackUrl` is rebuilt from PUBLIC_URL so it matches the registered redirect URI
- * behind a proxy.
+ * Exchanges the code (state, PKCE, nonce and signature checked) and returns its claims.
+ * `callbackUrl` comes from PUBLIC_URL so it matches the registered redirect URI behind a proxy.
  */
 export async function finishFlow(
   provider: ProviderRow,

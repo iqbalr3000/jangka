@@ -8,7 +8,6 @@ import { CommentAnchors } from "./comment-anchors-extension";
 import { RequirementChips } from "./requirement-chips-extension";
 import { SlashCommand } from "./slash-command";
 
-/** Mermaid diagram as an atom node holding its source. */
 export const MermaidBlock = Node.create({
   name: "mermaidBlock",
   group: "block",

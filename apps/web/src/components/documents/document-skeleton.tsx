@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** The document workspace's shape: header, outline rail, title and section blocks. */
 export function DocumentSkeleton() {
   return (
     <div role="status" aria-label="Loading document" className="flex h-full flex-col">

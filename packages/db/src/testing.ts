@@ -1,6 +1,6 @@
 import type pg from "pg";
 
-/** Empties every table in `public` between integration tests. Migration bookkeeping lives in `drizzle`. */
+/** Empties every table in `public` between integration tests. */
 export async function truncateAll(pool: pg.Pool): Promise<void> {
   const { rows } = await pool.query<{ tablename: string }>(
     "select tablename from pg_tables where schemaname = 'public'",

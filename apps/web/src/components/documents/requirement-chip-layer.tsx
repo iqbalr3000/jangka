@@ -6,10 +6,7 @@ type Hovered = { chip: Chip; element: HTMLElement; left: number; top: number };
 
 const priorityLabels: Record<string, string> = { must: "Must", should: "Should", could: "Could" };
 
-/**
- * One tooltip and click handler for every chip on the page (event delegation), so the section
- * editors only render decorations.
- */
+/** One tooltip and click handler for every chip on the page (event delegation). */
 export function RequirementChipLayer({
   chips,
   onOpen,

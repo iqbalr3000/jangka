@@ -3,8 +3,7 @@ import type pg from "pg";
 import type { Logger } from "../logger";
 
 /**
- * A full-text query over `document_sections.search` (simple + English + Indonesian lexemes): each
- * word matches as itself (a prefix when typing ahead) or as its English or Indonesian stem.
+ * Each word matches as itself (a prefix when typing ahead) or its English or Indonesian stem.
  * Words must be letters and digits only, so they can't carry tsquery operators.
  */
 export function stemmedQuery(
@@ -20,10 +19,7 @@ export function stemmedQuery(
   return sql`(${sql.join(parts, sql.raw(join === "and" ? " && " : " || "))})`;
 }
 
-/**
- * Typo-tolerant title search needs `pg_trgm`. Managed Postgres may not allow creating it, so this
- * runs at boot rather than in a migration: when it fails, fuzzy titles stay off and search works.
- */
+/** `pg_trgm` is created at boot, not in a migration: managed Postgres may refuse it, and search works without. */
 export async function enableFuzzySearch(pool: pg.Pool, logger: Logger): Promise<boolean> {
   try {
     await pool.query("create extension if not exists pg_trgm");

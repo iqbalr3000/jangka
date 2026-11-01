@@ -29,7 +29,6 @@ export function mapMermaid(doc: DocNode, fn: (source: string) => string): DocNod
   return doc.content ? { ...doc, content: doc.content.map(visit) } : doc;
 }
 
-/** Non-blank Mermaid sources in document order. */
 export function mermaidBlocks(doc: DocNode): string[] {
   const sources: string[] = [];
   mapMermaid(doc, (source) => {

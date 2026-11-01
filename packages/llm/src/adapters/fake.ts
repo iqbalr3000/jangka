@@ -82,7 +82,7 @@ export function sampleFromSchema(schema: unknown): unknown {
   }
 }
 
-/** Deterministic provider for tests and keyless local dev (`ENABLE_FAKE_LLM`). */
+/** For tests and keyless local dev (`ENABLE_FAKE_LLM`). */
 export function fakeProvider(config: ProviderConfig): LLMProvider {
   return {
     async *streamText(req, signal): AsyncIterable<StreamEvent> {

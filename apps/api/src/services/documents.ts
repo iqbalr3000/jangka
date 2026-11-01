@@ -39,8 +39,8 @@ export async function findDocument(db: Db, id: string): Promise<DocumentRow | un
 }
 
 /**
- * Locks the document row for the rest of the transaction: `update` for status changes, `share` for
- * writes the approval gate reads (verdicts). New comments wait too: their FK check takes a key-share lock.
+ * Row-locks the document: `update` for status changes, `share` for writes the approval gate reads.
+ * New comments wait too: their FK check takes a key-share lock.
  */
 export async function lockDocument(
   tx: Transaction,

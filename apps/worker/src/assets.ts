@@ -12,10 +12,7 @@ export const FONT_STYLESHEETS = [
 // Normal style, Latin + Latin Extended subsets (each face keeps its unicode-range).
 export const FONT_SUBSET = /-latin(-ext)?-wght-normal\.woff2$/;
 
-/**
- * A file the worker reads at runtime: next to the api bundle (`dist/assets/<specifier>`, the
- * Docker image ships only these files) or from node_modules (dev, tests).
- */
+/** A runtime file: next to the api bundle (`dist/assets/<specifier>`) in the image, else node_modules. */
 export function assetPath(specifier: string): string {
   const bundled = path.join(import.meta.dirname, "assets", specifier);
   return existsSync(bundled) ? bundled : require.resolve(specifier);

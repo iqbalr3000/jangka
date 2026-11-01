@@ -47,9 +47,8 @@ export function domainAllowed(
 }
 
 /**
- * Account linking: (1) known (provider, subject); (2) an existing user with the same
- * email, only when the IdP says it's verified; (3) auto-provision a verified email; else deny. Inactive users are
- * denied on every path.
+ * Account linking: (1) known (provider, subject); (2) an existing user with a verified email;
+ * (3) auto-provision a verified email; else deny. Inactive users are denied on every path.
  */
 export async function resolveSsoLogin(
   db: Database,

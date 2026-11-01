@@ -99,7 +99,6 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const queryClient = useQueryClient();
   const { me } = Route.useRouteContext();
   const { document: doc } = detail;
-  // Approved documents are frozen until reopened.
   const approved = doc.status === "approved";
   const editable = detail.level === "edit" && !approved;
   const states = useRef(new Map<string, SaveState>());

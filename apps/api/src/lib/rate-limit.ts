@@ -2,7 +2,7 @@ import { AppError } from "@jangka/shared/errors";
 
 type Window = { count: number; resetAt: number };
 
-/** In-memory fixed-window counter (failed logins, LLM requests). Per process; fine for a single-instance app. */
+/** In-memory fixed-window counter; per process, fine for a single-instance app. */
 export class RateLimiter {
   private readonly hits = new Map<string, Window>();
 

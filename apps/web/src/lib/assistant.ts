@@ -10,9 +10,8 @@ export const chatQuery = (documentId: string) =>
   });
 
 /**
- * POSTs to an SSE endpoint (EventSource can't POST) and feeds each validated event to `onEvent`.
- * Errors before the stream starts surface as `ApiError`; aborting the signal stops the server-side
- * generation (and the provider call).
+ * POSTs to an SSE endpoint (EventSource can't POST), feeding validated events to `onEvent`. Errors
+ * before the stream starts throw `ApiError`; aborting stops the server-side generation too.
  */
 export async function streamAssistant(
   path: string,
