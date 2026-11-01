@@ -12,6 +12,7 @@ import { asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import pino from "pino";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { audit, auditExempt, auditMiddleware } from "../src/lib/audit";
 import type { AppEnv } from "../src/types";
 import {
@@ -243,6 +244,25 @@ describe("audit log viewer", () => {
       target: { label: "Refunds", href: `/d/${docId}` },
     });
     expect(items.at(-1)?.action).toBe("instance.setup");
+  });
+
+  it("doesn't name other users' personal documents", async () => {
+    await createUser(db, { name: "Rina", email: "rina@acme.co", password: "rina-password-123" });
+    const rina = await login(app, "rina@acme.co", "rina-password-123");
+    const personal = await call(app, "GET", "/collections/personal", { cookie: rina });
+    const personalId = z
+      .object({ collection: z.object({ id: z.string() }) })
+      .parse(await personal.json()).collection.id;
+    await call(app, "POST", "/documents", {
+      cookie: rina,
+      body: { title: "My salary notes", collectionId: personalId, docType: "prd" },
+    });
+    const { items } = await list();
+    expect(items[0]).toMatchObject({
+      action: "document.create",
+      target: { label: "Personal document", href: null },
+    });
+    expect(JSON.stringify(items)).not.toContain("My salary notes");
   });
 
   it("filters by action prefix, actor and date, and pages with a cursor", async () => {

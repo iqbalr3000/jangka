@@ -114,6 +114,16 @@ export function adminLlmRoutes({ db, config, llm, logger }: RouteDeps) {
         if (input.label !== undefined) changes.label = input.label;
         if (input.enabled !== undefined) changes.enabled = input.enabled;
 
+        // The stored key goes only to the endpoint it was entered for, never to a new one.
+        const movingEndpoint = input.baseUrl !== undefined && input.baseUrl !== row.baseUrl;
+        if (movingEndpoint && input.apiKey === undefined && row.apiKeyEnc !== null) {
+          throw new AppError(
+            "validation_failed",
+            400,
+            "Enter the API key again for a new base URL",
+            [{ path: ["apiKey"], message: "Required when the base URL changes" }],
+          );
+        }
         // A new key or endpoint must pass a test before it replaces the working one.
         if (input.apiKey !== undefined || input.baseUrl !== undefined) {
           const current = storedConfig(row, config.masterKey);

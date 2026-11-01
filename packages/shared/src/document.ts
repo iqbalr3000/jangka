@@ -8,7 +8,8 @@ import { z } from "zod";
 export const MAX_SECTION_BYTES = 512 * 1024;
 export const MAX_MERMAID_CHARS = 20_000;
 
-const SAFE_HREF = /^(https?:|mailto:)/i;
+/** Link targets a section may hold. */
+export const SAFE_HREF = /^(https?:|mailto:)/i;
 
 const bold = z.strictObject({ type: z.literal("bold") });
 const italic = z.strictObject({ type: z.literal("italic") });

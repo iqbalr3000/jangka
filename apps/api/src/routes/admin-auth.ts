@@ -114,6 +114,15 @@ export function adminAuthRoutes({ db, config }: RouteDeps) {
         const issuer = row.kind === "google" ? GOOGLE_ISSUER : (input.issuer ?? row.issuer);
         if (input.enabled === false && row.enabled) await assertProviderCanBeDisabled(db, id);
 
+        // The stored secret goes only to the issuer it was entered for, never to a new one.
+        if (issuer !== row.issuer && !input.clientSecret) {
+          throw new AppError(
+            "validation_failed",
+            400,
+            "Enter the client secret again for a new issuer",
+            [{ path: ["clientSecret"], message: "Required when the issuer changes" }],
+          );
+        }
         // A new endpoint or credential must work before it replaces the current one.
         if (input.issuer !== undefined || input.clientId !== undefined || input.clientSecret) {
           assertIssuerAllowed(issuer);

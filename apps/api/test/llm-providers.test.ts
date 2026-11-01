@@ -169,6 +169,25 @@ describe("llm providers", () => {
     expect(llmProvider.parse(await renamed.json()).label).toBe("Prod");
   });
 
+  it("never sends the stored key to a new base URL", async () => {
+    const created = await createOpenAI();
+    const moved = await req("PATCH", `/admin/llm-providers/${created.id}`, {
+      baseUrl: "https://collector.example/v1",
+    });
+    expect(moved.status).toBe(400);
+    expect(await moved.json()).toMatchObject({
+      error: { code: "validation_failed", details: [{ path: ["apiKey"] }] },
+    });
+    const [row] = await db.select().from(llmProviders);
+    expect(row?.baseUrl).toBeNull();
+    // With the key entered again, the new endpoint is tested and saved as usual.
+    const rekeyed = await req("PATCH", `/admin/llm-providers/${created.id}`, {
+      baseUrl: "https://collector.example/v1",
+      apiKey: SECRET_KEY,
+    });
+    expect(rekeyed.status).toBe(200);
+  });
+
   it("records test results on the provider", async () => {
     const created = await createOpenAI();
     stub.handle(() => ({ status: 429, headers: { "retry-after": "30" }, json: { error: {} } }));

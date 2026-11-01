@@ -21,14 +21,19 @@ export class RateLimiter {
     let window = this.hits.get(key);
     if (!window || window.resetAt <= now) {
       this.hits.delete(key);
-      if (this.hits.size >= this.maxKeys) {
-        const oldest = this.hits.keys().next().value;
-        if (oldest !== undefined) this.hits.delete(oldest);
-      }
+      if (this.hits.size >= this.maxKeys) this.evict(now);
       window = { count: 0, resetAt: now + this.windowMs };
       this.hits.set(key, window);
     }
     window.count += 1;
+  }
+
+  /** Expired windows first; a live one only when every window is live. */
+  private evict(now: number): void {
+    for (const [key, window] of this.hits) if (window.resetAt <= now) this.hits.delete(key);
+    if (this.hits.size < this.maxKeys) return;
+    const oldest = this.hits.keys().next().value;
+    if (oldest !== undefined) this.hits.delete(oldest);
   }
 
   reset(key: string): void {

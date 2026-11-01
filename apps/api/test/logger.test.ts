@@ -1,6 +1,7 @@
 import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { createLogger } from "../src/logger";
+import { buildApp, call, testDatabase } from "./helpers";
 
 function capture() {
   const lines: string[] = [];
@@ -37,5 +38,22 @@ describe("logger redaction", () => {
     expect(output).not.toContain("session=abc");
     expect(output).not.toContain("Bearer xyz");
     expect(output).toContain("*/*");
+  });
+});
+
+describe("request log", () => {
+  it("logs the route pattern, so invite and reset tokens stay out of the logs", async () => {
+    const { lines, logger } = capture();
+    const { db, pool } = testDatabase();
+    try {
+      const { app } = buildApp(db, pool, { logger });
+      const token = "secret-invite-token-1234567890";
+      await call(app, "GET", `/invites/${token}`);
+      const output = lines.join("");
+      expect(output).toContain('"path":"/api/v1/invites/:token"');
+      expect(output).not.toContain(token);
+    } finally {
+      await pool.end();
+    }
   });
 });

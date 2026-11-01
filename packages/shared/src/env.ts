@@ -28,6 +28,8 @@ const envSchema = z.object({
   ENABLE_FAKE_LLM: z.stringbool({ error: "must be true or false" }).default(false),
   // SSO lockout escape hatch: password login works even when disabled in settings.
   FORCE_PASSWORD_LOGIN: z.stringbool({ error: "must be true or false" }).default(false),
+  /** One reverse proxy in front: client IPs come from the last X-Forwarded-For entry. */
+  TRUST_PROXY: z.stringbool({ error: "must be true or false" }).default(false),
   APP_ROLE: z
     .enum(["api", "worker", "all"], { error: "must be api, worker or all" })
     .default("all"),

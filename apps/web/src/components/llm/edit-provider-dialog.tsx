@@ -94,6 +94,7 @@ export function EditProviderDialog({ provider, onClose }: EditProviderDialogProp
               id="edit-provider-base-url"
               label="Base URL (optional)"
               placeholder="https://api.openai.com/v1"
+              hint="Changing it requires the API key again."
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
             />

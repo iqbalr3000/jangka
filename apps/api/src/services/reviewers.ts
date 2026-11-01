@@ -1,14 +1,15 @@
-import { type Database, documentReviewers, users } from "@jangka/db";
+import { type Database, documentReviewers, type Transaction, users } from "@jangka/db";
 import { resolveLevel } from "@jangka/permissions";
 import type { ReviewerView } from "@jangka/shared/review";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { contextsFor } from "./access";
 
+type Db = Database | Transaction;
 type Document = { id: string; collectionId: string | null };
 
 /** Active and able to view the document: whether a user may review it (and still counts). */
 export async function canReview(
-  db: Database,
+  db: Db,
   document: Document,
   userIds: readonly string[],
 ): Promise<Set<string>> {
@@ -29,7 +30,7 @@ export async function canReview(
 }
 
 /** Reviewers in assignment order; `counted` = their verdict gates approval. */
-export async function reviewersOf(db: Database, document: Document): Promise<ReviewerView[]> {
+export async function reviewersOf(db: Db, document: Document): Promise<ReviewerView[]> {
   const rows = await db
     .select({
       userId: documentReviewers.userId,
@@ -56,7 +57,7 @@ export async function reviewersOf(db: Database, document: Document): Promise<Rev
 
 /** Counted reviewers who haven't approved yet. */
 export async function pendingReviewers(
-  db: Database,
+  db: Db,
   document: Document,
 ): Promise<{ id: string; name: string }[]> {
   return (await reviewersOf(db, document))
@@ -65,7 +66,7 @@ export async function pendingReviewers(
 }
 
 /** A new round: back to draft clears every verdict. */
-export async function clearVerdicts(db: Database, documentId: string): Promise<void> {
+export async function clearVerdicts(db: Db, documentId: string): Promise<void> {
   await db
     .update(documentReviewers)
     .set({ verdict: null, decidedAt: null })

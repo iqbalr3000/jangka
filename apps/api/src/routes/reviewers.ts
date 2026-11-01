@@ -8,7 +8,12 @@ import { audit, auditExempt } from "../lib/audit";
 import { requireAuth } from "../lib/session";
 import { zValidate } from "../lib/validate";
 import { loadAccess, ROOT_NAME, resolveDocLevel } from "../services/access";
-import { requireDocEdit, requireNotApproved, viewableDocument } from "../services/documents";
+import {
+  lockDocument,
+  requireDocEdit,
+  requireNotApproved,
+  viewableDocument,
+} from "../services/documents";
 import { notify } from "../services/notifications";
 import { canReview, reviewersOf } from "../services/reviewers";
 import type { AppEnv, RouteDeps } from "../types";
@@ -44,15 +49,18 @@ export function reviewerRoutes({ db, logger }: RouteDeps) {
       const { id, userId } = c.req.valid("param");
       const document = await viewableDocument(db, data, id);
       requireDocEdit(data, document);
-      requireNotApproved(document);
       if (!(await canReview(db, document, [userId])).has(userId)) {
         throw new AppError("validation_failed", 400, "This person can't view the document");
       }
-      const [added] = await db
-        .insert(documentReviewers)
-        .values({ documentId: document.id, userId, assignedBy: auth.user.id })
-        .onConflictDoNothing()
-        .returning({ id: documentReviewers.id });
+      const added = await db.transaction(async (tx) => {
+        requireNotApproved(await lockDocument(tx, document.id, "share"));
+        const [row] = await tx
+          .insert(documentReviewers)
+          .values({ documentId: document.id, userId, assignedBy: auth.user.id })
+          .onConflictDoNothing()
+          .returning({ id: documentReviewers.id });
+        return row;
+      });
       if (!added) {
         auditExempt(c, "already a reviewer");
         return c.body(null, 204);
@@ -75,13 +83,18 @@ export function reviewerRoutes({ db, logger }: RouteDeps) {
       const { id, userId } = c.req.valid("param");
       const document = await viewableDocument(db, data, id);
       requireDocEdit(data, document);
-      requireNotApproved(document);
-      const removed = await db
-        .delete(documentReviewers)
-        .where(
-          and(eq(documentReviewers.documentId, document.id), eq(documentReviewers.userId, userId)),
-        )
-        .returning({ id: documentReviewers.id });
+      const removed = await db.transaction(async (tx) => {
+        requireNotApproved(await lockDocument(tx, document.id, "share"));
+        return tx
+          .delete(documentReviewers)
+          .where(
+            and(
+              eq(documentReviewers.documentId, document.id),
+              eq(documentReviewers.userId, userId),
+            ),
+          )
+          .returning({ id: documentReviewers.id });
+      });
       if (removed.length === 0) {
         auditExempt(c, "not a reviewer");
         return c.body(null, 204);
@@ -102,23 +115,30 @@ export function reviewerRoutes({ db, logger }: RouteDeps) {
         const { auth, data } = await access(c);
         const document = await viewableDocument(db, data, c.req.valid("param").id);
         const { verdict } = c.req.valid("json");
-        const [row] = await db
-          .select()
-          .from(documentReviewers)
-          .where(
-            and(
-              eq(documentReviewers.documentId, document.id),
-              eq(documentReviewers.userId, auth.user.id),
-            ),
-          );
-        if (!row) throw new AppError("forbidden", 403, "You're not a reviewer of this document");
-        if (document.status !== "in_review") {
-          throw new AppError("conflict", 409, "The document isn't in review");
-        }
-        await db
-          .update(documentReviewers)
-          .set({ verdict, decidedAt: new Date() })
-          .where(eq(documentReviewers.id, row.id));
+        // Under a share lock: an approval in progress either sees this verdict or finishes first.
+        const row = await db.transaction(async (tx) => {
+          const locked = await lockDocument(tx, document.id, "share");
+          const [reviewer] = await tx
+            .select()
+            .from(documentReviewers)
+            .where(
+              and(
+                eq(documentReviewers.documentId, document.id),
+                eq(documentReviewers.userId, auth.user.id),
+              ),
+            );
+          if (!reviewer) {
+            throw new AppError("forbidden", 403, "You're not a reviewer of this document");
+          }
+          if (locked.status !== "in_review") {
+            throw new AppError("conflict", 409, "The document isn't in review");
+          }
+          await tx
+            .update(documentReviewers)
+            .set({ verdict, decidedAt: new Date() })
+            .where(eq(documentReviewers.id, reviewer.id));
+          return reviewer;
+        });
         await audit(c, {
           action: "review.verdict",
           targetType: "document",

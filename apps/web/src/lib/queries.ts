@@ -13,8 +13,3 @@ export const meQuery = queryOptions({
   queryFn: () => apiFetch("/auth/me", { schema: meResponse }),
   retry: false,
 });
-
-/** Only same-app paths: blocks `?redirect=https://evil` and protocol-relative `//evil`. */
-export function safeRedirect(target: string | undefined): string {
-  return target?.startsWith("/") && !target.startsWith("//") ? target : "/";
-}

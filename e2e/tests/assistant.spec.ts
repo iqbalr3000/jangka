@@ -142,9 +142,10 @@ test("Admin → Usage counts the assistant's calls", async ({ browser }) => {
   // Day tooltips stay inside the chart, at both edges.
   const chart = page.locator("figure", { hasText: "Tokens per day" });
   const box = await chart.boundingBox();
-  for (const bar of [chart.locator(".group").first(), chart.locator(".group").last()]) {
+  const days = chart.locator("[data-day]");
+  for (const bar of [days.first(), days.last()]) {
     await bar.hover();
-    const tip = await bar.locator(".absolute").boundingBox();
+    const tip = await chart.locator("[data-chart-tooltip]").boundingBox();
     expect(box && tip).toBeTruthy();
     if (box && tip) {
       expect(tip.x).toBeGreaterThanOrEqual(box.x);

@@ -7,7 +7,7 @@ import {
   updateCollectionRequest,
 } from "@jangka/shared/access";
 import { AppError } from "@jangka/shared/errors";
-import { desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -196,6 +196,22 @@ export function collectionRoutes({ db }: RouteDeps) {
         }
 
         await db.transaction(async (tx) => {
+          if (moving && parentId !== null) {
+            // Moves are rare: one at a time, re-checked against committed rows, so two crossing
+            // moves (A into B, B into A) can't build a cycle that would hide both trees from everyone.
+            await tx.execute(sql`select pg_advisory_xact_lock(hashtext('jangka.collection-move'))`);
+            const { rows } = await tx.execute(sql`
+              with recursive chain(id, parent_id) as (
+                select id, parent_id from collections where id = ${parentId}
+                union
+                select c.id, c.parent_id from collections c join chain on c.id = chain.parent_id
+              )
+              select 1 from chain where id = ${id}
+            `);
+            if (rows.length > 0) {
+              throw new AppError("conflict", 409, "A collection can't be moved into itself");
+            }
+          }
           await tx
             .update(collections)
             .set({ ...(name !== undefined && { name }), ...(moving && { parentId }) })

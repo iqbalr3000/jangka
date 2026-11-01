@@ -7,11 +7,13 @@ import {
   llmProviders,
   users,
 } from "@jangka/db";
+import { type PermissionContext, personalOwnerOf } from "@jangka/permissions";
 import { type AuditLogEntry, auditLogQuery } from "@jangka/shared/audit";
 import { and, desc, eq, gte, inArray, like, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/session";
 import { zValidate } from "../lib/validate";
+import { loadAccess } from "../services/access";
 import type { AppEnv, RouteDeps } from "../types";
 
 type Target = { label: string; href: string | null };
@@ -20,8 +22,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function adminAuditRoutes({ db }: RouteDeps) {
-  /** Labels for one page of targets: one query per target type present. */
-  async function resolveTargets(rows: { targetType: string; targetId: string | null }[]) {
+  /**
+   * Labels for one page of targets: one query per target type present. Other users' personal
+   * documents and collections stay unnamed: reachable by URL only, never listed (spec-access).
+   */
+  async function resolveTargets(
+    rows: { targetType: string; targetId: string | null }[],
+    ctx: PermissionContext,
+  ) {
+    const othersPersonal = (collectionId: string | null) => {
+      const owner = personalOwnerOf(ctx, collectionId);
+      return owner !== null && owner !== ctx.userId;
+    };
     const ids = (type: string) => [
       ...new Set(
         rows.flatMap((r) =>
@@ -33,17 +45,31 @@ export function adminAuditRoutes({ db }: RouteDeps) {
       document: async (list) =>
         (
           await db
-            .select({ id: documents.id, label: documents.title })
+            .select({
+              id: documents.id,
+              label: documents.title,
+              collectionId: documents.collectionId,
+            })
             .from(documents)
             .where(inArray(documents.id, list))
-        ).map((r) => [r.id, { label: r.label, href: `/d/${r.id}` }]),
+        ).map((r) => [
+          r.id,
+          othersPersonal(r.collectionId)
+            ? { label: "Personal document", href: null }
+            : { label: r.label, href: `/d/${r.id}` },
+        ]),
       collection: async (list) =>
         (
           await db
             .select({ id: collections.id, label: collections.name })
             .from(collections)
             .where(inArray(collections.id, list))
-        ).map((r) => [r.id, { label: r.label, href: `/c/${r.id}` }]),
+        ).map((r) => [
+          r.id,
+          othersPersonal(r.id)
+            ? { label: "Personal collection", href: null }
+            : { label: r.label, href: `/c/${r.id}` },
+        ]),
       user: async (list) =>
         (
           await db
@@ -83,7 +109,7 @@ export function adminAuditRoutes({ db }: RouteDeps) {
   }
 
   return new Hono<AppEnv>().get("/audit-logs", zValidate("query", auditLogQuery), async (c) => {
-    requireAdmin(c);
+    const auth = requireAdmin(c);
     const { cursor, limit, action, actorId, from, to } = c.req.valid("query");
     const filters: (SQL | undefined)[] = [
       // UUIDv7 ids are time-ordered: id order is newest-first order.
@@ -108,7 +134,15 @@ export function adminAuditRoutes({ db }: RouteDeps) {
       .orderBy(desc(auditLogs.id))
       .limit(limit + 1);
     const page = rows.slice(0, limit);
-    const targets = await resolveTargets(page.map((r) => r.log));
+    const { ctx } = await loadAccess(db, {
+      userId: auth.user.id,
+      isAdmin: true,
+      groupIds: auth.groupIds,
+    });
+    const targets = await resolveTargets(
+      page.map((r) => r.log),
+      ctx,
+    );
     const items: AuditLogEntry[] = page.map(({ log, actorName }) => ({
       id: log.id,
       action: log.action,

@@ -85,6 +85,16 @@ describe("zValidate", () => {
     expect(error.details).toEqual([{ path: ["name"], message: expect.any(String) }]);
   });
 
+  it("refuses bodies over 2 MB before anything reads them, even unauthenticated", async () => {
+    const res = await app.request("/api/v1/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...origin },
+      body: JSON.stringify({ email: "a@acme.co", password: "x".repeat(3 * 1024 * 1024) }),
+    });
+    expect(res.status).toBe(413);
+    expect((await errorOf(res)).code).toBe("payload_too_large");
+  });
+
   it("rejects malformed JSON with 400 validation_failed", async () => {
     const res = await app.request("/api/v1/health/__test/validate", {
       method: "POST",

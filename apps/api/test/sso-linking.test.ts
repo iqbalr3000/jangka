@@ -123,13 +123,40 @@ describe("resolveSsoLogin", () => {
 
   it("auto-provisions without a default group, naming the user after the email", async () => {
     const okta = await provider({ autoProvision: true });
-    const result = await resolveSsoLogin(db, okta, { sub: "s-5", email: "budi@acme.co" });
+    const result = await resolveSsoLogin(db, okta, {
+      sub: "s-5",
+      email: "budi@acme.co",
+      email_verified: true,
+    });
     if (result.kind !== "login") throw new Error("expected a login");
     const [user] = await db.select().from(users).where(eq(users.id, result.userId));
     expect(user?.name).toBe("budi");
     expect(
       await db.select().from(groupMembers).where(eq(groupMembers.userId, result.userId)),
     ).toEqual([]);
+  });
+
+  it("never auto-provisions an unverified email", async () => {
+    const okta = await provider({ autoProvision: true });
+    expect(await resolveSsoLogin(db, okta, { sub: "s-u", email: "ceo@acme.co" })).toEqual({
+      kind: "denied",
+      reason: "not_linked",
+      email: "ceo@acme.co",
+    });
+    expect(await db.select().from(users).where(eq(users.email, "ceo@acme.co"))).toEqual([]);
+  });
+
+  it("provisions once when the same person's first sign-ins race", async () => {
+    const okta = await provider({ autoProvision: true });
+    const claims = { sub: "s-r", email: "race@acme.co", email_verified: true };
+    const results = await Promise.all([
+      resolveSsoLogin(db, okta, claims),
+      resolveSsoLogin(db, okta, claims),
+    ]);
+    const ids = results.map((r) => (r.kind === "login" ? r.userId : null));
+    expect(ids[0]).not.toBeNull();
+    expect(ids[1]).toBe(ids[0]);
+    expect(await db.select().from(users).where(eq(users.email, "race@acme.co"))).toHaveLength(1);
   });
 
   it("denies an unknown identity when auto-provision is off, or when there is no email", async () => {
@@ -167,11 +194,23 @@ describe("resolveSsoLogin", () => {
     await db
       .insert(userIdentities)
       .values({ userId: rinaId, providerId: okta.id, subject: "s-10" });
-    expect(await resolveSsoLogin(db, okta, { sub: "s-10", email: "rina@ACME.co" })).toMatchObject({
-      kind: "login",
+    expect(
+      await resolveSsoLogin(db, okta, { sub: "s-10", email: "rina@ACME.co", email_verified: true }),
+    ).toMatchObject({ kind: "login" });
+    // An unverified email could be anyone's: it never passes the domain check.
+    expect(await resolveSsoLogin(db, okta, { sub: "s-10", email: "rina@acme.co" })).toEqual({
+      kind: "denied",
+      reason: "domain_not_allowed",
+      email: "rina@acme.co",
     });
     // A linked identity whose email moved to another domain is refused too.
-    expect(await resolveSsoLogin(db, okta, { sub: "s-10", email: "rina@gmail.com" })).toEqual({
+    expect(
+      await resolveSsoLogin(db, okta, {
+        sub: "s-10",
+        email: "rina@gmail.com",
+        email_verified: true,
+      }),
+    ).toEqual({
       kind: "denied",
       reason: "domain_not_allowed",
       email: "rina@gmail.com",

@@ -2,6 +2,7 @@ import { sessions } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { RateLimiter } from "../src/lib/rate-limit";
 import {
   ADMIN,
   buildApp,
@@ -87,6 +88,39 @@ describe("POST /auth/login", () => {
     for (let i = 0; i < 9; i++) await failOther();
     await login(other, RINA.email, RINA.password);
     for (let i = 0; i < 10; i++) expect((await failOther()).status).toBe(401);
+  });
+});
+
+describe("login limits per IP", () => {
+  const failAs = (target: TestApp, email: string, headers: Record<string, string> = {}) =>
+    call(target, "POST", "/auth/login", { body: { email, password: "wrong-wrong" }, headers });
+
+  it("caps failures from one IP across emails, so spraying can't reset a victim's count", async () => {
+    const limited = buildApp(db, pool, { loginIpLimiter: new RateLimiter(3, 60_000) }).app;
+    for (const email of ["a@acme.co", "b@acme.co", "c@acme.co"]) {
+      expect((await failAs(limited, email)).status).toBe(401);
+    }
+    expect((await failAs(limited, "rina@acme.co")).status).toBe(429);
+  });
+
+  it("tells clients apart by X-Forwarded-For only behind a trusted proxy", async () => {
+    const limiter = () => new RateLimiter(1, 60_000);
+    const direct = buildApp(db, pool, { loginIpLimiter: limiter() }).app;
+    await failAs(direct, "a@acme.co", { "x-forwarded-for": "203.0.113.1" });
+    expect((await failAs(direct, "a@acme.co", { "x-forwarded-for": "203.0.113.2" })).status).toBe(
+      429,
+    );
+
+    const proxied = buildApp(db, pool, { loginIpLimiter: limiter(), trustProxy: true }).app;
+    await failAs(proxied, "a@acme.co", { "x-forwarded-for": "203.0.113.1" });
+    // A forged first entry doesn't matter: the proxy's (last) entry is the client.
+    expect(
+      (await failAs(proxied, "a@acme.co", { "x-forwarded-for": "203.0.113.1, 203.0.113.2" }))
+        .status,
+    ).toBe(401);
+    expect((await failAs(proxied, "a@acme.co", { "x-forwarded-for": "203.0.113.2" })).status).toBe(
+      429,
+    );
   });
 });
 

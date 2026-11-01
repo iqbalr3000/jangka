@@ -180,3 +180,17 @@ export const updateSettingsRequest = z.object({
   passwordLoginEnabled: z.boolean().optional(),
   defaultGroupId: z.uuid().nullable().optional(),
 });
+
+/**
+ * A same-app path to return to after sign-in, else "/". Browsers drop tabs and newlines and read
+ * `\` as `/`, so `/\t/evil.com` would become `//evil.com`: any control character or backslash fails.
+ */
+export function safeRedirectPath(value: string | null | undefined): string {
+  if (!value?.startsWith("/") || value.startsWith("//")) return "/";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code < 0x20 || code === 0x7f || char === "\\") return "/";
+  }
+  const url = new URL(value, "http://app.invalid");
+  return url.origin === "http://app.invalid" ? `${url.pathname}${url.search}${url.hash}` : "/";
+}

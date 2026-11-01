@@ -21,12 +21,14 @@ export type AppConfig = {
   enableFakeLlm: boolean;
   /** FORCE_PASSWORD_LOGIN: password login works even when disabled in settings. */
   forcePasswordLogin: boolean;
+  /** TRUST_PROXY: read the client IP from the proxy's X-Forwarded-For entry. */
+  trustProxy?: boolean;
   /** Un-audited successful mutations throw (tests) instead of logging a warning. */
   strictAudit?: boolean;
 };
 
 export type AppEnv = {
-  Variables: RequestIdVariables & { auth: Auth | null; audit: AuditState };
+  Variables: RequestIdVariables & { auth: Auth | null; audit: AuditState; clientIp: string };
 };
 
 export type RouteDeps = {

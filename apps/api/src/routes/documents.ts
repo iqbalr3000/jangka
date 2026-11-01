@@ -38,6 +38,7 @@ import {
   createDocumentSections,
   type DocumentRow,
   linkedSource,
+  lockDocument,
   requireDocEdit,
   requireNotApproved,
   saveSection,
@@ -49,8 +50,10 @@ import {
 } from "../services/documents";
 import { type NotificationEvent, notify } from "../services/notifications";
 import { clearVerdicts, pendingReviewers, reviewersOf } from "../services/reviewers";
+import { escapeLike } from "../services/search-query";
 import { applyUpgrade, newerTemplate, upgradePreview } from "../services/template-upgrade";
 import { defaultTemplates, definitionOf, templateForNewDocument } from "../services/templates";
+import { viewableScope } from "../services/visibility";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
@@ -169,24 +172,21 @@ export function documentRoutes({ db, locks, logger }: RouteDeps) {
       // Picker list (e.g. source documents): viewable, not archived, newest first.
       const { docType, q, limit } = c.req.valid("query");
       const data = await access(c);
-      const rows = await db
+      const scope = viewableScope(data);
+      if (!scope) return c.json({ items: [] });
+      const visible = await db
         .select()
         .from(documents)
         .where(
           and(
+            scope,
             isNull(documents.archivedAt),
             docType ? eq(documents.docType, docType) : undefined,
-            q ? ilike(documents.title, `%${q.replace(/[\\%_]/g, "\\$&")}%`) : undefined,
+            q ? ilike(documents.title, `%${escapeLike(q)}%`) : undefined,
           ),
         )
-        .orderBy(desc(documents.updatedAt));
-      const visible = rows
-        .filter(
-          (row) =>
-            resolveDocLevel(data, row) !== "none" &&
-            (row.collectionId === null || !isHidden(data, row.collectionId)),
-        )
-        .slice(0, limit);
+        .orderBy(desc(documents.updatedAt))
+        .limit(limit);
       return c.json({ items: await summaries(db, visible) });
     })
     .post("/", zValidate("json", createDocumentRequest), async (c) => {
@@ -328,51 +328,60 @@ export function documentRoutes({ db, locks, logger }: RouteDeps) {
         const row = await viewableDocument(db, data, c.req.valid("param").id);
         requireDocEdit(data, row);
         const { status } = c.req.valid("json");
-        const allowed: readonly string[] = STATUS_TRANSITIONS[row.status];
-        if (!allowed.includes(status)) {
-          throw new AppError(
-            "validation_failed",
-            400,
-            `A ${row.status.replace("_", " ")} document can't move to ${status.replace("_", " ")}`,
-          );
-        }
-        if (status === "approved") {
-          const open = await db
-            .selectDistinct({ sectionKey: comments.sectionKey })
-            .from(comments)
-            .where(
-              and(
-                eq(comments.documentId, row.id),
-                isNull(comments.parentId),
-                isNull(comments.resolvedAt),
-                isNull(comments.deletedAt),
-              ),
+        // Checked and changed under a row lock: a comment, verdict or other status change landing
+        // in between waits instead of slipping past the gate.
+        const { from, updated } = await db.transaction(async (tx) => {
+          const locked = await lockDocument(tx, row.id, "update");
+          const allowed: readonly string[] = STATUS_TRANSITIONS[locked.status];
+          if (!allowed.includes(status)) {
+            throw new AppError(
+              "validation_failed",
+              400,
+              `A ${locked.status.replace("_", " ")} document can't move to ${status.replace("_", " ")}`,
             );
-          if (open.length > 0) {
-            throw new AppError("open_comments", 409, "Resolve the open comments before approving", {
-              sections: open.map((o) => o.sectionKey),
-            });
           }
-          const pending = await pendingReviewers(db, row);
-          if (pending.length > 0) {
-            throw new AppError("pending_reviews", 409, "Every reviewer has to approve first", {
-              reviewers: pending,
-            });
+          if (status === "approved") {
+            const open = await tx
+              .selectDistinct({ sectionKey: comments.sectionKey })
+              .from(comments)
+              .where(
+                and(
+                  eq(comments.documentId, row.id),
+                  isNull(comments.parentId),
+                  isNull(comments.resolvedAt),
+                  isNull(comments.deletedAt),
+                ),
+              );
+            if (open.length > 0) {
+              throw new AppError(
+                "open_comments",
+                409,
+                "Resolve the open comments before approving",
+                { sections: open.map((o) => o.sectionKey) },
+              );
+            }
+            const pending = await pendingReviewers(tx, locked);
+            if (pending.length > 0) {
+              throw new AppError("pending_reviews", 409, "Every reviewer has to approve first", {
+                reviewers: pending,
+              });
+            }
           }
-        }
-        const [updated] = await db
-          .update(documents)
-          .set({ status, statusChangedAt: new Date(), statusChangedBy: auth.user.id })
-          .where(eq(documents.id, row.id))
-          .returning();
-        if (!updated) throw new AppError("not_found", 404, "Document not found");
+          const [saved] = await tx
+            .update(documents)
+            .set({ status, statusChangedAt: new Date(), statusChangedBy: auth.user.id })
+            .where(eq(documents.id, row.id))
+            .returning();
+          if (!saved) throw new AppError("not_found", 404, "Document not found");
+          if (status === "draft") await clearVerdicts(tx, row.id);
+          return { from: locked.status, updated: saved };
+        });
         await audit(c, {
           action: "document.status",
           targetType: "document",
           targetId: row.id,
-          metadata: { from: row.status, to: status },
+          metadata: { from, to: status },
         });
-        if (status === "draft") await clearVerdicts(db, row.id);
         const events: NotificationEvent[] = [];
         if (status === "in_review") {
           const reviewers = await reviewersOf(db, row);

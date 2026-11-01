@@ -151,19 +151,33 @@ export function assistantRoutes({
   }
 
   /**
-   * Runs a generation as SSE: the document lock is held for its duration, and a client
+   * Takes the document lock, then does the request's writes (user message, audit). A request
+   * refused because another generation runs leaves nothing behind.
+   */
+  async function locked<T>(doc: DocumentRow, writes: () => Promise<T>) {
+    const release = locks.acquire(doc.id);
+    try {
+      return { release, value: await writes() };
+    } catch (error) {
+      release();
+      throw error;
+    }
+  }
+
+  /**
+   * Runs a generation as SSE, holding the lock taken by `locked` for its duration; a client
    * disconnect aborts the provider request.
    */
   function generate(
     c: Context<AppEnv>,
     doc: DocumentRow,
+    release: () => void,
     run: (
       send: (event: AssistantEvent) => Promise<void>,
       signal: AbortSignal,
       unlock: () => void,
     ) => Promise<void>,
   ) {
-    const release = locks.acquire(doc.id);
     let released = false;
     // Another generation may hold the lock by the time `finally` runs.
     const unlock = () => {
@@ -239,17 +253,20 @@ export function assistantRoutes({
     .post("/:id/chat", zValidate("param", idParam), zValidate("json", chatRequest), async (c) => {
       const { auth, doc, resolved, data } = await prepare(c, c.req.valid("param").id);
       const { message } = c.req.valid("json");
-      const threadId = await ensureThread(db, doc.id, auth.user.id);
-      await db.insert(chatMessages).values({
-        threadId,
-        role: "user",
-        kind: "chat",
-        content: message,
-        createdBy: auth.user.id,
+      const { release, value: threadId } = await locked(doc, async () => {
+        const thread = await ensureThread(db, doc.id, auth.user.id);
+        await db.insert(chatMessages).values({
+          threadId: thread,
+          role: "user",
+          kind: "chat",
+          content: message,
+          createdBy: auth.user.id,
+        });
+        await audit(c, { action: "assistant.chat", targetType: "document", targetId: doc.id });
+        return thread;
       });
-      await audit(c, { action: "assistant.chat", targetType: "document", targetId: doc.id });
 
-      return generate(c, doc, async (send, signal, unlock) => {
+      return generate(c, doc, release, async (send, signal, unlock) => {
         const messageId = uuidv7();
         await send({ type: "message_start", messageId });
         const { context } = await documentContext(db, doc, data);
@@ -347,15 +364,18 @@ export function assistantRoutes({
           { sections: missingRequired.map((s) => s.key) },
         );
       }
-      const threadId = await ensureThread(db, doc.id, auth.user.id);
-      await audit(c, {
-        action: "assistant.draft",
-        targetType: "document",
-        targetId: doc.id,
-        metadata: { sections: targets },
+      const { release, value: threadId } = await locked(doc, async () => {
+        const thread = await ensureThread(db, doc.id, auth.user.id);
+        await audit(c, {
+          action: "assistant.draft",
+          targetType: "document",
+          targetId: doc.id,
+          metadata: { sections: targets },
+        });
+        return thread;
       });
 
-      return generate(c, doc, async (send, signal) => {
+      return generate(c, doc, release, async (send, signal) => {
         const messageId = uuidv7();
         await send({ type: "message_start", messageId });
         const transcript = transcriptOf(await threadMessages(db, doc.id));
@@ -435,13 +455,22 @@ export function assistantRoutes({
             stopped = true;
             break;
           }
-          const saved = await saveSection(db, doc.id, key, {
-            content,
-            revision: before.revision,
-            userId: auth.user.id,
-            source: "llm",
-            completeness: check.completeness,
-          });
+          let saved: Awaited<ReturnType<typeof saveSection>>;
+          try {
+            saved = await saveSection(db, doc.id, key, {
+              content,
+              revision: before.revision,
+              userId: auth.user.id,
+              source: "llm",
+              completeness: check.completeness,
+            });
+          } catch (error) {
+            // Approved by someone else mid-run: keep what's drafted, stop, and say so.
+            if (!(error instanceof AppError) || error.code !== "document_approved") throw error;
+            await send({ type: "error", code: error.code, message: error.message });
+            stopped = true;
+            break;
+          }
           if (saved === "conflict") {
             await send({ type: "section_conflict", key });
             continue;
@@ -480,22 +509,25 @@ export function assistantRoutes({
         const { template } = await documentContext(db, doc, data);
         const section = template.sections.find((s) => s.key === key);
         if (!section) throw new AppError("not_found", 404, "Section not found");
-        const threadId = await ensureThread(db, doc.id, auth.user.id);
-        await db.insert(chatMessages).values({
-          threadId,
-          role: "user",
-          kind: "revise",
-          content: `@${section.title} ${instruction}`,
-          createdBy: auth.user.id,
-        });
-        await audit(c, {
-          action: "assistant.revise",
-          targetType: "document",
-          targetId: doc.id,
-          metadata: { section: key },
+        const { release, value: threadId } = await locked(doc, async () => {
+          const thread = await ensureThread(db, doc.id, auth.user.id);
+          await db.insert(chatMessages).values({
+            threadId: thread,
+            role: "user",
+            kind: "revise",
+            content: `@${section.title} ${instruction}`,
+            createdBy: auth.user.id,
+          });
+          await audit(c, {
+            action: "assistant.revise",
+            targetType: "document",
+            targetId: doc.id,
+            metadata: { section: key },
+          });
+          return thread;
         });
 
-        return generate(c, doc, async (send, signal) => {
+        return generate(c, doc, release, async (send, signal) => {
           const messageId = uuidv7();
           await send({ type: "message_start", messageId });
           const { context } = await documentContext(db, doc, data);
@@ -554,22 +586,25 @@ export function assistantRoutes({
         const targets = template.sections.filter((s) => requested.includes(s.key));
         const titles = targets.map((s) => s.title).join(", ");
 
-        const threadId = await ensureThread(db, doc.id, auth.user.id);
-        await db.insert(chatMessages).values({
-          threadId,
-          role: "user",
-          kind: "revise",
-          content: `Update from chat: ${titles}`,
-          createdBy: auth.user.id,
-        });
-        await audit(c, {
-          action: "assistant.propose_updates",
-          targetType: "document",
-          targetId: doc.id,
-          metadata: { sections: requested },
+        const { release, value: threadId } = await locked(doc, async () => {
+          const thread = await ensureThread(db, doc.id, auth.user.id);
+          await db.insert(chatMessages).values({
+            threadId: thread,
+            role: "user",
+            kind: "revise",
+            content: `Update from chat: ${titles}`,
+            createdBy: auth.user.id,
+          });
+          await audit(c, {
+            action: "assistant.propose_updates",
+            targetType: "document",
+            targetId: doc.id,
+            metadata: { sections: requested },
+          });
+          return thread;
         });
 
-        return generate(c, doc, async (send, signal) => {
+        return generate(c, doc, release, async (send, signal) => {
           const messageId = uuidv7();
           await send({ type: "message_start", messageId });
           const { context } = await documentContext(db, doc, data);

@@ -9,7 +9,7 @@ import {
   type Level,
   permissionGraph,
 } from "@jangka/shared/access";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   ADMIN,
@@ -226,6 +226,21 @@ describe("collections", () => {
       body: { parentId: payments },
     });
     expect(res.status).toBe(409);
+  });
+
+  it("never builds a cycle from two crossing moves", async () => {
+    const a = await create("A", null);
+    const b = await create("B", null);
+    const results = await Promise.all([
+      call(app, "PATCH", `/collections/${a}`, { cookie: adminCookie, body: { parentId: b } }),
+      call(app, "PATCH", `/collections/${b}`, { cookie: adminCookie, body: { parentId: a } }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const rows = await db
+      .select({ id: collections.id, parentId: collections.parentId })
+      .from(collections)
+      .where(inArray(collections.id, [a, b]));
+    expect(rows.filter((r) => r.parentId !== null)).toHaveLength(1);
   });
 
   it("requires edit on the destination to move", async () => {

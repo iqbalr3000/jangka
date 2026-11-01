@@ -104,6 +104,7 @@ an existing Postgres instead, drop the `postgres` service and point `DATABASE_UR
 | `SESSION_TTL_DAYS`     | no       | `30`    | Rolling session lifetime.                                                                                      |
 | `FORCE_PASSWORD_LOGIN` | no       | `false` | Re-enables password login when SSO is misconfigured and everyone is locked out. Unset it afterwards.           |
 | `ENABLE_FAKE_LLM`      | no       | `false` | Offers a deterministic fake provider. For development and tests only.                                          |
+| `TRUST_PROXY`          | no       | `false` | Set when exactly one reverse proxy sits in front: client IPs (rate limits, audit) come from `X-Forwarded-For`. |
 
 The app refuses to start when a variable is missing or invalid, and the error names the
 variable. Values are never echoed.

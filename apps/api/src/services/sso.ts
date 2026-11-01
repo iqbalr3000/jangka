@@ -29,9 +29,18 @@ export type SsoResult =
   | { kind: "login"; userId: string; via: "subject" | "email" | "provisioned" }
   | { kind: "denied"; reason: SsoError; email: string | null };
 
-/** With `allowed_domains` set, the email's domain (and Google's `hd`) must be listed. */
-export function domainAllowed(provider: SsoProvider, email: string | null, hd?: string): boolean {
+/**
+ * With `allowed_domains` set, a verified email's domain (and Google's `hd`) must be listed; an
+ * unverified email could be anyone's, so it never passes.
+ */
+export function domainAllowed(
+  provider: SsoProvider,
+  email: string | null,
+  verified: boolean,
+  hd?: string,
+): boolean {
   if (provider.allowedDomains.length === 0) return true;
+  if (!verified) return false;
   const domain = email?.split("@")[1];
   if (!domain || !provider.allowedDomains.includes(domain)) return false;
   return provider.kind !== "google" || provider.allowedDomains.includes(hd?.toLowerCase() ?? "");
@@ -39,7 +48,7 @@ export function domainAllowed(provider: SsoProvider, email: string | null, hd?: 
 
 /**
  * Account linking: (1) known (provider, subject); (2) an existing user with the same
- * email, only when the IdP says it's verified; (3) auto-provision; else deny. Inactive users are
+ * email, only when the IdP says it's verified; (3) auto-provision a verified email; else deny. Inactive users are
  * denied on every path.
  */
 export async function resolveSsoLogin(
@@ -49,7 +58,8 @@ export async function resolveSsoLogin(
 ): Promise<SsoResult> {
   const email = claims.email?.trim().toLowerCase() || null;
   const denied = (reason: SsoError): SsoResult => ({ kind: "denied", reason, email });
-  if (!domainAllowed(provider, email, claims.hd)) return denied("domain_not_allowed");
+  const verified = claims.email_verified === true;
+  if (!domainAllowed(provider, email, verified, claims.hd)) return denied("domain_not_allowed");
 
   return db.transaction(async (tx) => {
     const now = new Date();
@@ -71,30 +81,37 @@ export async function resolveSsoLogin(
         email,
       });
 
-    const [known] = await tx
-      .select({ userId: users.id, isActive: users.isActive })
-      .from(userIdentities)
-      .innerJoin(users, eq(users.id, userIdentities.userId))
-      .where(
-        and(eq(userIdentities.providerId, provider.id), eq(userIdentities.subject, claims.sub)),
-      );
+    const knownIdentity = () =>
+      tx
+        .select({ userId: users.id, isActive: users.isActive })
+        .from(userIdentities)
+        .innerJoin(users, eq(users.id, userIdentities.userId))
+        .where(
+          and(eq(userIdentities.providerId, provider.id), eq(userIdentities.subject, claims.sub)),
+        );
+    const [known] = await knownIdentity();
     if (known) return known.isActive ? login(known.userId, "subject") : denied("inactive");
 
     const [existing] = email ? await tx.select().from(users).where(eq(users.email, email)) : [];
     if (existing) {
       // An unverified email could be anyone's: never link on it.
-      if (claims.email_verified !== true) return denied("not_linked");
+      if (!verified) return denied("not_linked");
       if (!existing.isActive) return denied("inactive");
       await link(existing.id);
       return login(existing.id, "email");
     }
 
-    if (!provider.autoProvision || !email) return denied("not_linked");
+    if (!provider.autoProvision || !email || !verified) return denied("not_linked");
     const [created] = await tx
       .insert(users)
       .values({ email, name: claims.name?.trim() || email.split("@")[0] || email })
+      .onConflictDoNothing({ target: users.email })
       .returning();
-    if (!created) throw new Error("user not created");
+    if (!created) {
+      // A concurrent first sign-in of the same person provisioned them; use its identity.
+      const [winner] = await knownIdentity();
+      return winner?.isActive ? login(winner.userId, "subject") : denied("not_linked");
+    }
     await createPersonalCollection(tx, created);
     const [settings] = await tx
       .select({ defaultGroupId: instanceSettings.defaultGroupId })

@@ -1,5 +1,5 @@
 import { authProviders } from "@jangka/db";
-import type { AuthOptions, SsoError } from "@jangka/shared/auth";
+import { type AuthOptions, type SsoError, safeRedirectPath } from "@jangka/shared/auth";
 import { asc, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -105,6 +105,6 @@ export function oidcRoutes({ db, config, logger }: RouteDeps) {
         actorId: result.userId,
         metadata: { providerId: provider.id },
       });
-      return c.redirect(flow.redirect, 302);
+      return c.redirect(safeRedirectPath(flow.redirect), 302);
     });
 }

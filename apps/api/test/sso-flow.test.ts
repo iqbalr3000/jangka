@@ -117,7 +117,12 @@ describe("sign-in flow", () => {
 
   it("never redirects off-site", async () => {
     const provider = await addProvider();
-    for (const target of ["https://evil.example", "//evil.example", "/\\evil.example"]) {
+    for (const target of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil.example",
+      "/\t/evil.example",
+    ]) {
       const { flowCookie, callback } = await signIn(provider.id, target);
       expect((await finish(callback, flowCookie)).headers.get("location")).toBe("/");
     }
@@ -167,8 +172,10 @@ describe("sign-in flow", () => {
       "/login?sso_error=domain_not_allowed&email=eve%40other.co",
     );
 
+    // The string "true" isn't a verified email.
+    const open = await addProvider({ name: "Open" });
     stub.state.nextClaims = { sub: "x-2", email: ADMIN.email, email_verified: "true" };
-    flow = await signIn(provider.id);
+    flow = await signIn(open.id);
     expect((await finish(flow.callback, flow.flowCookie)).headers.get("location")).toBe(
       "/login?sso_error=not_linked",
     );
@@ -248,6 +255,23 @@ describe("admin", () => {
     });
     expect(broken.status).toBe(400);
     expect(await broken.json()).toMatchObject({ error: { code: "invalid_provider" } });
+  });
+
+  it("never sends the stored client secret to a new issuer", async () => {
+    const provider = await addProvider();
+    const moved = await call(app, "PATCH", `/admin/auth-providers/${provider.id}`, {
+      cookie: admin,
+      body: { issuer: "https://idp.attacker.example" },
+    });
+    expect(moved.status).toBe(400);
+    expect(await moved.json()).toMatchObject({
+      error: { details: [{ path: ["clientSecret"] }] },
+    });
+    const unchanged = await call(app, "PATCH", `/admin/auth-providers/${provider.id}`, {
+      cookie: admin,
+      body: { issuer: stub.issuer, name: "Renamed" },
+    });
+    expect(unchanged.status).toBe(200);
   });
 
   it("keeps Google's issuer fixed", async () => {

@@ -13,7 +13,7 @@ import { collectionSummary } from "@jangka/shared/access";
 import { type AssistantEvent, assistantEvent, chatThread } from "@jangka/shared/assistant";
 import { type DocNode, documentDetail, documentSummary, section } from "@jangka/shared/document";
 import { builtinTemplates } from "@jangka/templates";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { RateLimiter } from "../src/lib/rate-limit";
@@ -228,6 +228,14 @@ describe("chat", () => {
     const second = await post(`/documents/${docId}/chat`, { message: "again" });
     expect(second.status).toBe(409);
     expect(await second.json()).toMatchObject({ error: { code: "generation_in_progress" } });
+    // The refused request left no message and no audit row behind.
+    const messages = await db.select({ content: chatMessages.content }).from(chatMessages);
+    expect(messages.map((m) => m.content)).not.toContain("again");
+    const chats = await db
+      .select()
+      .from(auditLogs)
+      .where(and(eq(auditLogs.targetId, docId), eq(auditLogs.action, "assistant.chat")));
+    expect(chats).toHaveLength(1);
     controller.abort();
     await iterator.return(undefined);
   });
@@ -422,6 +430,36 @@ describe("draft", () => {
       rest.push(next.value);
     expect(rest).toContainEqual({ type: "section_conflict", key: "problem" });
     expect((await sectionsNow()).find((s) => s.key === "problem")?.content).toEqual(human);
+  }, 20_000);
+
+  it("stops cleanly when the document is approved mid-run, keeping a summary", async () => {
+    await useFake();
+    fakeResponses(coverageWith([]));
+    await all(await post(`/documents/${docId}/chat`, { message: "[slow] Refunds" }));
+    const res = await post(`/documents/${docId}/draft`, { sections: ["problem"] });
+    const iterator = events(res);
+    for (let next = await iterator.next(); !next.done; next = await iterator.next()) {
+      if (next.value.type === "section_start") break;
+    }
+    for (const status of ["in_review", "approved"]) {
+      const changed = await call(app, "POST", `/documents/${docId}/status`, {
+        cookie: adminCookie,
+        body: { status },
+      });
+      expect(changed.status).toBe(200);
+    }
+    const rest: AssistantEvent[] = [];
+    for (let next = await iterator.next(); !next.done; next = await iterator.next())
+      rest.push(next.value);
+    expect(rest).toContainEqual(
+      expect.objectContaining({ type: "error", code: "document_approved" }),
+    );
+    const [last] = await db.select().from(chatMessages).orderBy(desc(chatMessages.id)).limit(1);
+    expect(last).toMatchObject({
+      kind: "draft",
+      interrupted: true,
+      content: "Nothing was drafted.",
+    });
   }, 20_000);
 });
 

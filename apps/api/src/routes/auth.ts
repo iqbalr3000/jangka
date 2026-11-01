@@ -23,7 +23,10 @@ function getDummyHash(): Promise<string> {
   return dummyHash;
 }
 
-export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter) {
+export function authRoutes(
+  { db, config }: RouteDeps,
+  { loginLimiter, loginIpLimiter }: { loginLimiter: RateLimiter; loginIpLimiter: RateLimiter },
+) {
   return new Hono<AppEnv>()
     .post("/login", zValidate("json", loginRequest), async (c) => {
       const { email, password } = c.req.valid("json");
@@ -34,8 +37,9 @@ export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter)
           "Password sign-in is turned off. Use SSO.",
         );
       }
-      const limitKey = `${clientIp(c)}|${email}`;
-      if (loginLimiter.isLimited(limitKey)) {
+      const ip = clientIp(c);
+      const limitKey = `${ip}|${email}`;
+      if (loginLimiter.isLimited(limitKey) || loginIpLimiter.isLimited(ip)) {
         throw new AppError("rate_limited", 429, "Too many attempts. Try again in 15 minutes.");
       }
 
@@ -43,6 +47,7 @@ export function authRoutes({ db, config }: RouteDeps, loginLimiter: RateLimiter)
       const valid = await verifyPassword(password, user?.passwordHash ?? (await getDummyHash()));
       if (!user?.passwordHash || !user.isActive || !valid) {
         loginLimiter.record(limitKey);
+        loginIpLimiter.record(ip);
         await audit(c, {
           action: "auth.login_failed",
           targetType: "user",

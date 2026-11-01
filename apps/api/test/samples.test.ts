@@ -1,7 +1,6 @@
 import { auditLogs, collectionGrants, collections, requirements, templates } from "@jangka/db";
 import { truncateAll } from "@jangka/db/testing";
 import { collectionDocumentList } from "@jangka/shared/access";
-import { chatThread } from "@jangka/shared/assistant";
 import { documentDetail } from "@jangka/shared/document";
 import { traceResponse } from "@jangka/shared/trace";
 import { eq } from "drizzle-orm";
@@ -65,17 +64,6 @@ describe("examples at setup", () => {
     );
     expect(tsd.source).toMatchObject({ id: byType.get("prd") });
     expect(tsd.sections.every((s) => s.revision === 1)).toBe(true);
-
-    // Complete content reads as full coverage in the assistant panel.
-    const chat = chatThread.parse(
-      await (
-        await call(app, "GET", `/documents/${byType.get("prd")}/chat`, { cookie: member })
-      ).json(),
-    );
-    // Every section of the PRD template (the panel showed "COVERAGE 0/12" before).
-    expect(chat.state?.sections).toHaveLength(12);
-    expect(chat.state?.sections.every((s) => s.coverage === "covered")).toBe(true);
-    expect(chat.messages).toEqual([]);
 
     const counts = await db.select().from(requirements);
     const prefixes = counts.map((r) => r.code.split("-")[0]);

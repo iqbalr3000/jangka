@@ -52,6 +52,7 @@ Browser (SPA) ──HTTP/SSE──> api (Hono) ──> Postgres
 | `SESSION_TTL_DAYS` | no       | default 30                                                            |
 | `ENABLE_FAKE_LLM`  | no       | default `false`; offers the deterministic fake provider (dev, e2e)    |
 | `FORCE_PASSWORD_LOGIN` | no   | default `false`; enables password login even if disabled in settings (SSO lockout escape hatch) |
+| `TRUST_PROXY`      | no       | default `false`; one reverse proxy in front: the client IP is the last `X-Forwarded-For` entry |
 
 ## 3. Data model
 

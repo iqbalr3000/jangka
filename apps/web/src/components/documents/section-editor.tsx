@@ -65,6 +65,8 @@ export function SectionEditor({
   // Last content known to be on the server: updates that don't change it aren't saved.
   const savedJson = useRef(JSON.stringify(section.content));
   const inFlight = useRef(false);
+  // After a failed save, nothing retries on its own: the next edit or reconnect does.
+  const failed = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [conflict, setConflict] = useState<Section | null>(null);
   // Read inside async callbacks, which would otherwise see a stale `conflict`.
@@ -91,12 +93,14 @@ export function SectionEditor({
         schema: sectionSchema,
       });
       revision.current = saved.revision;
+      failed.current = false;
       savedJson.current = JSON.stringify(content);
       setError(null);
       onSaved(saved);
       report(pending.current ? "saving" : "saved");
     } catch (err) {
       pending.current ??= content;
+      failed.current = true;
       if (err instanceof ApiError && err.code === "revision_conflict") {
         const details = revisionConflictDetails.safeParse(err.details);
         if (details.success) {
@@ -115,7 +119,7 @@ export function SectionEditor({
     } finally {
       inFlight.current = false;
     }
-    if (pending.current && !conflictRef.current) void flush();
+    if (pending.current && !conflictRef.current && !failed.current) void flush();
   }, [documentId, key, onSaved, report]);
 
   const editor = useEditor({
@@ -143,6 +147,7 @@ export function SectionEditor({
         return;
       }
       pending.current = parsed.data;
+      failed.current = false;
       if (conflictRef.current) return;
       // Unsaved changes count as saving, so "Saved" is never shown over pending edits.
       report("saving");
@@ -190,7 +195,10 @@ export function SectionEditor({
   // Edits that failed while offline are retried once the server answers again.
   const connection = useConnection();
   useEffect(() => {
-    if (connection === "online" && pending.current && !conflictRef.current) void flush();
+    if (connection === "online" && pending.current && !conflictRef.current) {
+      failed.current = false;
+      void flush();
+    }
   }, [connection, flush]);
 
   // Don't lose the last keystrokes when leaving the page.

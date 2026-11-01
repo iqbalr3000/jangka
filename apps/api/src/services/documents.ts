@@ -38,6 +38,20 @@ export async function findDocument(db: Db, id: string): Promise<DocumentRow | un
   return row;
 }
 
+/**
+ * Locks the document row for the rest of the transaction: `update` for status changes, `share` for
+ * writes the approval gate reads (verdicts). New comments wait too: their FK check takes a key-share lock.
+ */
+export async function lockDocument(
+  tx: Transaction,
+  id: string,
+  mode: "update" | "share",
+): Promise<DocumentRow> {
+  const [row] = await tx.select().from(documents).where(eq(documents.id, id)).for(mode);
+  if (!row) throw new AppError("not_found", 404, "Document not found");
+  return row;
+}
+
 /** The document when the subject can view it; 404 otherwise, so existence never leaks. */
 export async function viewableDocument(db: Db, data: AccessData, id: string): Promise<DocumentRow> {
   const row = await findDocument(db, id);

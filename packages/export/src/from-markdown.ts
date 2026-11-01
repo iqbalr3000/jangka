@@ -5,6 +5,7 @@ import {
   type InlineNode,
   type ListItemNode,
   type Mark,
+  SAFE_HREF,
   type TableCellNode,
 } from "@jangka/shared/document";
 import { type MarkedToken, marked, type Token, type Tokens } from "marked";
@@ -37,8 +38,6 @@ const KNOWN = new Set<string>([
 function known(token: Token): MarkedToken | null {
   return KNOWN.has(token.type) ? (token as MarkedToken) : null;
 }
-
-const SAFE_HREF = /^(https?:|mailto:)/i;
 
 function decodeEntities(text: string): string {
   return text

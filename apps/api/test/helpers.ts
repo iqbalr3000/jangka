@@ -58,7 +58,9 @@ export function buildApp(
     queue?: JobQueue;
     diagrams?: DiagramChecker;
     llmLimiter?: RateLimiter;
+    loginIpLimiter?: RateLimiter;
     searchFuzzy?: boolean;
+    trustProxy?: boolean;
   } = {},
 ) {
   const setupState = new SetupState(db);
@@ -78,21 +80,28 @@ export function buildApp(
       masterKey: TEST_MASTER_KEY,
       enableFakeLlm: options.enableFakeLlm ?? true,
       forcePasswordLogin: options.forcePasswordLogin ?? false,
+      trustProxy: options.trustProxy ?? false,
       // Every successful mutation in the suite must write an audit row.
       strictAudit: true,
     },
     setupState,
     loginLimiter: new RateLimiter(10, 15 * 60_000),
+    loginIpLimiter: options.loginIpLimiter,
   });
   return { app, setupState, queue };
 }
 
 export type TestApp = ReturnType<typeof buildApp>["app"];
 
-type RequestOptions = { cookie?: string | null; origin?: string | null; body?: unknown };
+type RequestOptions = {
+  cookie?: string | null;
+  origin?: string | null;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
 
 export function call(app: TestApp, method: string, path: string, options: RequestOptions = {}) {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (options.cookie) headers.cookie = options.cookie;
   const origin = options.origin === undefined ? ORIGIN : options.origin;
   if (origin) headers.origin = origin;

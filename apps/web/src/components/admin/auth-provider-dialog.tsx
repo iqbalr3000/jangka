@@ -168,6 +168,7 @@ export function AuthProviderDialog({ target, redirectUri, onClose }: AuthProvide
               id="provider-issuer"
               label="Issuer URL"
               placeholder="https://login.example.com/realms/acme"
+              hint={editing ? "Changing it requires the client secret again." : undefined}
               value={issuer}
               onChange={(event) => setIssuer(event.target.value)}
               error={errors.issuer}

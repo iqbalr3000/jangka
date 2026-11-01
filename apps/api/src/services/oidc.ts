@@ -1,4 +1,5 @@
 import type { authProviders } from "@jangka/db";
+import { safeRedirectPath } from "@jangka/shared/auth";
 import { decryptSecret, encryptSecret } from "@jangka/shared/crypto";
 import { AppError } from "@jangka/shared/errors";
 import * as client from "openid-client";
@@ -83,11 +84,6 @@ const flowState = z.object({
   expiresAt: z.number(),
 });
 type FlowState = z.infer<typeof flowState>;
-
-/** Relative paths only (`/x`, not `//x` or `/\x`), so the callback can't become an open redirect. */
-export function safeRedirectPath(value: string | undefined): string {
-  return value && /^\/(?![/\\])/.test(value) ? value : "/";
-}
 
 /** The IdP authorization URL plus the encrypted flow cookie value (state, nonce, PKCE). */
 export async function startFlow(

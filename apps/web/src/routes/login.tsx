@@ -1,4 +1,4 @@
-import { loginRequest, meResponse, ssoError } from "@jangka/shared/auth";
+import { loginRequest, meResponse, safeRedirectPath, ssoError } from "@jangka/shared/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
-import { meQuery, safeRedirect, setupStatusQuery } from "@/lib/queries";
+import { meQuery, setupStatusQuery } from "@/lib/queries";
 import { authOptionsQuery, ssoErrorMessage, ssoStartUrl } from "@/lib/sso";
 
 export const Route = createFileRoute("/login")({
@@ -54,7 +54,7 @@ function LoginPage() {
         schema: meResponse,
       });
       queryClient.setQueryData(meQuery.queryKey, me);
-      await navigate({ to: safeRedirect(target) });
+      await navigate({ to: safeRedirectPath(target) });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -79,7 +79,7 @@ function LoginPage() {
           <div className="flex flex-col gap-2">
             {providers.map((provider) => (
               <Button key={provider.id} variant="outline" className="h-10" asChild>
-                <a href={ssoStartUrl(provider.id, safeRedirect(target))}>
+                <a href={ssoStartUrl(provider.id, safeRedirectPath(target))}>
                   Continue with {provider.kind === "google" ? "Google" : provider.name}
                 </a>
               </Button>

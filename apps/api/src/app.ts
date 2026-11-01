@@ -6,6 +6,7 @@ import { createProvider, type ProviderFactory } from "@jangka/llm";
 import { AppError, type ErrorCode, type ErrorResponse } from "@jangka/shared/errors";
 import type { JobQueue } from "@jangka/worker/jobs";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
@@ -14,6 +15,7 @@ import type pg from "pg";
 import { auditMiddleware } from "./lib/audit";
 import { csrfOriginCheck } from "./lib/csrf";
 import { RateLimiter } from "./lib/rate-limit";
+import { resolveClientIp } from "./lib/request-meta";
 import { sessionMiddleware } from "./lib/session";
 import { setupGate } from "./lib/setup-gate";
 import type { Logger } from "./logger";
@@ -46,13 +48,19 @@ import { type DiagramChecker, queuedDiagramChecker } from "./services/diagrams";
 import type { SetupState } from "./services/setup";
 import type { AppConfig, AppEnv } from "./types";
 
+/** A section holds at most 512 KB (MAX_SECTION_BYTES); its JSON envelope fits well within this. */
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
 export type AppDeps = {
   db: Database;
   pool: pg.Pool;
   logger: Logger;
   config: AppConfig;
   setupState: SetupState;
+  /** Failed sign-ins per IP and email. */
   loginLimiter: RateLimiter;
+  /** Failed sign-ins per IP, whatever the email: spraying emails can't reset a victim's count. */
+  loginIpLimiter?: RateLimiter;
   /** Per-user cap on LLM requests (chat, draft, revise, diagram fixes). */
   llmLimiter?: RateLimiter;
   /** Defaults to the real adapters. */
@@ -87,10 +95,15 @@ export function createApp(deps: AppDeps) {
   const llm = deps.llm ?? createProvider;
   const { queue } = deps;
   const llmLimiter = deps.llmLimiter ?? new RateLimiter(LLM_REQUESTS_PER_WINDOW, LLM_WINDOW_MS);
+  const loginIpLimiter = deps.loginIpLimiter ?? new RateLimiter(100, 15 * 60_000);
   const diagrams = deps.diagrams ?? queuedDiagramChecker(db, queue);
   const app = new Hono<AppEnv>();
 
   app.use(requestId());
+  app.use(async (c, next) => {
+    c.set("clientIp", resolveClientIp(c, config.trustProxy ?? false));
+    await next();
+  });
   app.use(
     secureHeaders({
       contentSecurityPolicy: {
@@ -119,7 +132,8 @@ export function createApp(deps: AppDeps) {
       {
         requestId: c.get("requestId"),
         method: c.req.method,
-        path: c.req.path,
+        // The route pattern, not the path: invite and reset tokens travel in it.
+        path: c.req.routePath,
         status: c.res.status,
         durationMs: Math.round(performance.now() - start),
       },
@@ -146,6 +160,16 @@ export function createApp(deps: AppDeps) {
 
   app.notFound((c) => c.json(errorBody("not_found", "Not found"), 404));
 
+  // Before anything reads a body, and before auth: a sign-in request must not exhaust memory.
+  app.use(
+    "/api/*",
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: () => {
+        throw new AppError("payload_too_large", 413, "The request is too large");
+      },
+    }),
+  );
   app.use("/api/*", auditMiddleware(db, logger, config.strictAudit ?? false));
   app.use("/api/*", csrfOriginCheck(config.publicUrl));
   app.use("/api/*", setupGate(setupState));
@@ -157,7 +181,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api/v1/health", healthRoutes(pool));
   app.route("/api/v1/setup", setupRoutes(routeDeps, setupState));
   app.route("/api/v1/auth/oidc", oidcRoutes(routeDeps));
-  app.route("/api/v1/auth", authRoutes(routeDeps, loginLimiter));
+  app.route("/api/v1/auth", authRoutes(routeDeps, { loginLimiter, loginIpLimiter }));
   app.route("/api/v1/invites", inviteRoutes(routeDeps));
   app.route("/api/v1/admin", adminUserRoutes(routeDeps));
   app.route("/api/v1/admin/groups", adminGroupRoutes(routeDeps));

@@ -2,6 +2,7 @@ import type { CoverageLevel, InterviewState } from "@jangka/shared/assistant";
 import type { Section } from "@jangka/shared/document";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { coverageItems } from "@/lib/coverage";
 import { cn } from "@/lib/utils";
 
 const glyph: Record<CoverageLevel, string> = { missing: "○", partial: "◐", covered: "●" };
@@ -33,9 +34,7 @@ export function CoverageChecklist({
 }: CoverageChecklistProps) {
   const [open, setOpen] = useState(defaultOpen);
   const titles = new Map(sections.map((s) => [s.key, s.title]));
-  const items =
-    state?.sections ??
-    sections.map((s) => ({ key: s.key, coverage: "missing" as const, note: "" }));
+  const items = coverageItems(state, sections);
   const covered = items.filter((s) => s.coverage === "covered").length;
 
   return (
@@ -74,7 +73,7 @@ export function CoverageChecklist({
           ))}
         </ul>
       )}
-      {open && !state && (
+      {open && !state && covered === 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           Describe the problem in chat; coverage fills in as you answer.
         </p>

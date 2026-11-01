@@ -216,6 +216,17 @@ describe("verdicts and the approval gate", () => {
     expect((await setStatus("approved")).status).toBe(200);
   });
 
+  it("applies concurrent status changes one at a time, each from the current status", async () => {
+    await setStatus("in_review");
+    const results = await Promise.all([setStatus("approved"), setStatus("approved")]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
+    const actions = await db
+      .select({ action: auditLogs.action })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.targetId, docId), eq(auditLogs.action, "document.status")));
+    expect(actions).toHaveLength(2);
+  });
+
   it("starts a new round when the document goes back to draft", async () => {
     await assign(ids.rina);
     await setStatus("in_review");

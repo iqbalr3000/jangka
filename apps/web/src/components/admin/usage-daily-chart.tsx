@@ -1,6 +1,6 @@
 import type { UsageReport } from "@jangka/shared/llm";
+import { useLayoutEffect, useRef, useState } from "react";
 import { formatTokens } from "@/lib/usage";
-import { cn } from "@/lib/utils";
 
 const dayLabel = (date: string) =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
@@ -13,6 +13,19 @@ const dayLabel = (date: string) =>
 export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
   const max = Math.max(1, ...daily.map((d) => d.inputTokens + d.outputTokens));
   const ticks = [daily[0], daily[Math.floor(daily.length / 2)], daily.at(-1)];
+  const plot = useRef<HTMLDivElement>(null);
+  const tip = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ index: number; center: number } | null>(null);
+  const [left, setLeft] = useState(0);
+  const hovered = hover ? daily[hover.index] : undefined;
+
+  // Centered over the bar, clamped to the chart, measured before paint.
+  useLayoutEffect(() => {
+    if (!hover || !plot.current || !tip.current) return;
+    const width = tip.current.offsetWidth;
+    const room = Math.max(0, plot.current.clientWidth - width);
+    setLeft(Math.min(Math.max(hover.center - width / 2, 0), room));
+  }, [hover]);
 
   return (
     <figure className="flex flex-col gap-2">
@@ -26,18 +39,27 @@ export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
         </span>
         <span className="ml-auto">max {formatTokens(max)}</span>
       </figcaption>
-      <div className="flex h-40 items-end gap-[2px] border-b border-border" aria-hidden>
+      <div
+        ref={plot}
+        className="relative flex h-40 items-end gap-[2px] border-b border-border"
+        onMouseLeave={() => setHover(null)}
+        aria-hidden
+      >
         {daily.map((d, i) => {
           const total = d.inputTokens + d.outputTokens;
-          // Centered over the bar, except near the edges, where it would be cut off.
-          const place =
-            i < daily.length / 4
-              ? "left-0"
-              : i >= (daily.length * 3) / 4
-                ? "right-0"
-                : "left-1/2 -translate-x-1/2";
           return (
-            <div key={d.date} className="group relative flex h-full flex-1 flex-col justify-end">
+            // biome-ignore lint/a11y/noStaticElementInteractions: hover detail only; the table below has the data
+            <div
+              key={d.date}
+              data-day={d.date}
+              className="flex h-full flex-1 flex-col justify-end"
+              onMouseEnter={(event) =>
+                setHover({
+                  index: i,
+                  center: event.currentTarget.offsetLeft + event.currentTarget.offsetWidth / 2,
+                })
+              }
+            >
               {total > 0 && (
                 <div
                   className="flex flex-col gap-[2px]"
@@ -57,20 +79,22 @@ export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
                   />
                 </div>
               )}
-              <div
-                className={cn(
-                  "pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-sm border border-border bg-card px-2 py-1 text-xs whitespace-nowrap shadow-float group-hover:block",
-                  place,
-                )}
-              >
-                <div className="font-medium">{dayLabel(d.date)}</div>
-                <div className="text-muted-foreground">
-                  {formatTokens(d.inputTokens)} in · {formatTokens(d.outputTokens)} out
-                </div>
-              </div>
             </div>
           );
         })}
+        {hovered && (
+          <div
+            ref={tip}
+            data-chart-tooltip
+            style={{ left }}
+            className="pointer-events-none absolute bottom-full z-10 mb-1 rounded-sm border border-border bg-card px-2 py-1 text-xs whitespace-nowrap shadow-float"
+          >
+            <div className="font-medium">{dayLabel(hovered.date)}</div>
+            <div className="text-muted-foreground">
+              {formatTokens(hovered.inputTokens)} in · {formatTokens(hovered.outputTokens)} out
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex justify-between text-[11px] text-muted-foreground" aria-hidden>
         {ticks.map((d, i) => (

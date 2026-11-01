@@ -227,3 +227,36 @@ test("a viewer comments on selected words, highlighted until resolved", async ({
   await panel(admin).getByLabel("Resolved").check();
   await expect(adminThread).toContainText("Original text changed");
 });
+
+test("autosave stops retrying when the document is approved elsewhere", async ({ browser }) => {
+  const admin = await signIn(browser, ADMIN);
+  await admin.getByRole("button", { name: "+ New", exact: true }).click();
+  const dialog = admin.getByRole("dialog", { name: "New document" });
+  await dialog.getByLabel("Title").fill("Autosave stop");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  const overview = admin.getByRole("textbox", { name: "Overview", exact: true });
+  await overview.click();
+  await admin.keyboard.type("First draft.");
+  await expect(saveStatus(admin)).toHaveText(/Saved/);
+  const id = admin.url().split("/d/")[1] ?? "";
+
+  // Approved from another tab while this one keeps typing.
+  const other = await signIn(browser, ADMIN);
+  for (const status of ["in_review", "approved"]) {
+    const res = await other.request.post(`/api/v1/documents/${id}/status`, {
+      data: { status },
+      headers: { origin: new URL(other.url()).origin },
+    });
+    expect(res.ok()).toBe(true);
+  }
+
+  let puts = 0;
+  admin.on("request", (request) => {
+    if (request.method() === "PUT" && request.url().includes("/sections/")) puts += 1;
+  });
+  await overview.click();
+  await admin.keyboard.type(" More.");
+  await expect(admin.getByRole("status").filter({ hasText: "Not saved" })).toBeVisible();
+  await admin.waitForTimeout(2_000);
+  expect(puts).toBeLessThanOrEqual(2);
+});

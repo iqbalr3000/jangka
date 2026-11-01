@@ -66,6 +66,7 @@ async function startApi() {
       masterKey: env.MASTER_KEY,
       enableFakeLlm: env.ENABLE_FAKE_LLM,
       forcePasswordLogin: env.FORCE_PASSWORD_LOGIN,
+      trustProxy: env.TRUST_PROXY,
     },
     setupState: new SetupState(db),
     loginLimiter: new RateLimiter(10, 15 * 60_000),
