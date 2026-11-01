@@ -10,6 +10,7 @@ import {
 import { fromMarkdown, toMarkdown } from "@jangka/export";
 import { sampleDocuments } from "@jangka/templates";
 import { and, eq, isNull, like } from "drizzle-orm";
+import { saveState } from "./assistant";
 import { indexRequirements } from "./requirements";
 import { definitionOf, latestBuiltin } from "./templates";
 
@@ -89,6 +90,17 @@ export async function createSampleDocuments(
           });
         }
       }
+      // The content is complete, so the coverage checklist says so instead of "0/12".
+      await saveState(tx, document.id, {
+        sections: definitionOf(template).sections.map((section) => ({
+          key: section.key,
+          coverage: "covered",
+          note: "Covered by the example content.",
+        })),
+        openQuestions: [],
+        readyToDraft: true,
+        suggestions: [],
+      });
       documentIds.push(document.id);
       sourceId = document.id;
     }

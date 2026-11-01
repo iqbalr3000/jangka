@@ -138,4 +138,17 @@ test("Admin → Usage counts the assistant's calls", async ({ browser }) => {
   await expect(operations).toContainText("Chat replies");
   await expect(operations).toContainText("Coverage assessment");
   await expect(page.getByRole("region", { name: "Top documents" })).toContainText("Usage check");
+
+  // Day tooltips stay inside the chart, at both edges.
+  const chart = page.locator("figure", { hasText: "Tokens per day" });
+  const box = await chart.boundingBox();
+  for (const bar of [chart.locator(".group").first(), chart.locator(".group").last()]) {
+    await bar.hover();
+    const tip = await bar.locator(".absolute").boundingBox();
+    expect(box && tip).toBeTruthy();
+    if (box && tip) {
+      expect(tip.x).toBeGreaterThanOrEqual(box.x);
+      expect(tip.x + tip.width).toBeLessThanOrEqual(box.x + box.width);
+    }
+  }
 });

@@ -26,8 +26,6 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Usage chart tooltip clipping | Fix | The daily usage chart tooltip is cut off at the right edge |
-| Sample documents coverage | Fix | Example documents show "COVERAGE 0/12"; seed coverage that matches their content |
 | Document page bundle size | Enhancement | The document page JS chunk is ~611 KB; split heavy parts (Mermaid, editor extras) |
 
 ## Completed work
@@ -70,3 +68,4 @@ Cutoff: 2026-11-01
 - **Phase 4: assigned-reviewers** ([spec](spec-assigned-reviewers.md)) — editors assign reviewers who can view the document (migration 0016); reviewers approve or request changes while in review, and approval waits for every active reviewer with access (`409 pending_reviews`); back to draft clears verdicts; `review_requested` / `review_verdict` notifications; header avatars with a manage popover and verdict buttons; sidebar Reviews page with a count.
 - **Phase 4: text-anchored-comments** ([spec](spec-text-anchored-comments.md)) — root comments can point at selected words via a quote with prefix/suffix context (migration 0017), no change to section content; Comment in the formatting menu and a read-only bubble; open threads highlight their words, clicking opens the thread; detached quotes show "Original text changed".
 - **Phase 4: search-ranking** ([spec](spec-search-ranking.md)) — content matches still require every word (AND) but are ranked with the OR form of the query, avoiding `ts_rank`'s quadratic AND scoring; queries matching all 60k+ sections drop from p95 ≈ 1.2 s to ≈ 140 ms (2 words) / ≈ 170 ms (3 words); perf now budgets a truly selective query and the broad ones.
+- **Phase 4: fixes** — Usage chart day tooltips align to the chart edge near the first and last bars instead of being cut off; example documents are seeded with full coverage, so the assistant panel no longer shows "COVERAGE 0/12" (new instances or re-created examples).

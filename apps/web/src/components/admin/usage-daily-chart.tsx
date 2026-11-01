@@ -1,5 +1,6 @@
 import type { UsageReport } from "@jangka/shared/llm";
 import { formatTokens } from "@/lib/usage";
+import { cn } from "@/lib/utils";
 
 const dayLabel = (date: string) =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
@@ -26,8 +27,15 @@ export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
         <span className="ml-auto">max {formatTokens(max)}</span>
       </figcaption>
       <div className="flex h-40 items-end gap-[2px] border-b border-border" aria-hidden>
-        {daily.map((d) => {
+        {daily.map((d, i) => {
           const total = d.inputTokens + d.outputTokens;
+          // Centered over the bar, except near the edges, where it would be cut off.
+          const place =
+            i < daily.length / 4
+              ? "left-0"
+              : i >= (daily.length * 3) / 4
+                ? "right-0"
+                : "left-1/2 -translate-x-1/2";
           return (
             <div key={d.date} className="group relative flex h-full flex-1 flex-col justify-end">
               {total > 0 && (
@@ -49,7 +57,12 @@ export function UsageDailyChart({ daily }: { daily: UsageReport["daily"] }) {
                   />
                 </div>
               )}
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-sm border border-border bg-card px-2 py-1 text-xs whitespace-nowrap shadow-float group-hover:block">
+              <div
+                className={cn(
+                  "pointer-events-none absolute bottom-full z-10 mb-1 hidden rounded-sm border border-border bg-card px-2 py-1 text-xs whitespace-nowrap shadow-float group-hover:block",
+                  place,
+                )}
+              >
                 <div className="font-medium">{dayLabel(d.date)}</div>
                 <div className="text-muted-foreground">
                   {formatTokens(d.inputTokens)} in · {formatTokens(d.outputTokens)} out
