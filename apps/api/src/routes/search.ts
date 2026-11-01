@@ -58,20 +58,24 @@ export function searchRoutes({ db, searchFuzzy }: RouteDeps) {
       .limit(limit);
 
     // Every word must match, as a prefix (typeahead) or another form of the word.
-    const tsquery = stemmedQuery(searchWords(q), { join: "and", prefix: true });
+    const words = searchWords(q);
+    const tsquery = stemmedQuery(words, { join: "and", prefix: true });
+    // Ranked by the OR form: ts_rank on an AND query scores proximity, quadratic in word positions
+    // (≈ 0.6 s for two words over 60k matching sections); the OR form sums word weights linearly.
+    const rankQuery = stemmedQuery(words, { join: "or", prefix: true });
     const contentRows = tsquery
       ? await db
           .selectDistinctOn([documentSections.documentId], {
             ...fields,
             sectionKey: documentSections.sectionKey,
-            rank: sql<number>`ts_rank(${documentSections.search}, ${tsquery})`,
+            rank: sql<number>`ts_rank(${documentSections.search}, ${rankQuery})`,
           })
           .from(documentSections)
           .innerJoin(documents, eq(documents.id, documentSections.documentId))
           .where(and(visible, sql`${documentSections.search} @@ ${tsquery}`))
           .orderBy(
             documentSections.documentId,
-            desc(sql`ts_rank(${documentSections.search}, ${tsquery})`),
+            desc(sql`ts_rank(${documentSections.search}, ${rankQuery})`),
           )
       : [];
 

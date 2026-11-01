@@ -85,6 +85,26 @@ beforeEach(async () => {
 });
 
 describe("search", () => {
+  it("ranks content matches by how much they mention the words, all words still required", async () => {
+    const once = await create(
+      admin,
+      { title: "Alpha", collectionId: product, docType: "prd" },
+      "Refund requests need a receipt. Payouts take time.",
+    );
+    const often = await create(
+      admin,
+      { title: "Beta", collectionId: product, docType: "prd" },
+      "Refund requests: every refund needs a receipt, and a refund receipt is kept for audits.",
+    );
+    await create(
+      admin,
+      { title: "Gamma", collectionId: product, docType: "prd" },
+      "Refund requests are reviewed weekly.",
+    );
+    const items = await search("q=refund%20receipt");
+    expect(items.map((i) => i.id)).toEqual([often, once]);
+  });
+
   it("finds by title first, then by content, with a marked snippet", async () => {
     const byContent = await create(
       admin,

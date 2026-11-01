@@ -120,17 +120,18 @@ describe(`${DOCUMENTS} documents in ${COLLECTIONS} collections (member with a gr
         call(app, "GET", `/collections/${id}/documents`, { cookie: member }),
       ),
       await p95("document open", () => call(app, "GET", `/documents/${doc}`, { cookie: member })),
-      // A word found in ~1% of documents (another form of "approved"), as real searches are.
-      await p95("search (stemmed, selective)", () =>
-        call(app, "GET", "/search?q=approving", { cookie: member }),
+      // A word under 1% of documents mention ("approved by finance"), as real searches are.
+      await p95("search (selective)", () =>
+        call(app, "GET", "/search?q=finance", { cookie: member }),
+      ),
+      // Every section shares the fixture paragraph, so these rank all 60k+ sections.
+      await p95("search (every section, 2 words)", () =>
+        call(app, "GET", "/search?q=refunding%20business", { cookie: member }),
+      ),
+      await p95("search (every section, 3 words)", () =>
+        call(app, "GET", "/search?q=refunding%20business%20days", { cookie: member }),
       ),
     ];
-    // Reported, not budgeted: every section shares the same paragraph, so this ranks all 60k+
-    // sections. The ranking query was as slow with the old simple-only vector (backlog: cap the
-    // candidates before ranking).
-    await p95("search (every section matches; info only)", () =>
-      call(app, "GET", "/search?q=refunding%20business", { cookie: member }),
-    );
     for (const value of results) expect(value).toBeLessThan(BUDGET_MS);
   }, 120_000);
 });

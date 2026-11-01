@@ -36,6 +36,10 @@ search on 5,000 documents stays within budget (p95 ≈ 116 ms); a query matching
 budgeted (endpoint p95 ≈ 1.2 s; its ranking query takes ≈ 0.65 s now and took ≈ 0.8 s with the old vector) and is
 tracked in the roadmap backlog.
 
+> **Correction (2026-11-01, [search-ranking](spec-search-ranking.md)):** the "selective" perf query (`approving`)
+> matched every section (the English stem `approv` also matches "approved" in the fixture), so ≈ 116 ms measured a
+> single-word ranking, not a selective search. Broad queries are now ranked with the OR form and budgeted.
+
 ## Out of scope
 
 Fuzzy content matching; "did you mean" suggestions; per-instance language setting; other languages.
