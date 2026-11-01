@@ -26,12 +26,13 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Text-anchored comments, mentions / notifications, assigned reviewers | Feature | Deferred in `review` |
+| Assigned reviewers | Feature | Deferred in `review`; next up |
+| Text-anchored comments | Feature | Deferred in `review`; after assigned reviewers |
 | Search ranking when most sections match | Enhancement | Found by `test:perf` (search-stemming): a query matching all ~60k sections ranks every one (endpoint p95 ≈ 1.2 s; the ranking query alone ≈ 0.65 s, and ≈ 0.8 s with the old `simple`-only vector, so it predates stemming). Cap candidates before `ts_rank` |
 
 ## Completed work
 
-Cutoff: 2026-10-31
+Cutoff: 2026-11-01
 
 - **foundation** — monorepo, env validation, crypto util, Drizzle base, error shape, `audit()` no-op, Docker image + compose, SPA shell + design tokens.
 - **auth** — setup wizard (token + advisory lock), password login, rolling sessions, CSRF origin check, `/auth/me`, invite + password-reset links, admin users page, Playwright e2e.
@@ -65,3 +66,4 @@ Cutoff: 2026-10-31
 - **Phase 4: template-transfer** ([spec](spec-template-transfer.md)) — export any template version as a `jangka-template` JSON file (no ids or instance data); import validates it server-side (256 KB limit, requirement-kind rules) and creates a draft v1 of a new family; Import… dialog with an editable name, Export in the row menu and the editor.
 - **Phase 4: requirement-chips** ([spec](spec-requirement-chips.md)) — requirement codes in section text render as chips (own, `↑` upstream, restricted, missing) via a TipTap decoration plugin fed by the trace data; one shared tooltip that follows the chip; click opens the Trace tab on the requirement with a highlight; no change to content, export or backend.
 - **Phase 4: search-stemming** ([spec](spec-search-stemming.md)) — `document_sections.search` combines simple, English and Indonesian lexemes (migration 0014); search and chat retrieval match each word as a prefix or either stem via a shared `stemmedQuery`; typo-tolerant titles with `pg_trgm`, enabled at boot when allowed; perf check budgets a selective search (p95 ≈ 116 ms on 5,000 documents).
+- **Phase 4: notifications** ([spec](spec-notifications.md)) — in-app notifications (migration 0015) for @mentions, replies, resolved threads and status changes, filtered by view access at creation and on read, ids only with excerpts read fresh, 90-day purge on list load; top-bar bell with polled unread count and a panel that lands on the thread; `@` suggestions in the comment composer limited to people who can view the document, mentions rendered as chips.

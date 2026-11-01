@@ -42,6 +42,8 @@ type AssistantPanelProps = {
   onRevise: (key: string, instruction: string) => void;
   /** A requirement opened from a chip, for the Trace tab. */
   traceFocus: { code: string; at: number } | null;
+  /** A thread opened from a notification, for the Comments tab. */
+  commentFocus: { thread: string; at: number } | null;
   /** "Review updates" on the chat's update suggestions. */
   onReviewUpdates: (suggestions: InterviewState["suggestions"]) => void;
   /** Visibility per breakpoint, set by the document layout. */
@@ -132,6 +134,7 @@ export function AssistantPanel({
   onRestored,
   commentsKey,
   onCommentsKeyChange,
+  commentFocus,
   sections,
   assistant,
   editable,
@@ -239,6 +242,7 @@ export function AssistantPanel({
           sections={sections}
           sectionKey={commentsKey}
           onSectionChange={onCommentsKeyChange}
+          focus={commentFocus}
         />
       ) : tab === "history" ? (
         <HistoryPanel

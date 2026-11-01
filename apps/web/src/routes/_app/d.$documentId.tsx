@@ -8,8 +8,9 @@ import {
 } from "@jangka/shared/document";
 import type { ExportJob } from "@jangka/shared/export";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import { AssistantPanel, type PanelTab, panelTabs } from "@/components/assistant/assistant-panel";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DocumentHeader, type SaveSummary } from "@/components/documents/document-header";
@@ -46,6 +47,11 @@ import { type Assistant, useAssistant } from "@/lib/use-assistant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/d/$documentId")({
+  // Set by notification links: open the Comments tab on this section and thread.
+  validateSearch: z.object({
+    comments: z.string().optional().catch(undefined),
+    thread: z.string().optional().catch(undefined),
+  }),
   component: DocumentRoute,
 });
 
@@ -111,6 +117,9 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
   const mainRef = useRef<HTMLElement>(null);
   const [historyKey, setHistoryKey] = useState(detail.sections[0]?.key ?? "");
   const [commentsSection, setCommentsSection] = useState("");
+  const [commentFocus, setCommentFocus] = useState<{ thread: string; at: number } | null>(null);
+  const linked = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const openComments = useQuery(commentsQuery(doc.id, "open")).data?.openCountBySection ?? {};
   const trace = useQuery(traceQuery(doc.id));
   const chips = useMemo(() => chipIndex(trace.data), [trace.data]);
@@ -215,6 +224,16 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
     setPanel("open");
     setPane("assistant");
   }
+
+  useEffect(() => {
+    if (!linked.comments) return;
+    setCommentsSection(linked.comments);
+    setCommentFocus(linked.thread ? { thread: linked.thread, at: Date.now() } : null);
+    setPanelTab("comments");
+    setPanel("open");
+    setPane("assistant");
+    void navigate({ search: {}, replace: true });
+  }, [linked.comments, linked.thread, navigate, setPanel, setPanelTab]);
 
   const openTrace = useCallback(
     (code: string) => {
@@ -474,6 +493,7 @@ function DocumentWorkspace({ detail, userId }: { detail: DocumentDetail; userId:
           onRestored={replaceSection}
           commentsKey={commentsSection}
           onCommentsKeyChange={setCommentsSection}
+          commentFocus={commentFocus}
           sections={detail.sections}
           assistant={assistant}
           editable={editable}

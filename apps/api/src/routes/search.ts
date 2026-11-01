@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { requireAuth } from "../lib/session";
 import { zValidate } from "../lib/validate";
 import { loadAccess, ROOT_NAME } from "../services/access";
-import { stemmedQuery } from "../services/search-query";
+import { escapeLike, stemmedQuery } from "../services/search-query";
 import { definitionOf } from "../services/templates";
 import { viewableScope } from "../services/visibility";
 import type { AppEnv, RouteDeps } from "../types";
@@ -21,10 +21,6 @@ export function searchWords(q: string): string[] {
   return [...new Set(q.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])]
     .filter((t) => t.length >= MIN_QUERY)
     .slice(0, 12);
-}
-
-function escapeLike(q: string): string {
-  return q.replace(/[\\%_]/g, "\\$&");
 }
 
 export function searchRoutes({ db, searchFuzzy }: RouteDeps) {

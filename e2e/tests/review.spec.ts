@@ -74,3 +74,44 @@ test("a reader comments, the editor resolves, approves, and reopens", async ({ b
     "Not enough information yet.",
   );
 });
+
+test("an @mention notifies the member, who lands on the comment", async ({ browser }) => {
+  const admin = await signIn(browser, ADMIN);
+  await admin.getByRole("button", { name: "+ New", exact: true }).click();
+  const dialog = admin.getByRole("dialog", { name: "New document" });
+  await dialog.getByLabel("Title").fill("Mention flow");
+  await dialog.getByLabel("Collection").selectOption({ label: "Platform" });
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await expect(admin.getByRole("textbox", { name: "Overview", exact: true })).toBeVisible();
+
+  await admin.getByRole("button", { name: "Comment on Overview" }).click();
+  const box = panel(admin).getByLabel("Comment on Overview");
+  await box.pressSequentially("Can you check this @Ri");
+  await panel(admin).getByRole("option", { name: /Rina/ }).click();
+  await box.pressSequentially("please check the refund window?");
+  await panel(admin).getByRole("button", { name: "Comment", exact: true }).click();
+  const thread = panel(admin).getByRole("listitem", { name: "Thread on Overview" });
+  await expect(thread).toContainText("Can you check this @Rina please check the refund window?");
+  await expect(thread.getByText("@Rina", { exact: true })).toBeVisible();
+
+  const member = await signIn(browser, MEMBER);
+  await expect(member.getByTestId("unread-badge")).toBeVisible();
+  await member.getByRole("button", { name: /^Notifications, \d+ unread$/ }).click();
+  const notifications = member.getByRole("dialog", { name: "Notifications" });
+  const item = notifications.getByRole("button", {
+    name: /Ada Admin mentioned you in Mention flow/,
+  });
+  await expect(item).toContainText("Can you check this @Rina please check the refund window?");
+  await item.click();
+
+  await expect(member).toHaveURL(/\/d\/[^?]+$/);
+  await expect(member.getByLabel("Document title")).toHaveValue("Mention flow");
+  const landed = panel(member).getByRole("listitem", { name: "Thread on Overview" });
+  await expect(landed).toContainText("Can you check this @Rina please check the refund window?");
+  await member.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(
+    notifications
+      .getByRole("button", { name: /Ada Admin mentioned you in Mention flow/ })
+      .getByRole("img", { name: "Unread" }),
+  ).toHaveCount(0);
+});

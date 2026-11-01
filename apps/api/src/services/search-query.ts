@@ -33,3 +33,8 @@ export async function enableFuzzySearch(pool: pg.Pool, logger: Logger): Promise<
   const { rowCount } = await pool.query("select 1 from pg_extension where extname = 'pg_trgm'");
   return (rowCount ?? 0) > 0;
 }
+
+/** `q` as a literal inside a LIKE pattern. */
+export function escapeLike(q: string): string {
+  return q.replace(/[\\%_]/g, "\\$&");
+}

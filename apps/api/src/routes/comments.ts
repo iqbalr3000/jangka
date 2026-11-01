@@ -16,13 +16,14 @@ import { requireAuth } from "../lib/session";
 import { zValidate } from "../lib/validate";
 import { type AccessData, loadAccess } from "../services/access";
 import { type DocumentRow, viewableDocument } from "../services/documents";
+import { commentEvents, editEvents, notify } from "../services/notifications";
 import type { AppEnv, RouteDeps } from "../types";
 
 const idParam = z.object({ id: z.uuid() });
 
 type CommentRow = typeof comments.$inferSelect;
 
-export function commentRoutes({ db }: RouteDeps) {
+export function commentRoutes({ db, logger }: RouteDeps) {
   async function context(c: Context<AppEnv>) {
     const auth = requireAuth(c);
     const data = await loadAccess(db, {
@@ -170,6 +171,7 @@ export function commentRoutes({ db }: RouteDeps) {
           targetId: document.id,
           metadata: { commentId: row.id, section: sectionKey, reply: parentId !== undefined },
         });
+        await notify(db, logger, { document, actorId: auth.user.id }, await commentEvents(db, row));
         return c.json({ id: row.id }, 201);
       },
     )
@@ -181,9 +183,10 @@ export function commentRoutes({ db }: RouteDeps) {
         const { auth, data } = await context(c);
         const { comment, document } = await findComment(data, c.req.valid("param").id);
         requireAuthor(comment, auth.user.id);
+        const { body } = c.req.valid("json");
         await db
           .update(comments)
-          .set({ body: c.req.valid("json").body, editedAt: new Date() })
+          .set({ body, editedAt: new Date() })
           .where(eq(comments.id, comment.id));
         await audit(c, {
           action: "comment.update",
@@ -191,6 +194,12 @@ export function commentRoutes({ db }: RouteDeps) {
           targetId: document.id,
           metadata: { commentId: comment.id },
         });
+        await notify(
+          db,
+          logger,
+          { document, actorId: auth.user.id },
+          editEvents(comment, comment.body, body),
+        );
         return c.body(null, 204);
       },
     )
@@ -235,6 +244,16 @@ export function commentRoutes({ db }: RouteDeps) {
           targetId: document.id,
           metadata: { commentId: comment.id, section: comment.sectionKey },
         });
+        if (resolving) {
+          await notify(db, logger, { document, actorId: auth.user.id }, [
+            {
+              recipientId: comment.authorId,
+              kind: "resolved",
+              sectionKey: comment.sectionKey,
+              commentId: comment.id,
+            },
+          ]);
+        }
         return c.body(null, 204);
       },
     );

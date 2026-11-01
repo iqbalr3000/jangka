@@ -16,7 +16,7 @@ import {
 } from "@jangka/permissions";
 import type { AccessView, CollectionSummary } from "@jangka/shared/access";
 import { AppError } from "@jangka/shared/errors";
-import { count, eq, isNull } from "drizzle-orm";
+import { count, eq, inArray, isNull } from "drizzle-orm";
 
 type Db = Database | Transaction;
 
@@ -80,6 +80,54 @@ export async function loadAccess(db: Db, subject: Subject): Promise<AccessData> 
     groupNames: new Map(groupRows.map((group) => [group.id, group.name])),
     documentCounts: new Map(countRows.map((row) => [row.collectionId, row.documents])),
   };
+}
+
+/**
+ * Permission contexts for other users (notification recipients, mention suggestions), with one
+ * memberships query for all of them. Unknown ids get no entry.
+ */
+export async function contextsFor(
+  db: Db,
+  userIds: readonly string[],
+): Promise<Map<string, PermissionContext>> {
+  const ids = [...new Set(userIds)];
+  if (ids.length === 0) return new Map();
+  const [collectionRows, grantRows, groupRows, memberRows] = await Promise.all([
+    db
+      .select({
+        id: collections.id,
+        parentId: collections.parentId,
+        personalOwnerId: collections.personalOwnerId,
+      })
+      .from(collections),
+    db
+      .select({
+        collectionId: collectionGrants.collectionId,
+        groupId: collectionGrants.groupId,
+        level: collectionGrants.level,
+      })
+      .from(collectionGrants),
+    db.select({ id: groups.id, systemKey: groups.systemKey }).from(groups),
+    db
+      .select({ userId: groupMembers.userId, groupId: groupMembers.groupId })
+      .from(groupMembers)
+      .where(inArray(groupMembers.userId, ids)),
+  ]);
+  const allUsers = groupRows.find((group) => group.systemKey === "all_users");
+  const admins = groupRows.find((group) => group.systemKey === "admins");
+  return new Map(
+    ids.map((userId) => {
+      const groupIds = memberRows.filter((m) => m.userId === userId).map((m) => m.groupId);
+      const ctx = createContext({
+        userId,
+        isAdmin: admins !== undefined && groupIds.includes(admins.id),
+        groupIds: allUsers ? [...groupIds, allUsers.id] : groupIds,
+        collections: collectionRows,
+        grants: grantRows,
+      });
+      return [userId, ctx];
+    }),
+  );
 }
 
 /** Archived itself or below an archived ancestor. */

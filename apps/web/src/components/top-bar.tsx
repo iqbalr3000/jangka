@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { isPlainKey, modKeyLabel } from "@/lib/keyboard";
 import { CommandPalette } from "./command-palette";
 import { NewDocumentDialog } from "./documents/new-document-dialog";
+import { NotificationBell } from "./notification-bell";
 import type { ShellUser } from "./shell-types";
 import { UserMenu } from "./user-menu";
 import { Wordmark } from "./wordmark";
@@ -73,6 +74,7 @@ export function TopBar({ user }: { user?: ShellUser }) {
           defaultCollectionId={currentCollectionId}
         />
       )}
+      {user && <NotificationBell />}
       <UserMenu user={user} />
     </header>
   );

@@ -1,12 +1,13 @@
 import type { Section } from "@jangka/shared/document";
 import type { CommentThread, CommentView } from "@jangka/shared/review";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { CommentBody } from "@/components/documents/comment-body";
+import { CommentComposer } from "@/components/documents/comment-composer";
 import { ErrorBanner } from "@/components/error-banner";
 import { LoadingRows } from "@/components/loading-rows";
-import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { errorMessage } from "@/lib/form-errors";
 import { timeAgo } from "@/lib/llm";
@@ -19,60 +20,14 @@ type CommentsPanelProps = {
   /** The section in focus (from its header badge), or "" for all. */
   sectionKey: string;
   onSectionChange: (key: string) => void;
+  /** A thread opened from a notification: shown, scrolled to and highlighted. */
+  focus: { thread: string; at: number } | null;
 };
 
 const ALL = "";
-const textarea = "w-full rounded-sm border border-input bg-card px-2 py-1.5 text-[13px]";
-
-function Composer({
-  placeholder,
-  initial = "",
-  submitLabel,
-  pending,
-  onSubmit,
-  onCancel,
-}: {
-  placeholder: string;
-  initial?: string;
-  submitLabel: string;
-  pending: boolean;
-  onSubmit: (body: string) => void;
-  onCancel?: () => void;
-}) {
-  const [body, setBody] = useState(initial);
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (body.trim()) onSubmit(body.trim());
-  }
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-1.5">
-      <textarea
-        aria-label={placeholder}
-        placeholder={placeholder}
-        rows={2}
-        maxLength={4000}
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event);
-        }}
-        className={textarea}
-      />
-      <span className="flex justify-end gap-1.5">
-        {onCancel && (
-          <Button type="button" size="xs" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-        )}
-        <Button type="submit" size="xs" disabled={pending || !body.trim()}>
-          {submitLabel}
-        </Button>
-      </span>
-    </form>
-  );
-}
 
 type CommentActions = {
+  documentId: string;
   editing: string | null;
   pending: boolean;
   onReply: (rootId: string) => void;
@@ -92,7 +47,8 @@ function Comment({
 }) {
   if (actions.editing === comment.id) {
     return (
-      <Composer
+      <CommentComposer
+        documentId={actions.documentId}
         placeholder="Edit comment"
         initial={comment.body ?? ""}
         submitLabel="Save"
@@ -112,7 +68,11 @@ function Comment({
         {comment.editedAt && <span>· edited</span>}
       </span>
       <p className={cn("whitespace-pre-wrap", comment.deleted && "text-muted-foreground italic")}>
-        {comment.deleted ? "Comment deleted" : comment.body}
+        {comment.deleted || comment.body === null ? (
+          "Comment deleted"
+        ) : (
+          <CommentBody body={comment.body} />
+        )}
       </p>
       <span className="flex gap-2 text-xs">
         {thread && !thread.resolvedAt && (
@@ -167,6 +127,7 @@ export function CommentsPanel({
   sections,
   sectionKey,
   onSectionChange,
+  focus,
 }: CommentsPanelProps) {
   const queryClient = useQueryClient();
   const [showResolved, setShowResolved] = useState(false);
@@ -195,7 +156,25 @@ export function CommentsPanel({
     },
   });
 
+  // A linked thread may be resolved: show resolved ones too, then bring it into view.
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focus || !list.data || focused.current === `${focus.thread}:${focus.at}`) return;
+    if (!list.data.threads.some((t) => t.root.id === focus.thread) && !showResolved) {
+      setShowResolved(true);
+      return;
+    }
+    focused.current = `${focus.thread}:${focus.at}`;
+    const row = document.querySelector<HTMLElement>(`[data-thread="${CSS.escape(focus.thread)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+    row.classList.remove("req-focus");
+    void row.offsetWidth;
+    row.classList.add("req-focus");
+  }, [focus, list.data, showResolved]);
+
   const actions: CommentActions = {
+    documentId,
     editing,
     pending: run.isPending,
     onReply: setReplyTo,
@@ -262,6 +241,7 @@ export function CommentsPanel({
         {threads.map((thread) => (
           <li
             key={thread.root.id}
+            data-thread={thread.root.id}
             aria-label={`Thread on ${titles.get(thread.root.sectionKey) ?? thread.root.sectionKey}`}
             className={cn(
               "flex flex-col gap-2 rounded-md border border-border p-3",
@@ -289,7 +269,8 @@ export function CommentsPanel({
               </span>
             )}
             {replyTo === thread.root.id && (
-              <Composer
+              <CommentComposer
+                documentId={documentId}
                 placeholder="Reply"
                 submitLabel="Reply"
                 pending={run.isPending}
@@ -321,8 +302,9 @@ export function CommentsPanel({
       />
       {target && (
         <div className="border-t border-border px-4 py-3">
-          <Composer
+          <CommentComposer
             key={`${target}:${round}`}
+            documentId={documentId}
             placeholder={`Comment on ${titles.get(target) ?? target}`}
             submitLabel="Comment"
             pending={run.isPending}

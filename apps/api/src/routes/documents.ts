@@ -47,6 +47,7 @@ import {
   validSource,
   viewableDocument,
 } from "../services/documents";
+import { notify } from "../services/notifications";
 import { applyUpgrade, newerTemplate, upgradePreview } from "../services/template-upgrade";
 import { defaultTemplates, definitionOf, templateForNewDocument } from "../services/templates";
 import type { AppEnv, RouteDeps } from "../types";
@@ -105,7 +106,7 @@ export function templateRoutes({ db }: RouteDeps) {
   });
 }
 
-export function documentRoutes({ db, locks }: RouteDeps) {
+export function documentRoutes({ db, locks, logger }: RouteDeps) {
   const access = (c: Context<AppEnv>) => {
     const auth = requireAuth(c);
     return loadAccess(db, {
@@ -364,6 +365,11 @@ export function documentRoutes({ db, locks }: RouteDeps) {
           targetId: row.id,
           metadata: { from: row.status, to: status },
         });
+        if (row.createdBy) {
+          await notify(db, logger, { document: row, actorId: auth.user.id }, [
+            { recipientId: row.createdBy, kind: "status", status },
+          ]);
+        }
         return c.json(await summaryOf(updated));
       },
     )

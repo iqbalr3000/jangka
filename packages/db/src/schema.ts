@@ -569,3 +569,33 @@ export const comments = pgTable(
     index("comments_parent_id_idx").on(t.parentId),
   ],
 );
+
+export const NOTIFICATION_KINDS = ["mention", "reply", "resolved", "status"] as const;
+
+/** In-app notifications. Ids only: titles and excerpts are read fresh, behind an access check. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    recipientId: uuid("recipient_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sectionKey: text("section_key"),
+    commentId: uuid("comment_id").references(() => comments.id, { onDelete: "set null" }),
+    actorId: uuid("actor_id").references(() => users.id),
+    // The new status, for `status` notifications.
+    status: text("status"),
+    readAt: tz("read_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // UUIDv7 ids are time-ordered: the list pages by id.
+    index("notifications_recipient_id_idx").on(t.recipientId, t.id.desc()),
+    index("notifications_unread_idx").on(t.recipientId).where(sql`${t.readAt} is null`),
+    check("notifications_kind", sql`${t.kind} in ('mention', 'reply', 'resolved', 'status')`),
+  ],
+);
