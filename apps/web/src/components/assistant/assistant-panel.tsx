@@ -77,7 +77,6 @@ function Message({
   message: DisplayMessage;
   /** The latest reply: typed out instead of shown whole. */
   live?: boolean;
-  /** More text is still on its way. */
   streaming?: boolean;
   referenceCount?: number;
 }) {

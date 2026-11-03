@@ -88,7 +88,6 @@ export function childrenByParent<T extends { id: string; parentId: string | null
   return map;
 }
 
-/** Ids of `rootId` and all its descendants within `items`. */
 export function subtreeIds(
   items: readonly { id: string; parentId: string | null }[],
   rootId: string,

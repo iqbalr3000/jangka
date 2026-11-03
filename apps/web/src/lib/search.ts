@@ -18,7 +18,6 @@ export const searchQuery = (q: string, options: { type?: string; limit: number }
     placeholderData: keepPreviousData,
   });
 
-/** `value` once it has stopped changing for `ms`. */
 export function useDebounced<T>(value: T, ms = 200): T {
   const [settled, setSettled] = useState(value);
   useEffect(() => {

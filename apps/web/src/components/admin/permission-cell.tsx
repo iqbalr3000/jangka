@@ -22,7 +22,6 @@ const shortLabel: Record<Level, string> = { edit: "Edit", view: "View", none: "â
 type PermissionCellProps = {
   state: CellState;
   label: string;
-  /** Name of the collection the inherited value comes from. */
   inheritedFrom: string;
   isRoot: boolean;
   onChange: (level: Level | null) => void;

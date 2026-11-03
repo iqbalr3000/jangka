@@ -15,7 +15,6 @@ export const REQUIREMENT_KINDS_BY_TYPE = {
   tsd: ["technical"],
 } as const satisfies Record<"brd" | "prd" | "tsd", readonly RequirementKind[]>;
 
-/** The document type a document of this type may be generated from. */
 export const UPSTREAM_DOC_TYPE = { brd: null, prd: "brd", tsd: "prd" } as const;
 
 export const NO_INVENTION =

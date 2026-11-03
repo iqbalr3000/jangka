@@ -20,7 +20,6 @@ export const EMPTY_CHIPS: ChipIndex = new Map();
 
 const CODE = /\b(?:BR|FR|NFR|TR)-\d{3,}\b/g;
 
-/** Requirement codes in `text` with their offsets. */
 export function findCodes(text: string): { code: string; from: number; to: number }[] {
   return [...text.matchAll(CODE)].map((m) => ({
     code: m[0],

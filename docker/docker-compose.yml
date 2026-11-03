@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: jangka
       POSTGRES_DB: jangka
     volumes:
-      # PG18 image keeps data under /var/lib/postgresql/18/docker; mounting .../data would not persist.
+      # PG18 stores data in /var/lib/postgresql/18/docker; mounting .../data would not persist.
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jangka -d jangka"]
@@ -17,11 +17,9 @@ services:
       retries: 10
 
   app:
-    # Fixed name so `docker logs jangka | grep "SETUP TOKEN"` (shown in the setup wizard) works.
+    image: iqbalr3000/jangka:${JANGKA_VERSION:-latest}
+    # The setup wizard tells admins to run `docker logs jangka`.
     container_name: jangka
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

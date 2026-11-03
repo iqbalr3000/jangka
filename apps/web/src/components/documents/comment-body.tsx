@@ -1,6 +1,5 @@
 import { bodyParts } from "@jangka/shared/notifications";
 
-/** A comment's text with mentions as name chips. */
 export function CommentBody({ body }: { body: string }) {
   return bodyParts(body).map((part, i) =>
     "mention" in part ? (

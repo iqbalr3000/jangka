@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOCKERHUB_IMAGE: iqbalr3000/jangka
+  GHCR_IMAGE: ghcr.io/iqbalr3000/jangka
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      packages: write # push to GHCR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag
+        id: v
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not valid semver (expected vX.Y.Z or vX.Y.Z-rc.N)"; exit 1
+          fi
+
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $TAG points to a commit that is not on main"; exit 1
+          fi
+
+          NOTES="docs/releases/$TAG.md"
+          if [[ ! -f "$NOTES" ]]; then
+            echo "::error::$NOTES not found; commit the release notes before tagging"; exit 1
+          fi
+          if grep -qE 'X\.Y\.Z|…' "$NOTES"; then
+            echo "::error::$NOTES still has template placeholders (X.Y.Z or …)"; exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          [[ "$VERSION" == *-* ]] && PRE=true || PRE=false
+          {
+            echo "version=$VERSION"
+            echo "prerelease=$PRE"
+            echo "notes=$NOTES"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # Nothing is pushed until this image boots: a pushed release moves `latest` for everyone.
+      - name: Build smoke-test image (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: jangka:smoke
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,scope=release,mode=max
+
+      - name: Smoke test
+        run: |
+          docker network create smoke
+          docker run -d --name db --network smoke \
+            -e POSTGRES_USER=jangka -e POSTGRES_PASSWORD=jangka -e POSTGRES_DB=jangka \
+            postgres:18
+          # Over TCP: the image's init server answers on the socket, then restarts.
+          until docker exec db pg_isready -h 127.0.0.1 -U jangka -d jangka -q; do sleep 1; done
+
+          docker run -d --name app --network smoke -p 3000:3000 \
+            -e DATABASE_URL=postgres://jangka:jangka@db:5432/jangka \
+            -e MASTER_KEY="$(openssl rand -base64 32)" \
+            -e PUBLIC_URL=http://localhost:3000 \
+            jangka:smoke
+
+          for i in $(seq 1 60); do
+            curl -fs http://localhost:3000/api/v1/health && break
+            if [[ "$(docker inspect -f '{{.State.Running}}' app)" != "true" ]]; then
+              docker logs app; echo "::error::app container exited"; exit 1
+            fi
+            sleep 2
+          done
+          curl -fs http://localhost:3000/api/v1/health || { docker logs app; exit 1; }
+          curl -fs http://localhost:3000/ | grep -q "<div id=\"root\"" \
+            || { echo "::error::web app not served"; exit 1; }
+
+          # Exports and diagrams need Chromium to launch inside the image.
+          docker exec app node -e "import('/app/apps/api/node_modules/playwright-core/index.mjs')
+            .then(async ({ chromium }) => { await (await chromium.launch()).close(); })
+            .catch((err) => { console.error(err); process.exit(1); })"
+
+      - name: Smoke test logs
+        if: failure()
+        run: docker logs app || true
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Final release (1.4.2) -> 1.4.2, 1.4, 1, latest
+      # Pre-release (1.4.2-rc.1) -> 1.4.2-rc.1 only
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKERHUB_IMAGE }}
+            ${{ env.GHCR_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          flavor: |
+            latest=auto
+
+      - name: Build and push (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=release
+          cache-to: type=gha,scope=release,mode=max
+
+      - name: Verify both platforms were pushed
+        run: |
+          for img in "$DOCKERHUB_IMAGE" "$GHCR_IMAGE"; do
+            out="$(docker buildx imagetools inspect "$img:${{ steps.v.outputs.version }}")"
+            echo "$out"
+            grep -q "linux/amd64" <<<"$out" && grep -q "linux/arm64" <<<"$out" \
+              || { echo "::error::$img is missing a platform"; exit 1; }
+          done
+
+      # Created as a draft: publish it by hand.
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::notice::Release $GITHUB_REF_NAME already exists; left as is"
+            exit 0
+          fi
+
+          ARGS=(--draft --verify-tag --title "Jangka ${{ steps.v.outputs.version }}" --notes-file "${{ steps.v.outputs.notes }}")
+          if [[ "${{ steps.v.outputs.prerelease }}" == "true" ]]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${ARGS[@]}"

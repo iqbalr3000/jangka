@@ -32,7 +32,6 @@ type TemplateSectionCardProps = {
   expanded: boolean;
   /** Just added: focus and scroll to the title. */
   autoFocus: boolean;
-  /** Validation messages by field (`title`, `requirementKind`, …). */
   errors: Record<string, string>;
   onToggle: () => void;
   onChange: (section: DraftSection) => void;

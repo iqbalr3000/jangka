@@ -16,7 +16,6 @@ export type AppConfig = {
   /** No trailing slash; its origin is the only allowed CSRF origin. */
   publicUrl: string;
   sessionTtlDays: number;
-  /** Encrypts stored secrets (LLM keys). */
   masterKey: Buffer;
   enableFakeLlm: boolean;
   /** FORCE_PASSWORD_LOGIN: password login works even when disabled in settings. */

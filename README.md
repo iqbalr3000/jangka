@@ -66,13 +66,19 @@ and you bring your own LLM key, so internal requirements never pass through a th
 
 ## Quick start
 
-Requires Docker with Compose v2.
+Requires Docker with Compose v2. No checkout needed, only the compose file:
 
 ```bash
+mkdir jangka && cd jangka
+curl -fsSLO https://raw.githubusercontent.com/iqbalr3000/jangka/main/docker/docker-compose.yml
 export MASTER_KEY="$(openssl rand -base64 32)"   # store it safely, see "Backups"
 export PUBLIC_URL=http://localhost:3000           # the URL people open
-docker compose -f docker/docker-compose.yml up -d --build
+export JANGKA_VERSION=1.0.0                       # pin a release; defaults to latest
+docker compose up -d
 ```
+
+Images are published for `linux/amd64` and `linux/arm64` on Docker Hub (`iqbalr3000/jangka`) and
+GHCR (`ghcr.io/iqbalr3000/jangka`). To use GHCR, change `image:` in the compose file.
 
 Open `PUBLIC_URL`. The setup wizard asks for a one-time setup token, which is printed in the
 app's log:
@@ -148,7 +154,7 @@ Back up two things:
 1. **The database**, for example nightly:
 
    ```bash
-   docker compose -f docker/docker-compose.yml exec -T postgres \
+   docker compose exec -T postgres \
      pg_dump -U jangka -Fc jangka > jangka-$(date +%F).dump
    ```
 
@@ -164,9 +170,11 @@ Export files expire after 24 hours and don't need a backup.
 
 ## Upgrading
 
+Set `JANGKA_VERSION` to the new release (see the release notes for upgrade steps), then:
+
 ```bash
-git pull
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 Database migrations run automatically when the app starts. Take a database backup first, because
@@ -193,6 +201,13 @@ pnpm typecheck && pnpm lint
 pnpm test:db:up && pnpm test  # integration tests against a throwaway Postgres on :54329
 pnpm test:e2e                 # Playwright, against the built app
 pnpm test:perf                # NFR-007 timings with 5,000 documents (not part of CI)
+```
+
+Build and run the Docker image from source:
+
+```bash
+docker build -f docker/Dockerfile -t iqbalr3000/jangka:dev .
+JANGKA_VERSION=dev docker compose -f docker/docker-compose.yml up -d
 ```
 
 ### Project layout

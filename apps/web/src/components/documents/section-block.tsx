@@ -44,10 +44,8 @@ type SectionBlockProps = {
   onUndo: () => void;
   onAsk: () => void;
   onHistory: () => void;
-  /** Open review threads on this section. */
   openComments: number;
   onComments: () => void;
-  /** Requirement codes to show as chips. */
   chips: ChipIndex;
   anchors: AnchoredThreads;
   onCommentOnText: (anchor: CommentAnchor) => void;

@@ -20,7 +20,7 @@ pnpm typecheck
 pnpm lint             # biome check
 pnpm db:generate      # drizzle-kit generate (after schema change)
 pnpm db:migrate       # apply migrations
-docker compose -f docker/docker-compose.yml up --build
+docker build -f docker/Dockerfile -t iqbalr3000/jangka:dev .   # local image; JANGKA_VERSION=dev docker compose -f docker/docker-compose.yml up
 ```
 
 ## Stack (do not swap without an ADR)

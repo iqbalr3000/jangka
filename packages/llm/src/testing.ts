@@ -70,7 +70,6 @@ export async function startStub() {
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
-    /** Connections the client closed before the response finished. */
     closedEarly: () => closedEarly,
     handle(next: Handler) {
       handler = next;

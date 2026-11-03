@@ -26,7 +26,7 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 | Item | Kind | Notes |
 | ---- | ---- | ----- |
-| Document page bundle size | Enhancement | The document page JS chunk is ~611 KB; split heavy parts (Mermaid, editor extras) |
+| Document page bundle size | Enhancement | Deferred. Chunk is 652 KB (200 KB gzip, 2026-11-03); Mermaid, elk, cytoscape and KaTeX are already lazy. ~75% is TipTap/ProseMirror core the page needs; the only real split (render read-only first, load the editor lazily) touches autosave and locking, not worth it yet. Cheap trims: autolink (`linkifyjs`), `marked` |
 
 ## Completed work
 

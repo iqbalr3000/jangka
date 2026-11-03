@@ -31,6 +31,12 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["docker/**"],
+      "linter": { "rules": { "suspicious": { "noUndeclaredEnvVars": "off" } } }
+    }
+  ],
   "css": {
     "parser": {
       "tailwindDirectives": true

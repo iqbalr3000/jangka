@@ -10,7 +10,6 @@ import { apiFetch } from "./api";
 
 export const templatesKey = ["templates"] as const;
 
-/** Published templates of one type for the New document dialog. */
 export const templatePickerQuery = (docType: "brd" | "prd" | "tsd") =>
   queryOptions({
     queryKey: [...templatesKey, "picker", docType],

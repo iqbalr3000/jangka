@@ -50,7 +50,6 @@ function MenuButton({
   );
 }
 
-/** Formatting for the selected text, floating above it. */
 export function FormatMenu({ editor, onComment }: { editor: Editor; onComment: () => void }) {
   const [mode, setMode] = useState<"buttons" | "types" | "link">("buttons");
   const [href, setHref] = useState("");

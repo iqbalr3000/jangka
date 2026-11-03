@@ -37,11 +37,9 @@ type SectionEditorProps = {
   onSaveState: (key: string, state: SaveState) => void;
   /** Unsaved starting content (e.g. "Edit before accepting"); saved like a human edit. */
   seed?: DocNode;
-  /** Requirement codes to show as chips (from the document's trace). */
   chips: ChipIndex;
   /** Open threads pointing at words in this section. */
   anchors: AnchoredThreads;
-  /** "Comment" on selected words. */
   onCommentOnText: (anchor: CommentAnchor) => void;
 };
 

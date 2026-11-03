@@ -9,7 +9,6 @@ const dot: Record<Completeness, string> = {
   complete: "bg-status-complete",
 };
 
-/** One dot per template section. */
 export function CompletenessStrip({ values }: { values: Completeness[] }) {
   const label = completenessSummary(values.map((completeness) => ({ completeness })));
   return (

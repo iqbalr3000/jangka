@@ -25,7 +25,6 @@ export const templateSection = z.object({
   required: z.boolean(),
   /** LLM drafting instructions. */
   guidance: z.string().trim().min(1, { error: "Write guidance for the assistant" }),
-  /** What the interview asks about. */
   interviewHints: z.array(z.string().min(1)),
   requirementKind: z.enum(requirementKinds).optional(),
   expectsDiagram: z.enum(["flowchart", "sequence", "erd", "state"]).optional(),

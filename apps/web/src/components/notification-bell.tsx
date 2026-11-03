@@ -38,7 +38,6 @@ const icons: Record<NotificationKind, LucideIcon> = {
   review_verdict: ClipboardCheck,
 };
 
-/** Top-bar bell: unread count (polled) and the notification list. */
 export function NotificationBell() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
