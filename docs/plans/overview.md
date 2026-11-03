@@ -7,7 +7,8 @@ collections with group-based permissions, link to each other for traceability (B
 to PDF/DOCX. Bring-your-own LLM key (Anthropic, OpenAI, Gemini, OpenRouter).
 
 - What & why: `docs/PRD.md`
-- UX/UI: `docs/DESIGN.md` (visual design in progress in Claude Design)
+- UX/UI and brand: `docs/DESIGN.md`
 - Technical reference + feature list: `docs/SPEC.md`
 - Per-feature specs: `docs/plans/spec-<feature>.md`
-- Status: `docs/plans/roadmap.md`
+- Status and releases: `docs/plans/roadmap.md` (latest: **v1.0.0-rc.1**, pre-release, 2026-11-03)
+- Release notes: `docs/releases/`

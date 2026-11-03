@@ -20,6 +20,14 @@ Status: `todo` → `spec` (spec written) → `building` → `done` (confirmed by
 | 13  | impact-retrieval | 3     | [spec](spec-impact-retrieval.md) | done   |
 | 14  | search           | 3     | [spec](spec-search.md)     | done   |
 
+## Releases
+
+Notes per version in `docs/releases/`; how to cut one: `docs/releases/_release.md` (local only, gitignored).
+
+| Version | Date | Kind | Notes |
+| ------- | ---- | ---- | ----- |
+| 1.0.0-rc.1 | 2026-11-03 | pre-release | [notes](../releases/v1.0.0-rc.1.md) — first public build: features 1–14 and the Phase 4 work below |
+
 ## Phase 4 backlog
 
 Not specced or ordered yet; each becomes a feature with its own spec when picked.
@@ -30,7 +38,7 @@ Not specced or ordered yet; each becomes a feature with its own spec when picked
 
 ## Completed work
 
-Cutoff: 2026-11-01
+Cutoff: 2026-11-03
 
 - **foundation** — monorepo, env validation, crypto util, Drizzle base, error shape, `audit()` no-op, Docker image + compose, SPA shell + design tokens.
 - **auth** — setup wizard (token + advisory lock), password login, rolling sessions, CSRF origin check, `/auth/me`, invite + password-reset links, admin users page, Playwright e2e.
@@ -69,3 +77,4 @@ Cutoff: 2026-11-01
 - **Phase 4: text-anchored-comments** ([spec](spec-text-anchored-comments.md)) — root comments can point at selected words via a quote with prefix/suffix context (migration 0017), no change to section content; Comment in the formatting menu and a read-only bubble; open threads highlight their words, clicking opens the thread; detached quotes show "Original text changed".
 - **Phase 4: search-ranking** ([spec](spec-search-ranking.md)) — content matches still require every word (AND) but are ranked with the OR form of the query, avoiding `ts_rank`'s quadratic AND scoring; queries matching all 60k+ sections drop from p95 ≈ 1.2 s to ≈ 140 ms (2 words) / ≈ 170 ms (3 words); perf now budgets a truly selective query and the broad ones.
 - **Phase 4: fixes** — Usage chart day tooltips align to the chart edge near the first and last bars instead of being cut off; before any chat, the coverage checklist reads section completeness, so example documents no longer show "COVERAGE 0/12" (display only; the draft gate still reads the stored assessment — revised after the 2026-11-01 review).
+- **Phase 4: release pipeline** — tag-triggered `release.yml`: CI, semver + notes-file checks, amd64 smoke test (health, web app, Chromium), multi-arch (`linux/amd64`, `linux/arm64`) images on Docker Hub `iqbalr3000/jangka` and GHCR, draft GitHub Release (pre-release for `-rc`); compose file uses the published image via `JANGKA_VERSION`; release guide and notes template in `docs/releases/`. First release: **v1.0.0-rc.1** (2026-11-03).

@@ -9,6 +9,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1D4ED8" alt="MIT license"></a>
+  <a href="https://github.com/iqbalr3000/jangka/releases"><img src="https://img.shields.io/github/v/release/iqbalr3000/jangka?include_prereleases&color=1D4ED8" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/node-24_LTS-1D4ED8" alt="Node 24 LTS">
   <img src="https://img.shields.io/badge/postgres-18-1D4ED8" alt="Postgres 18">
   <img src="https://img.shields.io/badge/deploy-docker-1D4ED8" alt="Docker">
@@ -70,12 +71,16 @@ Requires Docker with Compose v2. No checkout needed, only the compose file:
 
 ```bash
 mkdir jangka && cd jangka
-curl -fsSLO https://raw.githubusercontent.com/iqbalr3000/jangka/main/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/iqbalr3000/jangka/v1.0.0-rc.1/docker/docker-compose.yml
 export MASTER_KEY="$(openssl rand -base64 32)"   # store it safely, see "Backups"
 export PUBLIC_URL=http://localhost:3000           # the URL people open
-export JANGKA_VERSION=1.0.0                       # pin a release; defaults to latest
+export JANGKA_VERSION=1.0.0-rc.1                  # required: there is no `latest` until 1.0.0
 docker compose up -d
 ```
+
+The current release is **1.0.0-rc.1**, a release candidate: try it, but don't run production on it yet.
+See the [release notes](docs/releases/v1.0.0-rc.1.md). Release candidates aren't tagged `latest`, so
+`JANGKA_VERSION` must be set.
 
 Images are published for `linux/amd64` and `linux/arm64` on Docker Hub (`iqbalr3000/jangka`) and
 GHCR (`ghcr.io/iqbalr3000/jangka`). To use GHCR, change `image:` in the compose file.
@@ -237,6 +242,7 @@ Conventions and hard rules for contributors are in [`CLAUDE.md`](CLAUDE.md).
 | [`docs/SPEC.md`](docs/SPEC.md)         | Technical spec and feature list             |
 | [`docs/plans/`](docs/plans/)           | Roadmap and per-feature specs               |
 | [`docs/adr/`](docs/adr/)               | Architecture decision records               |
+| [`docs/releases/`](docs/releases/)     | Release notes per version                   |
 | [`docs/assets/`](docs/assets/)         | Logo, mark and app icons                    |
 
 <br>

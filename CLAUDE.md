@@ -49,6 +49,7 @@ docs/DESIGN.md   UX/UI design, design tokens, screens
 docs/SPEC.md     technical spec + feature list (§11)
 docs/plans/      overview, roadmap, per-feature specs
 docs/adr/        architecture decision records
+docs/releases/   release notes per version (+ local, gitignored _release.md: how to cut a release)
 ```
 
 ## Hard rules
@@ -72,6 +73,8 @@ docs/adr/        architecture decision records
 - Before declaring a task done: `pnpm typecheck && pnpm lint && pnpm test` must pass.
 - Schema change → `pnpm db:generate`, commit the migration, never edit an applied migration.
 - Non-obvious decision → add `docs/adr/NNNN-title.md` (context, decision, consequences; short).
+- Releases: follow `docs/releases/_release.md` (local only); tag `vX.Y.Z` needs a filled-in `docs/releases/vX.Y.Z.md` on `main`.
+  Since 1.0.0-rc.1 is public, env var, migration and `/api/v1` changes decide the next version bump (see "Picking a version").
 - If the spec is ambiguous, stop and ask instead of guessing on anything touching auth, permissions, or data model.
 
 ## Conventions
